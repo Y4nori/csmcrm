@@ -75,7 +75,7 @@ function logAudit($action, $targetType, $targetId, $targetName, $details = null)
     global $db;
     // テーブルが存在しない場合は作成
     try {
-        $db->execute("CREATE TABLE IF NOT EXISTS audit_logs (
+        $db->query("CREATE TABLE IF NOT EXISTS audit_logs (
             id INT AUTO_INCREMENT PRIMARY KEY,
             user_id INT NOT NULL,
             user_name VARCHAR(100) NOT NULL,
@@ -1827,7 +1827,7 @@ switch ($request) {
         if ($method === 'GET') {
             // テーブルが存在しない場合は作成
             try {
-                $db->execute("CREATE TABLE IF NOT EXISTS audit_logs (
+                $db->query("CREATE TABLE IF NOT EXISTS audit_logs (
                     id INT AUTO_INCREMENT PRIMARY KEY,
                     user_id INT NOT NULL,
                     user_name VARCHAR(100) NOT NULL,

@@ -196,135 +196,186 @@ switch ($request) {
         checkAuth();
         
         if ($method === 'GET') {
+            // ========== N+1クエリ問題を解決するバッチロード実装 ==========
+            // Before: 4000+ クエリ (100法人 × 5現場 × 8テーブル)
+            // After: 12 クエリ
+
+            // 1. 全法人を取得
             $corps = $db->fetchAll("SELECT * FROM corporations ORDER BY name");
-            
-            // 各法人の現場、請求履歴、連絡履歴を取得
-            foreach ($corps as &$corp) {
-                $sites = $db->fetchAll(
-                    "SELECT * FROM sites WHERE corporation_id = ? ORDER BY name",
-                    [$corp['id']]
+            if (empty($corps)) {
+                respond([]);
+            }
+
+            $corpIds = array_column($corps, 'id');
+            $corpIdPlaceholders = implode(',', array_fill(0, count($corpIds), '?'));
+
+            // 2. 全サイトを一括取得
+            $allSites = $db->fetchAll(
+                "SELECT * FROM sites WHERE corporation_id IN ($corpIdPlaceholders) ORDER BY name",
+                $corpIds
+            );
+            $siteIds = array_column($allSites, 'id');
+
+            // サイトがない場合は空配列でスキップ
+            if (!empty($siteIds)) {
+                $siteIdPlaceholders = implode(',', array_fill(0, count($siteIds), '?'));
+
+                // 3. サイト関連データを一括取得
+                $allPests = $db->fetchAll(
+                    "SELECT site_id, pest_name FROM site_pests WHERE site_id IN ($siteIdPlaceholders)",
+                    $siteIds
                 );
-                
-                $corp['sites'] = [];
-                foreach ($sites as $site) {
-                    $siteData = [
-                        'id' => $site['id'],
-                        'corporationId' => $site['corporation_id'],
-                        'name' => $site['name'],
-                        'address' => $site['address'],
-                        'keybox' => $site['keybox'],
-                        'keyboxLocation' => $site['keybox_location'],
-                        'memo' => $site['memo']
-                    ];
-                    
-                    $siteData['pests'] = array_column(
-                        $db->fetchAll("SELECT pest_name FROM site_pests WHERE site_id = ?", [$site['id']]),
-                        'pest_name'
-                    );
-                    $siteData['workTypes'] = array_column(
-                        $db->fetchAll("SELECT work_type FROM site_work_types WHERE site_id = ?", [$site['id']]),
-                        'work_type'
-                    );
-                    $siteData['workAreas'] = array_column(
-                        $db->fetchAll("SELECT work_area FROM site_work_areas WHERE site_id = ?", [$site['id']]),
-                        'work_area'
-                    );
-                    $siteData['yearlyPlan'] = [];
-                    $plans = $db->fetchAll("SELECT * FROM yearly_plans WHERE site_id = ?", [$site['id']]);
-                    foreach ($plans as $plan) {
-                        $siteData['yearlyPlan'][$plan['month']] = [
-                            'scheduled' => (bool)$plan['scheduled'],
-                            'date' => $plan['day'],
-                            'workType' => $plan['work_type']
-                        ];
-                    }
-                    $siteData['workLogs'] = [];
-                    $workLogs = $db->fetchAll(
-                        "SELECT * FROM work_logs WHERE site_id = ? ORDER BY work_date DESC",
-                        [$site['id']]
-                    );
-                    foreach ($workLogs as $log) {
-                        $siteData['workLogs'][] = [
-                            'id' => $log['id'],
-                            'date' => $log['work_date'],
-                            'workType' => $log['work_type'],
-                            'condition' => $log['condition_status'],
-                            'usedChemical' => $log['used_chemical'],
-                            'note' => $log['note'],
-                            'nextNote' => $log['next_note'],
-                            'staff' => $log['staff']
-                        ];
-                    }
-                    $siteData['photos'] = [];
-                    $photos = $db->fetchAll(
-                        "SELECT * FROM photos WHERE site_id = ? ORDER BY photo_date DESC",
-                        [$site['id']]
-                    );
-                    foreach ($photos as $photo) {
-                        $siteData['photos'][] = [
-                            'id' => $photo['id'],
-                            'url' => $photo['url'],
-                            'date' => $photo['photo_date'],
-                            'note' => $photo['note']
-                        ];
-                    }
+                $allWorkTypes = $db->fetchAll(
+                    "SELECT site_id, work_type FROM site_work_types WHERE site_id IN ($siteIdPlaceholders)",
+                    $siteIds
+                );
+                $allWorkAreas = $db->fetchAll(
+                    "SELECT site_id, work_area FROM site_work_areas WHERE site_id IN ($siteIdPlaceholders)",
+                    $siteIds
+                );
+                $allYearlyPlans = $db->fetchAll(
+                    "SELECT * FROM yearly_plans WHERE site_id IN ($siteIdPlaceholders)",
+                    $siteIds
+                );
+                $allWorkLogs = $db->fetchAll(
+                    "SELECT * FROM work_logs WHERE site_id IN ($siteIdPlaceholders) ORDER BY work_date DESC",
+                    $siteIds
+                );
+                $allPhotos = $db->fetchAll(
+                    "SELECT * FROM photos WHERE site_id IN ($siteIdPlaceholders) ORDER BY photo_date DESC",
+                    $siteIds
+                );
+                $allBillingMonths = $db->fetchAll(
+                    "SELECT site_id, billing_month FROM site_billing_months WHERE site_id IN ($siteIdPlaceholders)",
+                    $siteIds
+                );
+                $allDocuments = $db->fetchAll(
+                    "SELECT * FROM site_documents WHERE site_id IN ($siteIdPlaceholders) ORDER BY doc_date DESC",
+                    $siteIds
+                );
 
-                    // 請求月（現場単位）
-                    $siteData['billingMonths'] = array_map('intval', array_column(
-                        $db->fetchAll("SELECT billing_month FROM site_billing_months WHERE site_id = ?", [$site['id']]),
-                        'billing_month'
-                    ));
-
-                    // 書類
-                    $siteData['documents'] = [];
-                    $documents = $db->fetchAll(
-                        "SELECT * FROM site_documents WHERE site_id = ? ORDER BY doc_date DESC",
-                        [$site['id']]
-                    );
-                    foreach ($documents as $doc) {
-                        $siteData['documents'][] = [
-                            'id' => $doc['id'],
-                            'fileName' => $doc['file_name'],
-                            'url' => $doc['url'],
-                            'fileType' => $doc['file_type'],
-                            'docType' => $doc['doc_type'],
-                            'date' => $doc['doc_date']
-                        ];
-                    }
-
-                    $corp['sites'][] = $siteData;
+                // サイトIDでインデックス化
+                $pestsBySite = [];
+                foreach ($allPests as $p) {
+                    $pestsBySite[$p['site_id']][] = $p['pest_name'];
                 }
-                
-                $corp['invoiceHistory'] = [];
-                $invoices = $db->fetchAll(
-                    "SELECT * FROM invoice_history WHERE corporation_id = ? ORDER BY `year_month` DESC",
-                    [$corp['id']]
-                );
-                foreach ($invoices as $inv) {
-                    $corp['invoiceHistory'][] = [
-                        'id' => $inv['id'],
-                        'yearMonth' => $inv['year_month'],
-                        'isSent' => (bool)$inv['is_sent'],
-                        'isPaid' => (bool)$inv['is_paid'],
-                        'paidDate' => $inv['paid_date']
+                $workTypesBySite = [];
+                foreach ($allWorkTypes as $wt) {
+                    $workTypesBySite[$wt['site_id']][] = $wt['work_type'];
+                }
+                $workAreasBySite = [];
+                foreach ($allWorkAreas as $wa) {
+                    $workAreasBySite[$wa['site_id']][] = $wa['work_area'];
+                }
+                $yearlyPlansBySite = [];
+                foreach ($allYearlyPlans as $plan) {
+                    $yearlyPlansBySite[$plan['site_id']][$plan['month']] = [
+                        'scheduled' => (bool)$plan['scheduled'],
+                        'date' => $plan['day'],
+                        'workType' => $plan['work_type']
                     ];
                 }
-                
-                $corp['contactLogs'] = [];
-                $contactLogs = $db->fetchAll(
-                    "SELECT * FROM contact_logs WHERE corporation_id = ? ORDER BY contact_date DESC",
-                    [$corp['id']]
-                );
-                foreach ($contactLogs as $log) {
-                    $corp['contactLogs'][] = [
+                $workLogsBySite = [];
+                foreach ($allWorkLogs as $log) {
+                    $workLogsBySite[$log['site_id']][] = [
                         'id' => $log['id'],
-                        'date' => $log['contact_date'],
-                        'type' => $log['contact_type'],
-                        'content' => $log['content'],
+                        'date' => $log['work_date'],
+                        'workType' => $log['work_type'],
+                        'condition' => $log['condition_status'],
+                        'usedChemical' => $log['used_chemical'],
+                        'note' => $log['note'],
+                        'nextNote' => $log['next_note'],
                         'staff' => $log['staff']
                     ];
                 }
-                
+                $photosBySite = [];
+                foreach ($allPhotos as $photo) {
+                    $photosBySite[$photo['site_id']][] = [
+                        'id' => $photo['id'],
+                        'url' => $photo['url'],
+                        'date' => $photo['photo_date'],
+                        'note' => $photo['note']
+                    ];
+                }
+                $billingMonthsBySite = [];
+                foreach ($allBillingMonths as $bm) {
+                    $billingMonthsBySite[$bm['site_id']][] = (int)$bm['billing_month'];
+                }
+                $documentsBySite = [];
+                foreach ($allDocuments as $doc) {
+                    $documentsBySite[$doc['site_id']][] = [
+                        'id' => $doc['id'],
+                        'fileName' => $doc['file_name'],
+                        'url' => $doc['url'],
+                        'fileType' => $doc['file_type'],
+                        'docType' => $doc['doc_type'],
+                        'date' => $doc['doc_date']
+                    ];
+                }
+            }
+
+            // 4. 法人関連データを一括取得
+            $allInvoices = $db->fetchAll(
+                "SELECT * FROM invoice_history WHERE corporation_id IN ($corpIdPlaceholders) ORDER BY `year_month` DESC",
+                $corpIds
+            );
+            $allContactLogs = $db->fetchAll(
+                "SELECT * FROM contact_logs WHERE corporation_id IN ($corpIdPlaceholders) ORDER BY contact_date DESC",
+                $corpIds
+            );
+
+            // 法人IDでインデックス化
+            $invoicesByCorp = [];
+            foreach ($allInvoices as $inv) {
+                $invoicesByCorp[$inv['corporation_id']][] = [
+                    'id' => $inv['id'],
+                    'yearMonth' => $inv['year_month'],
+                    'isSent' => (bool)$inv['is_sent'],
+                    'isPaid' => (bool)$inv['is_paid'],
+                    'paidDate' => $inv['paid_date']
+                ];
+            }
+            $contactLogsByCorp = [];
+            foreach ($allContactLogs as $log) {
+                $contactLogsByCorp[$log['corporation_id']][] = [
+                    'id' => $log['id'],
+                    'date' => $log['contact_date'],
+                    'type' => $log['contact_type'],
+                    'content' => $log['content'],
+                    'staff' => $log['staff']
+                ];
+            }
+
+            // サイトを法人IDでグループ化
+            $sitesByCorp = [];
+            foreach ($allSites as $site) {
+                $siteId = $site['id'];
+                $sitesByCorp[$site['corporation_id']][] = [
+                    'id' => $siteId,
+                    'corporationId' => $site['corporation_id'],
+                    'name' => $site['name'],
+                    'address' => $site['address'],
+                    'keybox' => $site['keybox'],
+                    'keyboxLocation' => $site['keybox_location'],
+                    'memo' => $site['memo'],
+                    'pests' => $pestsBySite[$siteId] ?? [],
+                    'workTypes' => $workTypesBySite[$siteId] ?? [],
+                    'workAreas' => $workAreasBySite[$siteId] ?? [],
+                    'yearlyPlan' => $yearlyPlansBySite[$siteId] ?? [],
+                    'workLogs' => $workLogsBySite[$siteId] ?? [],
+                    'photos' => $photosBySite[$siteId] ?? [],
+                    'billingMonths' => $billingMonthsBySite[$siteId] ?? [],
+                    'documents' => $documentsBySite[$siteId] ?? []
+                ];
+            }
+
+            // 5. 最終的なレスポンスを組み立て
+            foreach ($corps as &$corp) {
+                $corpId = $corp['id'];
+                $corp['sites'] = $sitesByCorp[$corpId] ?? [];
+                $corp['invoiceHistory'] = $invoicesByCorp[$corpId] ?? [];
+                $corp['contactLogs'] = $contactLogsByCorp[$corpId] ?? [];
+
                 // キー名をキャメルケースに変換
                 $corp['contactPerson'] = $corp['contact_person'];
                 $corp['billingCycle'] = $corp['billing_cycle'];
@@ -335,7 +386,7 @@ switch ($request) {
                 $corp['contractAmount'] = (int)$corp['contract_amount'];
                 $corp['contractType'] = $corp['contract_type'];
             }
-            
+
             respond($corps);
         } elseif ($method === 'POST') {
             checkAdmin();

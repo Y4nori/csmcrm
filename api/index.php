@@ -70,11 +70,11 @@ function checkAdmin() {
     }
 }
 
-// 監査ログ記録
+// 監査ログ記録（エラーが発生してもメイン処理は継続）
 function logAudit($action, $targetType, $targetId, $targetName, $details = null) {
     global $db;
-    // テーブルが存在しない場合は作成
     try {
+        // テーブルが存在しない場合は作成
         $db->query("CREATE TABLE IF NOT EXISTS audit_logs (
             id INT AUTO_INCREMENT PRIMARY KEY,
             user_id INT NOT NULL,
@@ -90,23 +90,24 @@ function logAudit($action, $targetType, $targetId, $targetName, $details = null)
             INDEX idx_target (target_type, target_id),
             INDEX idx_created_at (created_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-    } catch (Exception $e) {
-        // テーブルが既に存在する場合は無視
-    }
 
-    $db->insert(
-        "INSERT INTO audit_logs (user_id, user_name, action, target_type, target_id, target_name, details, ip_address) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        [
-            $_SESSION['user_id'] ?? 0,
-            $_SESSION['name'] ?? 'Unknown',
-            $action,
-            $targetType,
-            $targetId,
-            $targetName,
-            $details ? json_encode($details, JSON_UNESCAPED_UNICODE) : null,
-            $_SERVER['REMOTE_ADDR'] ?? null
-        ]
-    );
+        $db->insert(
+            "INSERT INTO audit_logs (user_id, user_name, action, target_type, target_id, target_name, details, ip_address) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            [
+                $_SESSION['user_id'] ?? 0,
+                $_SESSION['name'] ?? 'Unknown',
+                $action,
+                $targetType,
+                $targetId,
+                $targetName,
+                $details ? json_encode($details, JSON_UNESCAPED_UNICODE) : null,
+                $_SERVER['REMOTE_ADDR'] ?? null
+            ]
+        );
+    } catch (Exception $e) {
+        // ログ記録に失敗してもメイン処理は継続
+        error_log("Audit log error: " . $e->getMessage());
+    }
 }
 
 // ルーティング

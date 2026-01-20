@@ -1,4 +1,4 @@
-const { useState, useEffect, useMemo } = React;
+const { useState, useEffect } = React;
 const { HashRouter, Routes, Route, useNavigate, useParams, useLocation, Navigate } = ReactRouterDOM;
 
 // 全角→半角変換ユーティリティ
@@ -371,12 +371,12 @@ function App() {
   };
 
   // 通知生成
-  const generateNotifications = useMemo(() => {
+  const generateNotifications = (() => {
     const notifs = [];
     const today = new Date();
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
-    
+
     corporations.forEach(corp => {
       if (corp.contractEnd) {
         const endDate = new Date(corp.contractEnd);
@@ -405,7 +405,7 @@ function App() {
       });
     });
     return notifs;
-  }, [corporations]);
+  })();
 
   // 今週の施工を取得
   const getThisWeekWorks = () => {
@@ -610,13 +610,10 @@ function App() {
     );
   };
 
-  // 法人一覧用のフィルタリング（メモ化で再レンダリング時の再計算を防止）
-  const filteredCorporations = useMemo(() =>
-    corporations.filter(c =>
-      c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (c.sites || []).some(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()))
-    ),
-    [corporations, searchQuery]
+  // 法人一覧用のフィルタリング
+  const filteredCorporations = corporations.filter(c =>
+    c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (c.sites || []).some(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   // 法人一覧 (簡略版 - 実際にはもっと長い)
@@ -2760,7 +2757,7 @@ function App() {
     };
 
     // 集計計算（user_idでグループ化）
-    const summary = useMemo(() => {
+    const summary = (() => {
       const byUser = {};
       timecards.forEach(tc => {
         const key = tc.user_id;
@@ -2779,7 +2776,7 @@ function App() {
         }
       });
       return byUser;
-    }, [timecards]);
+    })();
 
     return (
       <div className="space-y-4">

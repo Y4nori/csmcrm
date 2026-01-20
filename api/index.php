@@ -1829,9 +1829,9 @@ switch ($request) {
         }
         break;
 
-    // ========== 監査ログ（マスターのみ） ==========
+    // ========== 監査ログ（管理者以上） ==========
     case 'audit-logs':
-        checkMaster();
+        checkAdmin(); // 管理者とmasterの両方がアクセス可能
 
         if ($method === 'GET') {
             // テーブルが存在しない場合は作成
@@ -1880,6 +1880,11 @@ switch ($request) {
             if ($dateTo) {
                 $sql .= " AND DATE(created_at) <= ?";
                 $params[] = $dateTo;
+            }
+
+            // 管理者の場合、masterの操作履歴を除外（masterのみ全ての履歴を閲覧可能）
+            if ($_SESSION['role'] !== 'master') {
+                $sql .= " AND user_id NOT IN (SELECT id FROM users WHERE role = 'master')";
             }
 
             $sql .= " ORDER BY created_at DESC LIMIT ? OFFSET ?";

@@ -2473,7 +2473,7 @@ function App() {
             <Icons.ChevronRight className="ml-auto text-gray-400" />
           </button>
 
-          {userRole === 'master' && (
+          {(userRole === 'master' || userRole === 'admin') && (
             <button onClick={() => navigate('/admin/audit-logs')}
               className="w-full bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-4 text-left hover:bg-gray-50">
               <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: 'rgba(91, 189, 86, 0.1)' }}>

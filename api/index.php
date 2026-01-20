@@ -216,7 +216,17 @@ switch ($request) {
             );
             $siteIds = array_column($allSites, 'id');
 
-            // サイトがない場合は空配列でスキップ
+            // バッチ変数を初期化（サイトがない場合に備える）
+            $pestsBySite = [];
+            $workTypesBySite = [];
+            $workAreasBySite = [];
+            $yearlyPlansBySite = [];
+            $workLogsBySite = [];
+            $photosBySite = [];
+            $billingMonthsBySite = [];
+            $documentsBySite = [];
+
+            // サイトがある場合のみバッチ取得
             if (!empty($siteIds)) {
                 $siteIdPlaceholders = implode(',', array_fill(0, count($siteIds), '?'));
 

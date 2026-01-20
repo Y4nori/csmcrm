@@ -398,7 +398,7 @@ function App() {
           const tomorrowMonth = tomorrow.getMonth() + 1;
           const tomorrowDate = tomorrow.getDate();
           const plan = site.yearlyPlan[tomorrowMonth];
-          if (plan?.scheduled && plan.date === tomorrowDate) {
+          if (plan?.scheduled && parseInt(plan.date) === tomorrowDate) {
             notifs.push({ id: `work-${site.id}`, type: 'work', title: '明日施工予定', message: `${corp.name} - ${site.name}`, corpId: corp.id, siteId: site.id, priority: 'medium' });
           }
         }
@@ -422,7 +422,7 @@ function App() {
             const month = d.getMonth() + 1;
             const date = d.getDate();
             const plan = site.yearlyPlan[month];
-            if (plan?.scheduled && plan.date === date) {
+            if (plan?.scheduled && parseInt(plan.date) === date) {
               works.push({ ...site, corpName: corp.name, corpId: corp.id, corpAddress: corp.address, scheduledDate: new Date(d), workType: plan.workType });
             }
           }
@@ -2513,7 +2513,7 @@ function App() {
           <select value={selectedUser} onChange={(e) => setSelectedUser(e.target.value)}
             className="border border-gray-300 rounded px-3 py-2">
             <option value="">全員</option>
-            {users.filter(u => u.role === 'staff').map(u => (
+            {users.map(u => (
               <option key={u.id} value={u.id}>{u.name}</option>
             ))}
           </select>
@@ -2741,7 +2741,11 @@ function App() {
         byUser[key].days++;
         if (tc.clock_in && tc.clock_out) {
           const inTime = new Date(`2000-01-01T${tc.clock_in}`);
-          const outTime = new Date(`2000-01-01T${tc.clock_out}`);
+          let outTime = new Date(`2000-01-01T${tc.clock_out}`);
+          // 日をまたぐ場合（退勤時刻が出勤時刻より前）は翌日として計算
+          if (outTime < inTime) {
+            outTime = new Date(`2000-01-02T${tc.clock_out}`);
+          }
           byUser[key].totalHours += (outTime - inTime) / 3600000;
         }
       });
@@ -2761,7 +2765,7 @@ function App() {
           <select value={selectedUser} onChange={(e) => setSelectedUser(e.target.value)}
             className="border border-gray-300 rounded px-3 py-2">
             <option value="">全員</option>
-            {users.filter(u => u.role === 'staff').map(u => (
+            {users.map(u => (
               <option key={u.id} value={u.id}>{u.name}</option>
             ))}
           </select>

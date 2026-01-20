@@ -905,8 +905,8 @@ switch ($request) {
                     WHERE DATE_FORMAT(dr.report_date, '%Y-%m') = ?";
             $params = [$yearMonth];
 
-            // スタッフは自分のみ、管理者は全員または指定ユーザー
-            if ($_SESSION['role'] !== 'admin') {
+            // スタッフは自分のみ、管理者・マスターは全員または指定ユーザー
+            if ($_SESSION['role'] !== 'admin' && $_SESSION['role'] !== 'master') {
                 $sql .= " AND dr.user_id = ?";
                 $params[] = $_SESSION['user_id'];
             } elseif ($userId) {
@@ -1003,7 +1003,7 @@ switch ($request) {
             }
 
             // 権限チェック
-            if ($_SESSION['role'] !== 'admin' && $report['user_id'] != $_SESSION['user_id']) {
+            if ($_SESSION['role'] !== 'admin' && $_SESSION['role'] !== 'master' && $report['user_id'] != $_SESSION['user_id']) {
                 error('権限がありません', 403);
             }
 
@@ -1019,7 +1019,7 @@ switch ($request) {
             if (!$report) {
                 error('日報が見つかりません', 404);
             }
-            if ($_SESSION['role'] !== 'admin' && $report['user_id'] != $_SESSION['user_id']) {
+            if ($_SESSION['role'] !== 'admin' && $_SESSION['role'] !== 'master' && $report['user_id'] != $_SESSION['user_id']) {
                 error('権限がありません', 403);
             }
 
@@ -1074,7 +1074,7 @@ switch ($request) {
             if (!$report) {
                 error('日報が見つかりません', 404);
             }
-            if ($_SESSION['role'] !== 'admin' && $report['user_id'] != $_SESSION['user_id']) {
+            if ($_SESSION['role'] !== 'admin' && $_SESSION['role'] !== 'master' && $report['user_id'] != $_SESSION['user_id']) {
                 error('権限がありません', 403);
             }
 
@@ -1182,7 +1182,7 @@ switch ($request) {
                     WHERE DATE_FORMAT(t.work_date, '%Y-%m') = ?";
             $params = [$yearMonth];
 
-            if ($_SESSION['role'] !== 'admin') {
+            if ($_SESSION['role'] !== 'admin' && $_SESSION['role'] !== 'master') {
                 $sql .= " AND t.user_id = ?";
                 $params[] = $_SESSION['user_id'];
             } elseif ($userId) {

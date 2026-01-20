@@ -1825,6 +1825,27 @@ switch ($request) {
         checkAdmin();
 
         if ($method === 'GET') {
+            // テーブルが存在しない場合は作成
+            try {
+                $db->execute("CREATE TABLE IF NOT EXISTS audit_logs (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_id INT NOT NULL,
+                    user_name VARCHAR(100) NOT NULL,
+                    action VARCHAR(50) NOT NULL,
+                    target_type VARCHAR(50) NOT NULL,
+                    target_id INT,
+                    target_name VARCHAR(255),
+                    details TEXT,
+                    ip_address VARCHAR(45),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    INDEX idx_user_id (user_id),
+                    INDEX idx_target (target_type, target_id),
+                    INDEX idx_created_at (created_at)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            } catch (Exception $e) {
+                // テーブルが既に存在する場合は無視
+            }
+
             $limit = (int)($_GET['limit'] ?? 100);
             $offset = (int)($_GET['offset'] ?? 0);
             $userId = $_GET['user_id'] ?? null;

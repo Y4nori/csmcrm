@@ -121,7 +121,8 @@ const api = {
 
   // 履歴API（管理者のみ）
   getLoginLogs: () => api.call('login-logs'),
-  getKeyboxLogs: () => api.call('keybox-log')
+  getKeyboxLogs: () => api.call('keybox-log'),
+  getAuditLogs: (params) => api.call('audit-logs', 'GET', null, params)
 };
 
 // SVGアイコン
@@ -203,6 +204,7 @@ function App() {
     if (path === '/menu') return 'menu';
     if (path === '/admin/daily-reports') return 'adminDailyReports';
     if (path === '/admin/timecards') return 'adminTimecards';
+    if (path === '/admin/audit-logs') return 'adminAuditLogs';
     return 'dashboard';
   };
   const currentView = getCurrentView();
@@ -2470,6 +2472,18 @@ function App() {
             </div>
             <Icons.ChevronRight className="ml-auto text-gray-400" />
           </button>
+
+          <button onClick={() => navigate('/admin/audit-logs')}
+            className="w-full bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-4 text-left hover:bg-gray-50">
+            <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: 'rgba(91, 189, 86, 0.1)' }}>
+              <Icons.FileText style={{ color: '#5bbd56' }} />
+            </div>
+            <div>
+              <p className="font-bold text-gray-800">操作履歴</p>
+              <p className="text-sm text-gray-500">システム操作ログの確認</p>
+            </div>
+            <Icons.ChevronRight className="ml-auto text-gray-400" />
+          </button>
         </div>
 
         <div className="bg-white border border-gray-200 rounded-xl p-4 mt-6">
@@ -2881,6 +2895,103 @@ function App() {
                   } catch (e) { alert('削除に失敗: ' + e.message); }
                 }
               }} className="w-full mt-2 text-red-500 text-sm">削除する</button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // ========== 管理者用操作履歴 ==========
+  const AuditLogView = () => {
+    const [logs, setLogs] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [selectedUser, setSelectedUser] = useState('');
+    const [selectedType, setSelectedType] = useState('');
+    const [dateFrom, setDateFrom] = useState('');
+    const [dateTo, setDateTo] = useState('');
+
+    useEffect(() => {
+      loadLogs();
+    }, [selectedUser, selectedType, dateFrom, dateTo]);
+
+    const loadLogs = async () => {
+      setLoading(true);
+      try {
+        const params = {};
+        if (selectedUser) params.user_id = selectedUser;
+        if (selectedType) params.target_type = selectedType;
+        if (dateFrom) params.date_from = dateFrom;
+        if (dateTo) params.date_to = dateTo;
+        const data = await api.getAuditLogs(params);
+        setLogs(data);
+      } catch (e) { console.error(e); }
+      setLoading(false);
+    };
+
+    const getActionColor = (action) => {
+      switch (action) {
+        case 'create': return 'bg-green-100 text-green-700';
+        case 'update': return 'bg-blue-100 text-blue-700';
+        case 'delete': return 'bg-red-100 text-red-700';
+        default: return 'bg-gray-100 text-gray-700';
+      }
+    };
+
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-3">
+          <button onClick={() => navigate('/menu')} className="text-gray-500"><Icons.ChevronLeft /></button>
+          <h2 className="text-xl font-bold text-gray-800">操作履歴</h2>
+        </div>
+
+        <div className="bg-white border border-gray-200 rounded-xl p-4 flex flex-wrap gap-3 items-center">
+          <select value={selectedUser} onChange={(e) => setSelectedUser(e.target.value)}
+            className="border border-gray-300 rounded px-3 py-2 text-sm">
+            <option value="">全ユーザー</option>
+            {users.map(u => (
+              <option key={u.id} value={u.id}>{u.name}</option>
+            ))}
+          </select>
+          <select value={selectedType} onChange={(e) => setSelectedType(e.target.value)}
+            className="border border-gray-300 rounded px-3 py-2 text-sm">
+            <option value="">全種別</option>
+            <option value="user">ユーザー</option>
+            <option value="corporation">法人</option>
+            <option value="site">現場</option>
+          </select>
+          <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)}
+            className="border border-gray-300 rounded px-3 py-2 text-sm" placeholder="開始日" />
+          <span className="text-gray-400">〜</span>
+          <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)}
+            className="border border-gray-300 rounded px-3 py-2 text-sm" placeholder="終了日" />
+        </div>
+
+        {loading ? (
+          <div className="text-center py-8"><Icons.Loader /></div>
+        ) : logs.length === 0 ? (
+          <div className="text-center py-8 text-gray-400">操作履歴がありません</div>
+        ) : (
+          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+            <div className="divide-y divide-gray-100 max-h-96 overflow-y-auto">
+              {logs.map(log => (
+                <div key={log.id} className="p-3 hover:bg-gray-50">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={`text-xs px-2 py-0.5 rounded ${getActionColor(log.action)}`}>
+                      {log.actionLabel}
+                    </span>
+                    <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
+                      {log.targetTypeLabel}
+                    </span>
+                    <span className="text-sm font-medium text-gray-800">{log.target_name}</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs text-gray-500">
+                    <span>{log.user_name}</span>
+                    <span>{new Date(log.created_at).toLocaleString('ja-JP')}</span>
+                    {log.ip_address && <span className="text-gray-400">{log.ip_address}</span>}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -3478,6 +3589,7 @@ function App() {
         {currentView === 'menu' && <AdminMenuView />}
         {currentView === 'adminDailyReports' && <DailyReportAdminView />}
         {currentView === 'adminTimecards' && <TimecardAdminView />}
+        {currentView === 'adminAuditLogs' && <AuditLogView />}
       </main>
 
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg">

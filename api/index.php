@@ -70,6 +70,45 @@ function checkAdmin() {
     }
 }
 
+// 監査ログ記録
+function logAudit($action, $targetType, $targetId, $targetName, $details = null) {
+    global $db;
+    // テーブルが存在しない場合は作成
+    try {
+        $db->execute("CREATE TABLE IF NOT EXISTS audit_logs (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NOT NULL,
+            user_name VARCHAR(100) NOT NULL,
+            action VARCHAR(50) NOT NULL,
+            target_type VARCHAR(50) NOT NULL,
+            target_id INT,
+            target_name VARCHAR(255),
+            details TEXT,
+            ip_address VARCHAR(45),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_user_id (user_id),
+            INDEX idx_target (target_type, target_id),
+            INDEX idx_created_at (created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    } catch (Exception $e) {
+        // テーブルが既に存在する場合は無視
+    }
+
+    $db->insert(
+        "INSERT INTO audit_logs (user_id, user_name, action, target_type, target_id, target_name, details, ip_address) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        [
+            $_SESSION['user_id'] ?? 0,
+            $_SESSION['name'] ?? 'Unknown',
+            $action,
+            $targetType,
+            $targetId,
+            $targetName,
+            $details ? json_encode($details, JSON_UNESCAPED_UNICODE) : null,
+            $_SERVER['REMOTE_ADDR'] ?? null
+        ]
+    );
+}
+
 // ルーティング
 switch ($request) {
     // ========== 認証 ==========
@@ -151,7 +190,8 @@ switch ($request) {
                 "INSERT INTO users (username, password, name, role) VALUES (?, ?, ?, ?)",
                 [$username, $hashedPassword, $name, $role]
             );
-            
+
+            logAudit('create', 'user', $id, $name, ['username' => $username, 'role' => $role]);
             respond(['id' => $id, 'message' => 'User created']);
         }
         break;
@@ -181,12 +221,15 @@ switch ($request) {
                     [$name, $username, $role, $id]
                 );
             }
+            logAudit('update', 'user', $id, $name, ['username' => $username, 'role' => $role]);
             respond(['message' => 'User updated']);
         } elseif ($method === 'DELETE') {
             if ($id == $_SESSION['user_id']) {
                 error('Cannot delete yourself');
             }
+            $user = $db->fetch("SELECT name FROM users WHERE id = ?", [$id]);
             $db->delete("DELETE FROM users WHERE id = ?", [$id]);
+            logAudit('delete', 'user', $id, $user['name'] ?? 'Unknown');
             respond(['message' => 'User deleted']);
         }
         break;
@@ -450,11 +493,12 @@ switch ($request) {
                     }
                 }
             }
-            
+
+            logAudit('create', 'corporation', $id, $name);
             respond(['id' => $id, 'message' => 'Corporation created']);
         }
         break;
-        
+
     case 'corporation':
         checkAuth();
         $id = (int)($_GET['id'] ?? 0);
@@ -485,10 +529,13 @@ switch ($request) {
                     $id
                 ]
             );
+            logAudit('update', 'corporation', $id, $input['name'] ?? '');
             respond(['message' => 'Corporation updated']);
         } elseif ($method === 'DELETE') {
             checkAdmin();
+            $corp = $db->fetch("SELECT name FROM corporations WHERE id = ?", [$id]);
             $db->delete("DELETE FROM corporations WHERE id = ?", [$id]);
+            logAudit('delete', 'corporation', $id, $corp['name'] ?? 'Unknown');
             respond(['message' => 'Corporation deleted']);
         }
         break;
@@ -530,6 +577,7 @@ switch ($request) {
                 }
             }
 
+            logAudit('create', 'site', $siteId, $name);
             respond(['id' => $siteId, 'message' => 'Site created']);
         }
         break;
@@ -591,10 +639,13 @@ switch ($request) {
                 }
             }
 
+            logAudit('update', 'site', $id, $input['name'] ?? '');
             respond(['message' => 'Site updated']);
         } elseif ($method === 'DELETE') {
             checkAdmin();
+            $site = $db->fetch("SELECT name FROM sites WHERE id = ?", [$id]);
             $db->delete("DELETE FROM sites WHERE id = ?", [$id]);
+            logAudit('delete', 'site', $id, $site['name'] ?? 'Unknown');
             respond(['message' => 'Site deleted']);
         }
         break;
@@ -1766,6 +1817,58 @@ switch ($request) {
         if ($method === 'DELETE') {
             $db->update("UPDATE master_vehicles SET is_active = 0 WHERE id = ?", [$id]);
             respond(['message' => '車両を削除しました']);
+        }
+        break;
+
+    // ========== 監査ログ（管理者のみ） ==========
+    case 'audit-logs':
+        checkAdmin();
+
+        if ($method === 'GET') {
+            $limit = (int)($_GET['limit'] ?? 100);
+            $offset = (int)($_GET['offset'] ?? 0);
+            $userId = $_GET['user_id'] ?? null;
+            $targetType = $_GET['target_type'] ?? null;
+            $dateFrom = $_GET['date_from'] ?? null;
+            $dateTo = $_GET['date_to'] ?? null;
+
+            $sql = "SELECT * FROM audit_logs WHERE 1=1";
+            $params = [];
+
+            if ($userId) {
+                $sql .= " AND user_id = ?";
+                $params[] = $userId;
+            }
+            if ($targetType) {
+                $sql .= " AND target_type = ?";
+                $params[] = $targetType;
+            }
+            if ($dateFrom) {
+                $sql .= " AND DATE(created_at) >= ?";
+                $params[] = $dateFrom;
+            }
+            if ($dateTo) {
+                $sql .= " AND DATE(created_at) <= ?";
+                $params[] = $dateTo;
+            }
+
+            $sql .= " ORDER BY created_at DESC LIMIT ? OFFSET ?";
+            $params[] = $limit;
+            $params[] = $offset;
+
+            $logs = $db->fetchAll($sql, $params);
+
+            // 日本語変換
+            $actionLabels = ['create' => '作成', 'update' => '更新', 'delete' => '削除'];
+            $typeLabels = ['user' => 'ユーザー', 'corporation' => '法人', 'site' => '現場'];
+
+            foreach ($logs as &$log) {
+                $log['actionLabel'] = $actionLabels[$log['action']] ?? $log['action'];
+                $log['targetTypeLabel'] = $typeLabels[$log['target_type']] ?? $log['target_type'];
+                $log['details'] = $log['details'] ? json_decode($log['details'], true) : null;
+            }
+
+            respond($logs);
         }
         break;
 

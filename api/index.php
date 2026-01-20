@@ -18,6 +18,12 @@ header('Access-Control-Allow-Headers: Content-Type, Authorization');
 header('Access-Control-Allow-Credentials: true');
 header('Content-Type: application/json; charset=utf-8');
 
+// セキュリティヘッダー
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: DENY');
+header('X-XSS-Protection: 1; mode=block');
+header('Referrer-Policy: strict-origin-when-cross-origin');
+
 // OPTIONSリクエストの処理
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
@@ -27,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 // セッション設定
 ini_set('session.cookie_httponly', 1);
 ini_set('session.use_only_cookies', 1);
-ini_set('session.cookie_samesite', 'Lax');
+ini_set('session.cookie_samesite', 'Strict');
 session_start();
 
 // リクエストの取得
@@ -152,8 +158,11 @@ switch ($request) {
         
     case 'user':
         checkAdmin();
-        $id = $_GET['id'] ?? 0;
-        
+        $id = (int)($_GET['id'] ?? 0);
+        if ($id <= 0) {
+            error('Invalid user ID', 400);
+        }
+
         if ($method === 'PUT') {
             $name = $input['name'] ?? '';
             $username = $input['username'] ?? '';
@@ -387,8 +396,11 @@ switch ($request) {
         
     case 'corporation':
         checkAuth();
-        $id = $_GET['id'] ?? 0;
-        
+        $id = (int)($_GET['id'] ?? 0);
+        if ($id <= 0) {
+            error('Invalid corporation ID', 400);
+        }
+
         if ($method === 'PUT') {
             checkAdmin();
             
@@ -463,14 +475,30 @@ switch ($request) {
         
     case 'site':
         checkAuth();
-        $id = $_GET['id'] ?? 0;
+        $id = (int)($_GET['id'] ?? 0);
+        if ($id <= 0) {
+            error('Invalid site ID', 400);
+        }
 
         if ($method === 'PUT') {
-            // スタッフも現場詳細を編集可能
-            
+            // キーボックス情報の更新は管理者のみ許可
+            $existingSite = $db->fetch("SELECT keybox, keybox_location FROM sites WHERE id = ?", [$id]);
+            if (!$existingSite) {
+                error('Site not found', 404);
+            }
+
+            // スタッフはキーボックス情報を変更できない
+            $keybox = $input['keybox'] ?? '';
+            $keyboxLocation = $input['keyboxLocation'] ?? '';
+            if ($_SESSION['role'] !== 'admin' && $_SESSION['role'] !== 'master') {
+                // キーボックス情報は既存の値を維持
+                $keybox = $existingSite['keybox'];
+                $keyboxLocation = $existingSite['keybox_location'];
+            }
+
             $db->update(
                 "UPDATE sites SET name = ?, address = ?, keybox = ?, keybox_location = ?, memo = ? WHERE id = ?",
-                [$input['name'] ?? '', $input['address'] ?? '', $input['keybox'] ?? '', $input['keyboxLocation'] ?? '', $input['memo'] ?? '', $id]
+                [$input['name'] ?? '', $input['address'] ?? '', $keybox, $keyboxLocation, $input['memo'] ?? '', $id]
             );
             
             // 害虫、作業内容、作業箇所を更新
@@ -565,15 +593,21 @@ switch ($request) {
     // ========== 写真 ==========
     case 'photos':
         checkAuth();
-        
+
+        // 最大ファイルサイズ（5MB）
+        define('MAX_IMAGE_SIZE', 5 * 1024 * 1024);
+
         if ($method === 'POST') {
-            $siteId = $input['siteId'] ?? 0;
+            $siteId = (int)($input['siteId'] ?? 0);
+            if ($siteId <= 0) {
+                error('Invalid site ID', 400);
+            }
             $imageData = $input['imageData'] ?? '';
             $photoDate = $input['date'] ?? date('Y-m-d');
             $note = $input['note'] ?? '';
-            
+
             $url = '';
-            
+
             // Base64画像データがある場合はファイルとして保存
             if (!empty($imageData) && strpos($imageData, 'data:image') === 0) {
                 // アップロードディレクトリを作成
@@ -581,17 +615,32 @@ switch ($request) {
                 if (!is_dir($uploadDir)) {
                     mkdir($uploadDir, 0755, true);
                 }
-                
+
                 // Base64デコード
                 $imageData = preg_replace('/^data:image\/\w+;base64,/', '', $imageData);
-                $imageData = base64_decode($imageData);
-                
-                // ファイル名を生成
-                $fileName = 'photo_' . $siteId . '_' . date('YmdHis') . '_' . uniqid() . '.jpg';
+                $decodedData = base64_decode($imageData, true);
+                if ($decodedData === false) {
+                    error('Invalid image data', 400);
+                }
+
+                // ファイルサイズチェック
+                if (strlen($decodedData) > MAX_IMAGE_SIZE) {
+                    error('Image too large (max 5MB)', 400);
+                }
+
+                // 実際に画像かどうか検証
+                $imageInfo = @getimagesizefromstring($decodedData);
+                if ($imageInfo === false || !in_array($imageInfo['mime'], ['image/jpeg', 'image/png', 'image/gif', 'image/webp'])) {
+                    error('Invalid image format', 400);
+                }
+
+                // ファイル名を生成（拡張子を正しく設定）
+                $ext = image_type_to_extension($imageInfo[2], false);
+                $fileName = 'photo_' . $siteId . '_' . date('YmdHis') . '_' . uniqid() . '.' . $ext;
                 $filePath = $uploadDir . $fileName;
-                
+
                 // ファイル保存
-                if (file_put_contents($filePath, $imageData)) {
+                if (file_put_contents($filePath, $decodedData)) {
                     $url = '/uploads/photos/' . $fileName;
                 } else {
                     error('Failed to save image');
@@ -608,7 +657,10 @@ switch ($request) {
             
             respond(['id' => $id, 'url' => $url, 'message' => 'Photo added']);
         } elseif ($method === 'DELETE') {
-            $id = $_GET['id'] ?? 0;
+            $id = (int)($_GET['id'] ?? 0);
+            if ($id <= 0) {
+                error('Invalid photo ID', 400);
+            }
 
             // 写真情報取得
             $photo = $db->fetch("SELECT * FROM photos WHERE id = ?", [$id]);
@@ -634,8 +686,16 @@ switch ($request) {
     case 'site-documents':
         checkAuth();
 
+        // 最大ファイルサイズ（10MB）
+        if (!defined('MAX_DOC_SIZE')) {
+            define('MAX_DOC_SIZE', 10 * 1024 * 1024);
+        }
+
         if ($method === 'POST') {
-            $siteId = $input['siteId'] ?? 0;
+            $siteId = (int)($input['siteId'] ?? 0);
+            if ($siteId <= 0) {
+                error('Invalid site ID', 400);
+            }
             $fileName = $input['fileName'] ?? '';
             $fileData = $input['fileData'] ?? '';
             $fileType = $input['fileType'] ?? '';
@@ -654,17 +714,32 @@ switch ($request) {
 
                 // Base64デコード
                 $fileData = preg_replace('/^data:[^;]+;base64,/', '', $fileData);
-                $decodedData = base64_decode($fileData);
-
-                // ファイル拡張子を決定
-                $ext = 'dat';
-                if (strpos($fileType, 'pdf') !== false) {
-                    $ext = 'pdf';
-                } elseif (strpos($fileType, 'jpeg') !== false || strpos($fileType, 'jpg') !== false) {
-                    $ext = 'jpg';
-                } elseif (strpos($fileType, 'png') !== false) {
-                    $ext = 'png';
+                $decodedData = base64_decode($fileData, true);
+                if ($decodedData === false) {
+                    error('Invalid file data', 400);
                 }
+
+                // ファイルサイズチェック
+                if (strlen($decodedData) > MAX_DOC_SIZE) {
+                    error('File too large (max 10MB)', 400);
+                }
+
+                // ファイル拡張子を決定（実際のファイル内容から判定）
+                $ext = 'dat';
+                $finfo = new finfo(FILEINFO_MIME_TYPE);
+                $detectedMime = $finfo->buffer($decodedData);
+
+                // 許可されたMIMEタイプのみ受け入れ
+                $allowedMimes = [
+                    'application/pdf' => 'pdf',
+                    'image/jpeg' => 'jpg',
+                    'image/png' => 'png',
+                    'image/gif' => 'gif'
+                ];
+                if (!isset($allowedMimes[$detectedMime])) {
+                    error('Invalid file type. Only PDF and images are allowed.', 400);
+                }
+                $ext = $allowedMimes[$detectedMime];
 
                 // ファイル名を生成
                 $savedFileName = 'doc_' . $siteId . '_' . date('YmdHis') . '_' . uniqid() . '.' . $ext;
@@ -691,7 +766,10 @@ switch ($request) {
         checkAuth();
 
         if ($method === 'DELETE') {
-            $id = $_GET['id'] ?? 0;
+            $id = (int)($_GET['id'] ?? 0);
+            if ($id <= 0) {
+                error('Invalid document ID', 400);
+            }
 
             // 書類情報取得
             $doc = $db->fetch("SELECT * FROM site_documents WHERE id = ?", [$id]);
@@ -851,9 +929,13 @@ switch ($request) {
     // ========== CSVエクスポート ==========
     case 'export':
         checkAdmin();
-        
-        $type = $_GET['type'] ?? '';
-        
+
+        // typeパラメータをサニタイズ（英数字のみ許可）
+        $type = preg_replace('/[^a-zA-Z0-9]/', '', $_GET['type'] ?? '');
+        if (!in_array($type, ['corporations', 'sites', 'workLogs'])) {
+            error('Invalid export type', 400);
+        }
+
         header('Content-Type: text/csv; charset=utf-8');
         header('Content-Disposition: attachment; filename="' . $type . '_' . date('Ymd') . '.csv"');
         
@@ -865,7 +947,8 @@ switch ($request) {
         switch ($type) {
             case 'corporations':
                 fputcsv($output, ['法人名', '住所', '電話番号', '担当者', '請求サイクル', '契約開始', '契約終了', '契約金額', '現場数']);
-                $corps = $db->fetchAll("SELECT c.*, COUNT(s.id) as site_count FROM corporations c LEFT JOIN sites s ON c.id = s.corporation_id GROUP BY c.id");
+                // サブクエリで現場数を取得（SQL厳格モード対応）
+                $corps = $db->fetchAll("SELECT c.*, (SELECT COUNT(*) FROM sites s WHERE s.corporation_id = c.id) as site_count FROM corporations c ORDER BY c.name");
                 foreach ($corps as $c) {
                     fputcsv($output, [$c['name'], $c['address'], $c['contact'], $c['contact_person'], $c['billing_cycle'], $c['contract_start'], $c['contract_end'], $c['contract_amount'], $c['site_count']]);
                 }
@@ -985,7 +1068,10 @@ switch ($request) {
 
     case 'daily-report':
         checkAuth();
-        $id = $_GET['id'] ?? 0;
+        $id = (int)($_GET['id'] ?? 0);
+        if ($id <= 0) {
+            error('Invalid daily report ID', 400);
+        }
 
         if ($method === 'GET') {
             $report = $db->fetch(
@@ -1264,7 +1350,7 @@ switch ($request) {
 
     case 'timecard':
         checkAuth();
-        $id = $_GET['id'] ?? 0;
+        $id = (int)($_GET['id'] ?? 0);
 
         if ($method === 'GET') {
             // 今日のタイムカード取得
@@ -1277,6 +1363,9 @@ switch ($request) {
         } elseif ($method === 'PUT') {
             // 管理者のみ編集可能
             checkAdmin();
+            if ($id <= 0) {
+                error('Invalid timecard ID', 400);
+            }
             $timecard = $db->fetch("SELECT user_id FROM timecards WHERE id = ?", [$id]);
             if (!$timecard) {
                 error('タイムカードが見つかりません', 404);

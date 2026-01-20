@@ -610,10 +610,13 @@ function App() {
     );
   };
 
-  // 法人一覧用のフィルタリング
-  const filteredCorporations = corporations.filter(c =>
-    c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (c.sites || []).some(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()))
+  // 法人一覧用のフィルタリング（メモ化で再レンダリング時の再計算を防止）
+  const filteredCorporations = useMemo(() =>
+    corporations.filter(c =>
+      c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (c.sites || []).some(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    ),
+    [corporations, searchQuery]
   );
 
   // 法人一覧 (簡略版 - 実際にはもっと長い)
@@ -2203,8 +2206,24 @@ function App() {
     }, []);
 
     useEffect(() => {
-      loadTodayCard();
-      loadMonthCards();
+      let cancelled = false;
+
+      const load = async () => {
+        try {
+          const todayData = await api.getTodayTimecard();
+          if (!cancelled) setTodayCard(todayData);
+        } catch (e) { console.error(e); }
+
+        setLoading(true);
+        try {
+          const monthData = await api.getTimecards({ year_month: selectedMonth });
+          if (!cancelled) setMonthCards(monthData);
+        } catch (e) { console.error(e); }
+        if (!cancelled) setLoading(false);
+      };
+
+      load();
+      return () => { cancelled = true; };
     }, [selectedMonth]);
 
     const loadTodayCard = async () => {
@@ -2226,8 +2245,8 @@ function App() {
     const handleClockIn = async () => {
       try {
         await api.clockIn({ type: 'auto' });
-        loadTodayCard();
-        loadMonthCards();
+        await loadTodayCard();
+        await loadMonthCards();
       } catch (e) {
         alert(e.message);
       }
@@ -2236,8 +2255,8 @@ function App() {
     const handleClockOut = async () => {
       try {
         await api.clockOut({ type: 'auto' });
-        loadTodayCard();
-        loadMonthCards();
+        await loadTodayCard();
+        await loadMonthCards();
       } catch (e) {
         alert(e.message);
       }
@@ -2246,10 +2265,15 @@ function App() {
     const handleManualClockIn = async () => {
       const time = prompt('出勤時刻を入力 (HH:MM)', currentTime.toTimeString().slice(0, 5));
       if (time) {
+        // 時刻フォーマット検証
+        if (!/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(time)) {
+          alert('正しい時刻形式で入力してください (HH:MM)');
+          return;
+        }
         try {
           await api.clockIn({ time: time + ':00', type: 'manual' });
-          loadTodayCard();
-          loadMonthCards();
+          await loadTodayCard();
+          await loadMonthCards();
         } catch (e) {
           alert(e.message);
         }
@@ -2259,10 +2283,15 @@ function App() {
     const handleManualClockOut = async () => {
       const time = prompt('退勤時刻を入力 (HH:MM)', currentTime.toTimeString().slice(0, 5));
       if (time) {
+        // 時刻フォーマット検証
+        if (!/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(time)) {
+          alert('正しい時刻形式で入力してください (HH:MM)');
+          return;
+        }
         try {
           await api.clockOut({ time: time + ':00', type: 'manual' });
-          loadTodayCard();
-          loadMonthCards();
+          await loadTodayCard();
+          await loadMonthCards();
         } catch (e) {
           alert(e.message);
         }

@@ -70,6 +70,14 @@ function checkAdmin() {
     }
 }
 
+// マスター専用チェック（操作履歴など機密情報用）
+function checkMaster() {
+    checkAuth();
+    if ($_SESSION['role'] !== 'master') {
+        error('Forbidden', 403);
+    }
+}
+
 // 監査ログ記録（エラーが発生してもメイン処理は継続）
 function logAudit($action, $targetType, $targetId, $targetName, $details = null) {
     global $db;
@@ -1821,9 +1829,9 @@ switch ($request) {
         }
         break;
 
-    // ========== 監査ログ（管理者のみ） ==========
+    // ========== 監査ログ（マスターのみ） ==========
     case 'audit-logs':
-        checkAdmin();
+        checkMaster();
 
         if ($method === 'GET') {
             // テーブルが存在しない場合は作成

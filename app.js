@@ -2473,17 +2473,19 @@ function App() {
             <Icons.ChevronRight className="ml-auto text-gray-400" />
           </button>
 
-          <button onClick={() => navigate('/admin/audit-logs')}
-            className="w-full bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-4 text-left hover:bg-gray-50">
-            <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: 'rgba(91, 189, 86, 0.1)' }}>
-              <Icons.FileText style={{ color: '#5bbd56' }} />
-            </div>
-            <div>
-              <p className="font-bold text-gray-800">操作履歴</p>
-              <p className="text-sm text-gray-500">システム操作ログの確認</p>
-            </div>
-            <Icons.ChevronRight className="ml-auto text-gray-400" />
-          </button>
+          {userRole === 'master' && (
+            <button onClick={() => navigate('/admin/audit-logs')}
+              className="w-full bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-4 text-left hover:bg-gray-50">
+              <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: 'rgba(91, 189, 86, 0.1)' }}>
+                <Icons.FileText style={{ color: '#5bbd56' }} />
+              </div>
+              <div>
+                <p className="font-bold text-gray-800">操作履歴</p>
+                <p className="text-sm text-gray-500">システム操作ログの確認</p>
+              </div>
+              <Icons.ChevronRight className="ml-auto text-gray-400" />
+            </button>
+          )}
         </div>
 
         <div className="bg-white border border-gray-200 rounded-xl p-4 mt-6">

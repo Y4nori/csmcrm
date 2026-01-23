@@ -451,8 +451,8 @@ switch ($request) {
 
             respond($corps);
         } elseif ($method === 'POST') {
-            checkAdmin();
-            
+            checkAuth(); // スタッフも法人追加可能
+
             $name = $input['name'] ?? '';
             if (empty($name)) error('Name required');
             
@@ -516,8 +516,8 @@ switch ($request) {
         }
 
         if ($method === 'PUT') {
-            checkAdmin();
-            
+            checkAuth(); // スタッフも法人編集可能
+
             $db->update(
                 "UPDATE corporations SET name = ?, address = ?, contact = ?, contact_person = ?, 
                  billing_cycle = ?, billing_day = ?, billing_month = ?, memo = ?,
@@ -554,8 +554,8 @@ switch ($request) {
         checkAuth();
         
         if ($method === 'POST') {
-            checkAdmin();
-            
+            checkAuth(); // スタッフも現場追加可能
+
             $corpId = $input['corporationId'] ?? 0;
             $name = $input['name'] ?? '';
             if (empty($name)) error('Name required');

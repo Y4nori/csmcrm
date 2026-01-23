@@ -738,12 +738,10 @@ function App() {
 
         <div className="flex justify-between items-center mb-2 mt-4">
           <h3 className="text-gray-600 font-medium flex items-center gap-2"><Icons.Store /> 現場一覧</h3>
-          {userRole === 'admin' && (
-            <button onClick={() => { setModalType('site'); setEditingItem(null); setShowModal(true); }}
-              className="flex items-center gap-1 text-white px-3 py-1.5 rounded-lg text-sm" style={{ backgroundColor: '#5bbd56' }}>
-              <Icons.Plus /> 現場追加
-            </button>
-          )}
+          <button onClick={() => { setModalType('site'); setEditingItem(null); setShowModal(true); }}
+            className="flex items-center gap-1 text-white px-3 py-1.5 rounded-lg text-sm" style={{ backgroundColor: '#5bbd56' }}>
+            <Icons.Plus /> 現場追加
+          </button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -3567,12 +3565,10 @@ function App() {
                   <h2 className="text-xl font-bold text-gray-800">顧客一覧</h2>
                   <p className="text-gray-500 text-sm">{corporations.length}社 / {totalSites}現場</p>
                 </div>
-                {userRole === 'admin' && (
-                  <button onClick={() => { setModalType('corp'); setEditingItem(null); setShowModal(true); }}
-                    className="flex items-center gap-1 text-white px-4 py-2 rounded-lg text-sm font-medium" style={{ backgroundColor: '#5bbd56' }}>
-                    <Icons.Plus /> 法人追加
-                  </button>
-                )}
+                <button onClick={() => { setModalType('corp'); setEditingItem(null); setShowModal(true); }}
+                  className="flex items-center gap-1 text-white px-4 py-2 rounded-lg text-sm font-medium" style={{ backgroundColor: '#5bbd56' }}>
+                  <Icons.Plus /> 法人追加
+                </button>
               </div>
               <input type="text" placeholder="法人名・現場名で検索..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full bg-white border border-gray-300 rounded-lg px-4 py-3 mb-4" autoComplete="off" />

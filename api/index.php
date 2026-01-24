@@ -1446,11 +1446,31 @@ switch ($request) {
             $clockOut = $input['time'] ?? date('H:i:s');
             $clockOutType = $input['type'] ?? 'auto';
 
-            // 既存チェック
+            // まず当日のレコードを検索
             $existing = $db->fetch(
-                "SELECT id, clock_in, clock_out FROM timecards WHERE user_id = ? AND work_date = ?",
+                "SELECT id, clock_in, clock_out, work_date FROM timecards WHERE user_id = ? AND work_date = ?",
                 [$_SESSION['user_id'], $workDate]
             );
+
+            // 当日に有効な出勤レコードがない場合、前日の未退勤レコードを検索（夜勤対応）
+            if (!$existing || !$existing['clock_in'] || $existing['clock_out']) {
+                $yesterday = date('Y-m-d', strtotime('-1 day'));
+                $yesterdayRecord = $db->fetch(
+                    "SELECT id, clock_in, clock_out, work_date FROM timecards
+                     WHERE user_id = ? AND work_date = ? AND clock_in IS NOT NULL AND clock_out IS NULL",
+                    [$_SESSION['user_id'], $yesterday]
+                );
+
+                if ($yesterdayRecord) {
+                    // 出勤から24時間以内かチェック
+                    $clockInDateTime = strtotime($yesterday . ' ' . $yesterdayRecord['clock_in']);
+                    $nowDateTime = strtotime($workDate . ' ' . $clockOut);
+
+                    if (($nowDateTime - $clockInDateTime) <= 24 * 3600) {
+                        $existing = $yesterdayRecord;
+                    }
+                }
+            }
 
             if (!$existing || !$existing['clock_in']) {
                 error('先に出勤打刻をしてください');
@@ -1465,7 +1485,12 @@ switch ($request) {
                 [$clockOut, $clockOutType, $existing['id']]
             );
 
-            respond(['message' => '退勤を記録しました', 'time' => $clockOut]);
+            respond([
+                'message' => '退勤を記録しました',
+                'time' => $clockOut,
+                'work_date' => $existing['work_date'],
+                'is_overnight' => ($existing['work_date'] !== $workDate)
+            ]);
         }
         break;
 
@@ -1480,7 +1505,29 @@ switch ($request) {
                 "SELECT * FROM timecards WHERE user_id = ? AND work_date = ?",
                 [$_SESSION['user_id'], $workDate]
             );
-            respond($timecard ?: ['clock_in' => null, 'clock_out' => null]);
+
+            // 今日のレコードがない or 既に退勤済みの場合、前日の未退勤レコードを確認（夜勤対応）
+            if (!$timecard || !$timecard['clock_in'] || $timecard['clock_out']) {
+                $yesterday = date('Y-m-d', strtotime('-1 day', strtotime($workDate)));
+                $yesterdayRecord = $db->fetch(
+                    "SELECT * FROM timecards
+                     WHERE user_id = ? AND work_date = ? AND clock_in IS NOT NULL AND clock_out IS NULL",
+                    [$_SESSION['user_id'], $yesterday]
+                );
+
+                if ($yesterdayRecord) {
+                    $clockInDateTime = strtotime($yesterday . ' ' . $yesterdayRecord['clock_in']);
+                    if ((time() - $clockInDateTime) <= 24 * 3600) {
+                        $yesterdayRecord['is_overnight'] = true;
+                        respond($yesterdayRecord);
+                    }
+                }
+            }
+
+            if ($timecard) {
+                $timecard['is_overnight'] = false;
+            }
+            respond($timecard ?: ['clock_in' => null, 'clock_out' => null, 'is_overnight' => false]);
         } elseif ($method === 'PUT') {
             // 管理者のみ編集可能
             checkAdmin();
@@ -1546,6 +1593,12 @@ switch ($request) {
             if ($tc['clock_in'] && $tc['clock_out']) {
                 $in = strtotime($tc['clock_in']);
                 $out = strtotime($tc['clock_out']);
+
+                // 日付をまたぐ場合（退勤時刻が出勤時刻より前）
+                if ($out < $in) {
+                    $out += 24 * 3600; // 24時間を加算
+                }
+
                 $diff = ($out - $in) / 3600;
                 $workHours = round($diff, 2);
             }

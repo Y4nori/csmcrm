@@ -3370,15 +3370,15 @@ function App() {
 
           {modalType === 'photo' && (
             <div className="space-y-4">
-              <p className="text-sm text-gray-500">写真をアップロードしてください（自動的に圧縮されます）</p>
+              <p className="text-sm text-gray-500">写真をアップロードしてください（最大10枚、自動圧縮）</p>
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
-                <input type="file" accept="image/*" multiple={false} id="photo-upload" className="hidden" onChange={async (e) => {
-                  const file = e.target.files[0];
-                  if (!file) return;
-                  
+                <input type="file" accept="image/*" multiple={true} id="photo-upload" className="hidden" onChange={async (e) => {
+                  const files = Array.from(e.target.files).slice(0, 10); // 最大10枚
+                  if (files.length === 0) return;
+
                   // 画像を圧縮
                   const compressImage = (file, maxWidth = 1200, quality = 0.7) => {
-                    return new Promise((resolve) => {
+                    return new Promise((resolve, reject) => {
                       const reader = new FileReader();
                       reader.onload = (e) => {
                         const img = new Image();
@@ -3386,30 +3386,36 @@ function App() {
                           const canvas = document.createElement('canvas');
                           let width = img.width;
                           let height = img.height;
-                          
+
                           if (width > maxWidth) {
                             height = (height * maxWidth) / width;
                             width = maxWidth;
                           }
-                          
+
                           canvas.width = width;
                           canvas.height = height;
                           const ctx = canvas.getContext('2d');
                           ctx.drawImage(img, 0, 0, width, height);
                           resolve(canvas.toDataURL('image/jpeg', quality));
                         };
+                        img.onerror = reject;
                         img.src = e.target.result;
                       };
+                      reader.onerror = reject;
                       reader.readAsDataURL(file);
                     });
                   };
-                  
+
                   try {
-                    const compressed = await compressImage(file);
-                    setFormData({ ...formData, imageData: compressed, fileName: file.name });
-                    document.getElementById('photo-preview').src = compressed;
-                    document.getElementById('photo-preview').style.display = 'block';
-                    document.getElementById('photo-size').textContent = `圧縮後: ${Math.round(compressed.length / 1024)}KB`;
+                    // 全ファイルを並列圧縮
+                    const compressPromises = files.map(file => compressImage(file));
+                    const compressed = await Promise.all(compressPromises);
+                    const photos = compressed.map((data, i) => ({
+                      imageData: data,
+                      fileName: files[i].name,
+                      size: Math.round(data.length / 1024)
+                    }));
+                    setFormData({ ...formData, selectedPhotos: photos });
                   } catch (err) {
                     alert('画像の処理に失敗しました: ' + err.message);
                   }
@@ -3417,36 +3423,57 @@ function App() {
                 <label htmlFor="photo-upload" className="cursor-pointer block">
                   <div className="flex justify-center mb-2"><Icons.Camera /></div>
                   <p className="text-gray-600">タップして写真を撮影・選択</p>
-                  <p className="text-xs text-gray-400">JPG, PNG対応</p>
+                  <p className="text-xs text-gray-400">JPG, PNG対応（最大10枚）</p>
                 </label>
               </div>
-              <img id="photo-preview" src="" alt="" className="w-full rounded-lg hidden" />
-              <p id="photo-size" className="text-xs text-gray-400"></p>
+              {/* 複数写真プレビュー */}
+              {formData.selectedPhotos && formData.selectedPhotos.length > 0 && (
+                <div>
+                  <p className="text-sm text-gray-600 mb-2">{formData.selectedPhotos.length}/10枚選択中</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {formData.selectedPhotos.map((photo, i) => (
+                      <div key={i} className="relative aspect-square">
+                        <img src={photo.imageData} alt="" className="w-full h-full object-cover rounded-lg" />
+                        <button type="button" onClick={() => {
+                          const newPhotos = formData.selectedPhotos.filter((_, idx) => idx !== i);
+                          setFormData({ ...formData, selectedPhotos: newPhotos });
+                        }} className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">×</button>
+                        <span className="absolute bottom-1 left-1 bg-black/60 text-white text-xs px-1 rounded">{photo.size}KB</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               <input type="date" name="photo-date" defaultValue={new Date().toISOString().split('T')[0]} className="w-full border border-gray-300 rounded-lg px-3 py-2" style={{ backgroundColor: '#ffffff', WebkitAppearance: 'none' }} />
-              <input type="text" name="photo-note" placeholder="メモ（任意）" className="w-full border border-gray-300 rounded-lg px-3 py-2" />
+              <input type="text" name="photo-note" placeholder="メモ（任意・全写真共通）" className="w-full border border-gray-300 rounded-lg px-3 py-2" />
               <div className="flex gap-3 mt-4">
-                <button type="button" onClick={() => setShowModal(false)} className="flex-1 bg-gray-100 py-2 rounded-lg">キャンセル</button>
+                <button type="button" onClick={() => { setShowModal(false); setFormData({ ...formData, selectedPhotos: [] }); }} className="flex-1 bg-gray-100 py-2 rounded-lg">キャンセル</button>
                 <button type="button" onClick={async () => {
-                  if (!formData.imageData) { alert('写真を選択してください'); return; }
+                  const photos = formData.selectedPhotos || [];
+                  if (photos.length === 0) { alert('写真を選択してください'); return; }
                   setSaving(true);
                   try {
                     const photoDate = document.querySelector('[name="photo-date"]').value;
                     const photoNote = document.querySelector('[name="photo-note"]').value;
-                    await api.createPhoto({ 
-                      siteId: selectedSite.id, 
-                      imageData: formData.imageData,
-                      date: photoDate,
-                      note: photoNote
-                    });
+                    // 順次アップロード
+                    for (const photo of photos) {
+                      await api.createPhoto({
+                        siteId: selectedSite.id,
+                        imageData: photo.imageData,
+                        date: photoDate,
+                        note: photoNote
+                      });
+                    }
                     await loadData();
                     setShowModal(false);
+                    setFormData({ ...formData, selectedPhotos: [] });
                   } catch (err) {
                     alert('保存に失敗しました: ' + err.message);
                   } finally {
                     setSaving(false);
                   }
                 }} className="flex-1 text-white py-2 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#5bbd56' }} disabled={saving}>
-                  {saving ? <Icons.Loader /> : 'アップロード'}
+                  {saving ? <Icons.Loader className="animate-spin" /> : `アップロード${formData.selectedPhotos?.length > 0 ? ` (${formData.selectedPhotos.length}枚)` : ''}`}
                 </button>
               </div>
             </div>

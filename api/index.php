@@ -78,6 +78,51 @@ function checkMaster() {
     }
 }
 
+// 相対日付計算（第N週の特定曜日を計算）
+// $nth: 1-4 or -1(最終), $dayOfWeek: 0(日)-6(土)
+function calculateNthDayOfWeek($year, $month, $nth, $dayOfWeek) {
+    if ($nth === -1) {
+        // 最終の場合：月末から遡る
+        $date = new DateTime("$year-$month-01");
+        $date->modify('last day of this month');
+        while ((int)$date->format('w') !== $dayOfWeek) {
+            $date->modify('-1 day');
+        }
+        return (int)$date->format('d');
+    } else {
+        // 第N週の場合：月初から数える
+        $date = new DateTime("$year-$month-01");
+        $count = 0;
+        while ((int)$date->format('n') == $month) {
+            if ((int)$date->format('w') === $dayOfWeek) {
+                $count++;
+                if ($count === $nth) {
+                    return (int)$date->format('d');
+                }
+            }
+            $date->modify('+1 day');
+        }
+    }
+    return null;
+}
+
+// 相対日付パターンから実日を計算
+function calculateRelativeDate($year, $month, $pattern) {
+    // パターン形式: "first_sun", "second_mon", "last_fri" など
+    $parts = explode('_', $pattern);
+    if (count($parts) !== 2) return null;
+
+    $nthMap = ['first' => 1, 'second' => 2, 'third' => 3, 'fourth' => 4, 'last' => -1];
+    $dayMap = ['sun' => 0, 'mon' => 1, 'tue' => 2, 'wed' => 3, 'thu' => 4, 'fri' => 5, 'sat' => 6];
+
+    $nth = $nthMap[$parts[0]] ?? null;
+    $dayOfWeek = $dayMap[$parts[1]] ?? null;
+
+    if ($nth === null || $dayOfWeek === null) return null;
+
+    return calculateNthDayOfWeek($year, $month, $nth, $dayOfWeek);
+}
+
 // 監査ログ記録（エラーが発生してもメイン処理は継続）
 function logAudit($action, $targetType, $targetId, $targetName, $details = null) {
     global $db;
@@ -334,6 +379,8 @@ switch ($request) {
                     $yearlyPlansBySite[$plan['site_id']][$plan['month']] = [
                         'scheduled' => (bool)$plan['scheduled'],
                         'date' => $plan['day'],
+                        'dateType' => $plan['date_type'] ?? 'absolute',
+                        'datePattern' => $plan['date_pattern'] ?? null,
                         'workType' => $plan['work_type']
                     ];
                 }
@@ -663,24 +710,46 @@ switch ($request) {
     case 'yearly-plan':
         checkAuth();
         $siteId = $_GET['site_id'] ?? 0;
-        
+
         if ($method === 'PUT') {
             checkAdmin();
-            
+
             $plans = $input['yearlyPlan'] ?? [];
-            
+
+            // テーブルにdate_type, date_patternカラムがなければ追加
+            try {
+                $db->query("ALTER TABLE yearly_plans ADD COLUMN date_type VARCHAR(20) DEFAULT 'absolute'");
+            } catch (Exception $e) {}
+            try {
+                $db->query("ALTER TABLE yearly_plans ADD COLUMN date_pattern VARCHAR(50)");
+            } catch (Exception $e) {}
+
             // 既存プランを削除して再作成
             $db->delete("DELETE FROM yearly_plans WHERE site_id = ?", [$siteId]);
-            
+
             foreach ($plans as $month => $plan) {
                 if (!empty($plan['scheduled'])) {
+                    $dateType = $plan['dateType'] ?? 'absolute';
+                    $datePattern = $plan['datePattern'] ?? null;
+                    $actualDay = null;
+
+                    if ($dateType === 'relative' && $datePattern) {
+                        // 相対日付を今年の実日に計算
+                        $actualDay = calculateRelativeDate(date('Y'), (int)$month, $datePattern);
+                    } else {
+                        // 固定日
+                        $actualDay = (int)($plan['date'] ?? 15);
+                        $dateType = 'absolute';
+                        $datePattern = null;
+                    }
+
                     $db->insert(
-                        "INSERT INTO yearly_plans (site_id, month, scheduled, day, work_type) VALUES (?, ?, ?, ?, ?)",
-                        [$siteId, $month, 1, $plan['date'] ?? null, $plan['workType'] ?? '']
+                        "INSERT INTO yearly_plans (site_id, month, scheduled, day, work_type, date_type, date_pattern) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        [$siteId, $month, 1, $actualDay, $plan['workType'] ?? '', $dateType, $datePattern]
                     );
                 }
             }
-            
+
             respond(['message' => 'Yearly plan updated']);
         }
         break;

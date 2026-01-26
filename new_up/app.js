@@ -3512,10 +3512,76 @@ function App() {
                     type="number"
                     min="1"
                     max="31"
-                    placeholder="日"
+                    placeholder="固定日"
                     className="w-16 border border-gray-300 rounded px-2 py-1 text-sm"
                     onChange={e => e.target.value && setAllDates(e.target.value)}
                   />
+                  <select
+                    className="border border-gray-300 rounded px-2 py-1 text-sm"
+                    onChange={e => {
+                      if (e.target.value) {
+                        const newData = { ...yearlyPlanData };
+                        Object.keys(newData).forEach(month => {
+                          if (newData[month]?.scheduled) {
+                            newData[month] = { ...newData[month], dateType: 'relative', datePattern: e.target.value, date: null };
+                          }
+                        });
+                        setYearlyPlanData(newData);
+                      }
+                    }}
+                    defaultValue=""
+                  >
+                    <option value="" disabled>相対日付</option>
+                    <optgroup label="日曜日">
+                      <option value="first_sun">第1日曜</option>
+                      <option value="second_sun">第2日曜</option>
+                      <option value="third_sun">第3日曜</option>
+                      <option value="fourth_sun">第4日曜</option>
+                      <option value="last_sun">最終日曜</option>
+                    </optgroup>
+                    <optgroup label="月曜日">
+                      <option value="first_mon">第1月曜</option>
+                      <option value="second_mon">第2月曜</option>
+                      <option value="third_mon">第3月曜</option>
+                      <option value="fourth_mon">第4月曜</option>
+                      <option value="last_mon">最終月曜</option>
+                    </optgroup>
+                    <optgroup label="火曜日">
+                      <option value="first_tue">第1火曜</option>
+                      <option value="second_tue">第2火曜</option>
+                      <option value="third_tue">第3火曜</option>
+                      <option value="fourth_tue">第4火曜</option>
+                      <option value="last_tue">最終火曜</option>
+                    </optgroup>
+                    <optgroup label="水曜日">
+                      <option value="first_wed">第1水曜</option>
+                      <option value="second_wed">第2水曜</option>
+                      <option value="third_wed">第3水曜</option>
+                      <option value="fourth_wed">第4水曜</option>
+                      <option value="last_wed">最終水曜</option>
+                    </optgroup>
+                    <optgroup label="木曜日">
+                      <option value="first_thu">第1木曜</option>
+                      <option value="second_thu">第2木曜</option>
+                      <option value="third_thu">第3木曜</option>
+                      <option value="fourth_thu">第4木曜</option>
+                      <option value="last_thu">最終木曜</option>
+                    </optgroup>
+                    <optgroup label="金曜日">
+                      <option value="first_fri">第1金曜</option>
+                      <option value="second_fri">第2金曜</option>
+                      <option value="third_fri">第3金曜</option>
+                      <option value="fourth_fri">第4金曜</option>
+                      <option value="last_fri">最終金曜</option>
+                    </optgroup>
+                    <optgroup label="土曜日">
+                      <option value="first_sat">第1土曜</option>
+                      <option value="second_sat">第2土曜</option>
+                      <option value="third_sat">第3土曜</option>
+                      <option value="fourth_sat">第4土曜</option>
+                      <option value="last_sat">最終土曜</option>
+                    </optgroup>
+                  </select>
                   <select
                     className="border border-gray-300 rounded px-2 py-1 text-sm"
                     onChange={e => e.target.value && setAllWorkTypes(e.target.value)}
@@ -3533,17 +3599,69 @@ function App() {
                 {months.map(m => {
                   const plan = yearlyPlanData[m];
                   const isActive = plan?.scheduled;
+                  const isRelative = plan?.dateType === 'relative';
+                  const patternLabels = {
+                    'first_sun': '第1日曜', 'second_sun': '第2日曜', 'third_sun': '第3日曜', 'fourth_sun': '第4日曜', 'last_sun': '最終日曜',
+                    'first_mon': '第1月曜', 'second_mon': '第2月曜', 'third_mon': '第3月曜', 'fourth_mon': '第4月曜', 'last_mon': '最終月曜',
+                    'first_tue': '第1火曜', 'second_tue': '第2火曜', 'third_tue': '第3火曜', 'fourth_tue': '第4火曜', 'last_tue': '最終火曜',
+                    'first_wed': '第1水曜', 'second_wed': '第2水曜', 'third_wed': '第3水曜', 'fourth_wed': '第4水曜', 'last_wed': '最終水曜',
+                    'first_thu': '第1木曜', 'second_thu': '第2木曜', 'third_thu': '第3木曜', 'fourth_thu': '第4木曜', 'last_thu': '最終木曜',
+                    'first_fri': '第1金曜', 'second_fri': '第2金曜', 'third_fri': '第3金曜', 'fourth_fri': '第4金曜', 'last_fri': '最終金曜',
+                    'first_sat': '第1土曜', 'second_sat': '第2土曜', 'third_sat': '第3土曜', 'fourth_sat': '第4土曜', 'last_sat': '最終土曜'
+                  };
                   return (
-                    <div key={m} className={`p-2 rounded-lg border-2 ${isActive ? 'border-green-400 bg-green-50' : 'border-gray-200 bg-gray-50'}`}>
+                    <div key={m} className={`p-2 rounded-lg border-2 ${isActive ? (isRelative ? 'border-blue-400 bg-blue-50' : 'border-green-400 bg-green-50') : 'border-gray-200 bg-gray-50'}`}>
                       <label className="flex items-center gap-2 cursor-pointer mb-2">
                         <input type="checkbox" checked={isActive || false} onChange={() => toggleMonth(m)} className="w-4 h-4" />
                         <span className="font-medium">{m}月</span>
                       </label>
                       {isActive && (
                         <div className="space-y-1">
-                          <input type="number" min="1" max="31" value={plan?.date || 15}
-                            onChange={e => updateMonthPlan(m, 'date', parseInt(e.target.value))}
-                            className="w-full border border-gray-300 rounded px-2 py-1 text-sm" placeholder="日" />
+                          {/* タブ切り替え */}
+                          <div className="flex rounded overflow-hidden border border-gray-300 mb-1">
+                            <button type="button" onClick={() => updateMonthPlan(m, 'dateType', 'absolute')}
+                              className={`flex-1 py-1 text-xs ${!isRelative ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-600'}`}>固定</button>
+                            <button type="button" onClick={() => updateMonthPlan(m, 'dateType', 'relative')}
+                              className={`flex-1 py-1 text-xs ${isRelative ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-600'}`}>相対</button>
+                          </div>
+                          {isRelative ? (
+                            <select value={plan?.datePattern || ''} onChange={e => updateMonthPlan(m, 'datePattern', e.target.value)}
+                              className="w-full border border-gray-300 rounded px-2 py-1 text-xs">
+                              <option value="">選択</option>
+                              <optgroup label="日曜">
+                                <option value="first_sun">第1</option><option value="second_sun">第2</option>
+                                <option value="third_sun">第3</option><option value="fourth_sun">第4</option><option value="last_sun">最終</option>
+                              </optgroup>
+                              <optgroup label="月曜">
+                                <option value="first_mon">第1</option><option value="second_mon">第2</option>
+                                <option value="third_mon">第3</option><option value="fourth_mon">第4</option><option value="last_mon">最終</option>
+                              </optgroup>
+                              <optgroup label="火曜">
+                                <option value="first_tue">第1</option><option value="second_tue">第2</option>
+                                <option value="third_tue">第3</option><option value="fourth_tue">第4</option><option value="last_tue">最終</option>
+                              </optgroup>
+                              <optgroup label="水曜">
+                                <option value="first_wed">第1</option><option value="second_wed">第2</option>
+                                <option value="third_wed">第3</option><option value="fourth_wed">第4</option><option value="last_wed">最終</option>
+                              </optgroup>
+                              <optgroup label="木曜">
+                                <option value="first_thu">第1</option><option value="second_thu">第2</option>
+                                <option value="third_thu">第3</option><option value="fourth_thu">第4</option><option value="last_thu">最終</option>
+                              </optgroup>
+                              <optgroup label="金曜">
+                                <option value="first_fri">第1</option><option value="second_fri">第2</option>
+                                <option value="third_fri">第3</option><option value="fourth_fri">第4</option><option value="last_fri">最終</option>
+                              </optgroup>
+                              <optgroup label="土曜">
+                                <option value="first_sat">第1</option><option value="second_sat">第2</option>
+                                <option value="third_sat">第3</option><option value="fourth_sat">第4</option><option value="last_sat">最終</option>
+                              </optgroup>
+                            </select>
+                          ) : (
+                            <input type="number" min="1" max="31" value={plan?.date || 15}
+                              onChange={e => updateMonthPlan(m, 'date', parseInt(e.target.value))}
+                              className="w-full border border-gray-300 rounded px-2 py-1 text-sm" placeholder="日" />
+                          )}
                           <select value={plan?.workType || ''} onChange={e => updateMonthPlan(m, 'workType', e.target.value)}
                             className="w-full border border-gray-300 rounded px-2 py-1 text-sm">
                             {(masterData.workTypes || []).map(w => <option key={w} value={w}>{w}</option>)}

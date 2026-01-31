@@ -2083,7 +2083,7 @@ function App() {
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="text-xs text-gray-500">人数</label>
-                    <input type="number" min="1" value={detail.workerCount} onChange={(e) => updateDetail(i, 'workerCount', parseInt(e.target.value) || 1)}
+                    <input type="number" min="1" value={detail.workerCount || ''} onChange={(e) => updateDetail(i, 'workerCount', e.target.value === '' ? '' : parseInt(e.target.value, 10))}
                       className="w-full border border-gray-300 rounded px-2 py-1 text-sm" />
                   </div>
                   <div>

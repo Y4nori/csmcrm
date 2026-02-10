@@ -2213,7 +2213,7 @@ switch ($request) {
                            b.name as branch_name,
                            p.name as product_name, p.unit, p.min_stock,
                            c.id as category_id, c.name as category_name
-                    FROM inventory_stock s
+                    FROM inventory_stocks s
                     JOIN inventory_branches b ON s.branch_id = b.id
                     JOIN inventory_products p ON s.product_id = p.id
                     JOIN inventory_categories c ON p.category_id = c.id
@@ -2254,7 +2254,7 @@ switch ($request) {
 
             // 現在の在庫を取得
             $current = $db->fetch(
-                "SELECT quantity FROM inventory_stock WHERE branch_id = ? AND product_id = ?",
+                "SELECT quantity FROM inventory_stocks WHERE branch_id = ? AND product_id = ?",
                 [$branchId, $productId]
             );
             $currentQty = $current ? (int)$current['quantity'] : 0;
@@ -2275,14 +2275,14 @@ switch ($request) {
 
             // 在庫を更新（UPSERT）
             $db->query(
-                "INSERT INTO inventory_stock (branch_id, product_id, quantity) VALUES (?, ?, ?)
+                "INSERT INTO inventory_stocks (branch_id, product_id, quantity) VALUES (?, ?, ?)
                  ON DUPLICATE KEY UPDATE quantity = VALUES(quantity)",
                 [$branchId, $productId, $newQty]
             );
 
             // 履歴を記録
             $db->insert(
-                "INSERT INTO inventory_transactions (branch_id, product_id, transaction_type, quantity, quantity_before, quantity_after, note, user_id, user_name)
+                "INSERT INTO inventory_logs (branch_id, product_id, transaction_type, quantity, quantity_before, quantity_after, note, user_id, user_name)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 [$branchId, $productId, $type, $quantity, $currentQty, $newQty, $note, $_SESSION['user_id'], $_SESSION['name']]
             );
@@ -2313,7 +2313,7 @@ switch ($request) {
 
             // 元の在庫を確認
             $fromStock = $db->fetch(
-                "SELECT quantity FROM inventory_stock WHERE branch_id = ? AND product_id = ?",
+                "SELECT quantity FROM inventory_stocks WHERE branch_id = ? AND product_id = ?",
                 [$fromBranchId, $productId]
             );
             $fromQty = $fromStock ? (int)$fromStock['quantity'] : 0;
@@ -2324,34 +2324,34 @@ switch ($request) {
 
             // 先の在庫を取得
             $toStock = $db->fetch(
-                "SELECT quantity FROM inventory_stock WHERE branch_id = ? AND product_id = ?",
+                "SELECT quantity FROM inventory_stocks WHERE branch_id = ? AND product_id = ?",
                 [$toBranchId, $productId]
             );
             $toQty = $toStock ? (int)$toStock['quantity'] : 0;
 
             // 元の在庫を減らす
             $db->update(
-                "UPDATE inventory_stock SET quantity = quantity - ? WHERE branch_id = ? AND product_id = ?",
+                "UPDATE inventory_stocks SET quantity = quantity - ? WHERE branch_id = ? AND product_id = ?",
                 [$quantity, $fromBranchId, $productId]
             );
 
             // 先の在庫を増やす（UPSERT）
             $db->query(
-                "INSERT INTO inventory_stock (branch_id, product_id, quantity) VALUES (?, ?, ?)
+                "INSERT INTO inventory_stocks (branch_id, product_id, quantity) VALUES (?, ?, ?)
                  ON DUPLICATE KEY UPDATE quantity = quantity + VALUES(quantity)",
                 [$toBranchId, $productId, $quantity]
             );
 
             // 履歴を記録（出庫）
             $db->insert(
-                "INSERT INTO inventory_transactions (branch_id, product_id, transaction_type, quantity, quantity_before, quantity_after, related_branch_id, note, user_id, user_name)
+                "INSERT INTO inventory_logs (branch_id, product_id, transaction_type, quantity, quantity_before, quantity_after, related_branch_id, note, user_id, user_name)
                  VALUES (?, ?, 'transfer_out', ?, ?, ?, ?, ?, ?, ?)",
                 [$fromBranchId, $productId, $quantity, $fromQty, $fromQty - $quantity, $toBranchId, $note, $_SESSION['user_id'], $_SESSION['name']]
             );
 
             // 履歴を記録（入庫）
             $db->insert(
-                "INSERT INTO inventory_transactions (branch_id, product_id, transaction_type, quantity, quantity_before, quantity_after, related_branch_id, note, user_id, user_name)
+                "INSERT INTO inventory_logs (branch_id, product_id, transaction_type, quantity, quantity_before, quantity_after, related_branch_id, note, user_id, user_name)
                  VALUES (?, ?, 'transfer_in', ?, ?, ?, ?, ?, ?, ?)",
                 [$toBranchId, $productId, $quantity, $toQty, $toQty + $quantity, $fromBranchId, $note, $_SESSION['user_id'], $_SESSION['name']]
             );
@@ -2370,7 +2370,7 @@ switch ($request) {
 
             $sql = "SELECT t.*, b.name as branch_name, p.name as product_name, p.unit,
                            rb.name as related_branch_name
-                    FROM inventory_transactions t
+                    FROM inventory_logs t
                     JOIN inventory_branches b ON t.branch_id = b.id
                     JOIN inventory_products p ON t.product_id = p.id
                     LEFT JOIN inventory_branches rb ON t.related_branch_id = rb.id
@@ -2417,7 +2417,7 @@ switch ($request) {
                         SUM(COALESCE(s.quantity, 0)) as total_quantity, p.min_stock
                  FROM inventory_products p
                  JOIN inventory_categories c ON p.category_id = c.id
-                 LEFT JOIN inventory_stock s ON s.product_id = p.id
+                 LEFT JOIN inventory_stocks s ON s.product_id = p.id
                  WHERE p.is_active = 1
                  GROUP BY p.id, c.name, p.name, p.unit, p.min_stock
                  ORDER BY c.sort_order, p.id"
@@ -2427,7 +2427,7 @@ switch ($request) {
             $lowStock = $db->fetchAll(
                 "SELECT s.branch_id, b.name as branch_name, s.product_id, p.name as product_name,
                         s.quantity, p.min_stock, p.unit
-                 FROM inventory_stock s
+                 FROM inventory_stocks s
                  JOIN inventory_branches b ON s.branch_id = b.id
                  JOIN inventory_products p ON s.product_id = p.id
                  WHERE p.is_active = 1 AND b.is_active = 1 AND s.quantity <= p.min_stock AND p.min_stock > 0

@@ -114,6 +114,14 @@ const api = {
   deleteTimecard: (id) => api.call('timecard', 'DELETE', null, { id }),
   exportTimecards: (params) => api.call('timecards-export', 'GET', null, params),
 
+  // タイムカード修正申請API
+  submitTimecardRequest: (data) => api.call('timecard-request', 'POST', data),
+  getTimecardRequests: (params) => api.call('timecard-requests', 'GET', null, params),
+  getMyTimecardRequests: () => api.call('timecard-request', 'GET'),
+  approveTimecardRequest: (id) => api.call('timecard-request-approve', 'POST', { id }),
+  rejectTimecardRequest: (id, comment) => api.call('timecard-request-reject', 'POST', { id, comment }),
+  getTimecardRequestsCount: () => api.call('timecard-requests-count', 'GET'),
+
   // 車両マスターAPI
   getVehicles: () => api.call('vehicles'),
   addVehicle: (name) => api.call('vehicles', 'POST', { name }),
@@ -2054,12 +2062,12 @@ function App() {
                 <div className="grid grid-cols-2 gap-2 mb-2">
                   <div>
                     <label className="text-xs text-gray-500">開始</label>
-                    <input type="time" value={detail.startTime} onChange={(e) => updateDetail(i, 'startTime', e.target.value)}
+                    <input type="text" inputMode="numeric" pattern="[0-9]{1,2}:[0-9]{2}" placeholder="09:00" value={detail.startTime} onChange={(e) => updateDetail(i, 'startTime', e.target.value)}
                       className="w-full border border-gray-300 rounded px-2 py-1 text-sm" />
                   </div>
                   <div>
                     <label className="text-xs text-gray-500">終了</label>
-                    <input type="time" value={detail.endTime} onChange={(e) => updateDetail(i, 'endTime', e.target.value)}
+                    <input type="text" inputMode="numeric" pattern="[0-9]{1,2}:[0-9]{2}" placeholder="17:00" value={detail.endTime} onChange={(e) => updateDetail(i, 'endTime', e.target.value)}
                       className="w-full border border-gray-300 rounded px-2 py-1 text-sm" />
                   </div>
                 </div>
@@ -2196,6 +2204,9 @@ function App() {
     const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
     const [showEditModal, setShowEditModal] = useState(false);
     const [editingCard, setEditingCard] = useState(null);
+    const [showCorrectionModal, setShowCorrectionModal] = useState(false);
+    const [correctionData, setCorrectionData] = useState({ work_date: '', clock_in: '', clock_out: '', reason: '' });
+    const [myRequests, setMyRequests] = useState([]);
 
     useEffect(() => {
       const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -2239,6 +2250,29 @@ function App() {
       setLoading(false);
     };
 
+    const loadMyRequests = async () => {
+      try {
+        const data = await api.getMyTimecardRequests();
+        setMyRequests(data);
+      } catch (e) { console.error(e); }
+    };
+
+    const handleSubmitCorrection = async () => {
+      if (!correctionData.work_date) {
+        alert('日付を入力してください');
+        return;
+      }
+      try {
+        await api.submitTimecardRequest(correctionData);
+        alert('修正申請を送信しました');
+        setShowCorrectionModal(false);
+        setCorrectionData({ work_date: '', clock_in: '', clock_out: '', reason: '' });
+        loadMyRequests();
+      } catch (e) {
+        alert(e.message);
+      }
+    };
+
     const handleClockIn = async () => {
       try {
         await api.clockIn({ type: 'auto' });
@@ -2259,42 +2293,6 @@ function App() {
       }
     };
 
-    const handleManualClockIn = async () => {
-      const time = prompt('出勤時刻を入力 (HH:MM)', currentTime.toTimeString().slice(0, 5));
-      if (time) {
-        // 時刻フォーマット検証
-        if (!/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(time)) {
-          alert('正しい時刻形式で入力してください (HH:MM)');
-          return;
-        }
-        try {
-          await api.clockIn({ time: time + ':00', type: 'manual' });
-          await loadTodayCard();
-          await loadMonthCards();
-        } catch (e) {
-          alert(e.message);
-        }
-      }
-    };
-
-    const handleManualClockOut = async () => {
-      const time = prompt('退勤時刻を入力 (HH:MM)', currentTime.toTimeString().slice(0, 5));
-      if (time) {
-        // 時刻フォーマット検証
-        if (!/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(time)) {
-          alert('正しい時刻形式で入力してください (HH:MM)');
-          return;
-        }
-        try {
-          await api.clockOut({ time: time + ':00', type: 'manual' });
-          await loadTodayCard();
-          await loadMonthCards();
-        } catch (e) {
-          alert(e.message);
-        }
-      }
-    };
-
     const formatTime = (time) => time ? time.slice(0, 5) : '--:--';
 
     return (
@@ -2311,27 +2309,15 @@ function App() {
 
           <div className="flex gap-3 justify-center mb-4">
             {!todayCard?.clock_in ? (
-              <>
-                <button onClick={handleClockIn}
-                  className="px-8 py-4 rounded-xl text-white text-lg font-bold" style={{ backgroundColor: '#5bbd56' }}>
-                  出勤
-                </button>
-                <button onClick={handleManualClockIn}
-                  className="px-4 py-4 rounded-xl bg-gray-200 text-gray-600 text-sm">
-                  手入力
-                </button>
-              </>
+              <button onClick={handleClockIn}
+                className="px-8 py-4 rounded-xl text-white text-lg font-bold" style={{ backgroundColor: '#5bbd56' }}>
+                出勤
+              </button>
             ) : !todayCard?.clock_out ? (
-              <>
-                <button onClick={handleClockOut}
-                  className="px-8 py-4 rounded-xl text-white text-lg font-bold bg-orange-500">
-                  退勤
-                </button>
-                <button onClick={handleManualClockOut}
-                  className="px-4 py-4 rounded-xl bg-gray-200 text-gray-600 text-sm">
-                  手入力
-                </button>
-              </>
+              <button onClick={handleClockOut}
+                className="px-8 py-4 rounded-xl text-white text-lg font-bold bg-orange-500">
+                退勤
+              </button>
             ) : (
               <p className="text-green-600 font-medium">本日の打刻完了</p>
             )}
@@ -2421,6 +2407,54 @@ function App() {
                   } catch (e) { alert(e.message); }
                 }
               }} className="w-full mt-2 text-red-500 text-sm py-2 hover:bg-red-50 rounded-lg">削除する</button>
+            </div>
+          </div>
+        )}
+
+        {/* 修正申請ボタン */}
+        <div className="bg-white border border-gray-200 rounded-xl p-4">
+          <button onClick={() => setShowCorrectionModal(true)}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-500 text-white rounded-lg">
+            <Icons.Edit /> 打刻修正を申請
+          </button>
+        </div>
+
+        {/* 修正申請モーダル */}
+        {showCorrectionModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl p-6 w-full max-w-sm">
+              <h3 className="font-bold text-lg mb-4">打刻修正申請</h3>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-sm text-gray-500">日付</label>
+                  <input type="date" value={correctionData.work_date}
+                    onChange={(e) => setCorrectionData({ ...correctionData, work_date: e.target.value })}
+                    className="w-full border border-gray-300 rounded px-3 py-2" />
+                </div>
+                <div>
+                  <label className="text-sm text-gray-500">出勤時刻</label>
+                  <input type="time" value={correctionData.clock_in}
+                    onChange={(e) => setCorrectionData({ ...correctionData, clock_in: e.target.value + ':00' })}
+                    className="w-full border border-gray-300 rounded px-3 py-2" />
+                </div>
+                <div>
+                  <label className="text-sm text-gray-500">退勤時刻</label>
+                  <input type="time" value={correctionData.clock_out}
+                    onChange={(e) => setCorrectionData({ ...correctionData, clock_out: e.target.value + ':00' })}
+                    className="w-full border border-gray-300 rounded px-3 py-2" />
+                </div>
+                <div>
+                  <label className="text-sm text-gray-500">理由</label>
+                  <textarea value={correctionData.reason}
+                    onChange={(e) => setCorrectionData({ ...correctionData, reason: e.target.value })}
+                    className="w-full border border-gray-300 rounded px-3 py-2" rows="3"
+                    placeholder="修正が必要な理由を入力してください" />
+                </div>
+              </div>
+              <div className="flex gap-2 mt-4">
+                <button onClick={() => setShowCorrectionModal(false)} className="flex-1 bg-gray-200 py-2 rounded-lg">キャンセル</button>
+                <button onClick={handleSubmitCorrection} className="flex-1 bg-blue-500 text-white py-2 rounded-lg">申請する</button>
+              </div>
             </div>
           </div>
         )}
@@ -2741,15 +2775,22 @@ function App() {
 
   // ========== 管理者用タイムカード管理 ==========
   const TimecardAdminView = () => {
+    const [activeTab, setActiveTab] = useState('timecards');
     const [timecards, setTimecards] = useState([]);
+    const [requests, setRequests] = useState([]);
+    const [requestsCount, setRequestsCount] = useState(0);
     const [loading, setLoading] = useState(true);
     const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
     const [selectedUser, setSelectedUser] = useState('');
     const [showEditModal, setShowEditModal] = useState(false);
     const [editingCard, setEditingCard] = useState(null);
+    const [rejectingRequest, setRejectingRequest] = useState(null);
+    const [rejectComment, setRejectComment] = useState('');
 
     useEffect(() => {
       loadTimecards();
+      loadRequests();
+      loadRequestsCount();
     }, [selectedMonth, selectedUser]);
 
     const loadTimecards = async () => {
@@ -2761,6 +2802,47 @@ function App() {
         setTimecards(data);
       } catch (e) { console.error(e); }
       setLoading(false);
+    };
+
+    const loadRequests = async () => {
+      try {
+        const data = await api.getTimecardRequests({ status: 'pending' });
+        setRequests(data);
+      } catch (e) { console.error(e); }
+    };
+
+    const loadRequestsCount = async () => {
+      try {
+        const data = await api.getTimecardRequestsCount();
+        setRequestsCount(data.count);
+      } catch (e) { console.error(e); }
+    };
+
+    const handleApprove = async (id) => {
+      if (!confirm('この申請を承認しますか？')) return;
+      try {
+        await api.approveTimecardRequest(id);
+        alert('承認しました');
+        loadRequests();
+        loadRequestsCount();
+        loadTimecards();
+      } catch (e) {
+        alert(e.message);
+      }
+    };
+
+    const handleReject = async () => {
+      if (!rejectingRequest) return;
+      try {
+        await api.rejectTimecardRequest(rejectingRequest.id, rejectComment);
+        alert('却下しました');
+        setRejectingRequest(null);
+        setRejectComment('');
+        loadRequests();
+        loadRequestsCount();
+      } catch (e) {
+        alert(e.message);
+      }
     };
 
     const handleExport = () => {
@@ -2799,57 +2881,109 @@ function App() {
           <h2 className="text-xl font-bold text-gray-800">タイムカード管理</h2>
         </div>
 
-        <div className="bg-white border border-gray-200 rounded-xl p-4 flex flex-wrap gap-3 items-center">
-          <input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)}
-            className="border border-gray-300 rounded px-3 py-2" />
-          <select value={selectedUser} onChange={(e) => setSelectedUser(e.target.value)}
-            className="border border-gray-300 rounded px-3 py-2">
-            <option value="">全員</option>
-            {users.map(u => (
-              <option key={u.id} value={u.id}>{u.name}</option>
-            ))}
-          </select>
-          <button onClick={handleExport} className="ml-auto flex items-center gap-1 px-4 py-2 bg-blue-500 text-white rounded-lg text-sm">
-            <Icons.Download /> CSV出力
+        {/* タブ */}
+        <div className="flex border-b border-gray-200">
+          <button onClick={() => setActiveTab('timecards')}
+            className={`px-4 py-2 font-medium ${activeTab === 'timecards' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'}`}>
+            タイムカード
+          </button>
+          <button onClick={() => setActiveTab('requests')}
+            className={`px-4 py-2 font-medium relative ${activeTab === 'requests' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'}`}>
+            修正申請
+            {requestsCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">{requestsCount}</span>
+            )}
           </button>
         </div>
 
-        {/* 月間集計 */}
-        <div className="bg-white border border-gray-200 rounded-xl p-4">
-          <h3 className="font-bold text-gray-700 mb-3">月間集計</h3>
-          <div className="space-y-2">
-            {Object.entries(summary).map(([userId, data]) => (
-              <div key={userId} className="flex justify-between items-center p-2 bg-gray-50 rounded">
-                <span className="font-medium">{data.name}</span>
-                <div className="text-sm text-gray-600">
-                  <span className="mr-4">{data.days}日</span>
-                  <span className="font-bold">{data.totalHours.toFixed(1)}時間</span>
+        {activeTab === 'timecards' ? (
+          <>
+            <div className="bg-white border border-gray-200 rounded-xl p-4 flex flex-wrap gap-3 items-center">
+              <input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)}
+                className="border border-gray-300 rounded px-3 py-2" />
+              <select value={selectedUser} onChange={(e) => setSelectedUser(e.target.value)}
+                className="border border-gray-300 rounded px-3 py-2">
+                <option value="">全員</option>
+                {users.map(u => (
+                  <option key={u.id} value={u.id}>{u.name}</option>
+                ))}
+              </select>
+              <button onClick={handleExport} className="ml-auto flex items-center gap-1 px-4 py-2 bg-blue-500 text-white rounded-lg text-sm">
+                <Icons.Download /> CSV出力
+              </button>
+            </div>
+
+            {/* 月間集計 */}
+            <div className="bg-white border border-gray-200 rounded-xl p-4">
+              <h3 className="font-bold text-gray-700 mb-3">月間集計</h3>
+              <div className="space-y-2">
+                {Object.entries(summary).map(([userId, data]) => (
+                  <div key={userId} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                    <span className="font-medium">{data.name}</span>
+                    <div className="text-sm text-gray-600">
+                      <span className="mr-4">{data.days}日</span>
+                      <span className="font-bold">{data.totalHours.toFixed(1)}時間</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {loading ? (
+              <div className="text-center py-8"><Icons.Loader /></div>
+            ) : timecards.length === 0 ? (
+              <div className="text-center py-8 text-gray-400">タイムカードがありません</div>
+            ) : (
+              <div className="bg-white border border-gray-200 rounded-xl p-4">
+                <h3 className="font-bold text-gray-700 mb-3">詳細</h3>
+                <div className="space-y-2 max-h-80 overflow-y-auto">
+                  {timecards.map(tc => (
+                    <div key={tc.id} className="flex justify-between items-center p-2 bg-gray-50 rounded text-sm">
+                      <span className="font-medium w-24">{tc.work_date}</span>
+                      <span className="text-gray-600 w-20">{tc.user_name}</span>
+                      <span>{tc.clock_in?.slice(0, 5) || '--:--'}</span>
+                      <span>〜</span>
+                      <span>{tc.clock_out?.slice(0, 5) || '--:--'}</span>
+                      <button onClick={() => { setEditingCard(tc); setShowEditModal(true); }}
+                        className="text-gray-400 hover:text-gray-600 ml-2"><Icons.Edit /></button>
+                    </div>
+                  ))}
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
-
-        {loading ? (
-          <div className="text-center py-8"><Icons.Loader /></div>
-        ) : timecards.length === 0 ? (
-          <div className="text-center py-8 text-gray-400">タイムカードがありません</div>
+            )}
+          </>
         ) : (
           <div className="bg-white border border-gray-200 rounded-xl p-4">
-            <h3 className="font-bold text-gray-700 mb-3">詳細</h3>
-            <div className="space-y-2 max-h-80 overflow-y-auto">
-              {timecards.map(tc => (
-                <div key={tc.id} className="flex justify-between items-center p-2 bg-gray-50 rounded text-sm">
-                  <span className="font-medium w-24">{tc.work_date}</span>
-                  <span className="text-gray-600 w-20">{tc.user_name}</span>
-                  <span>{tc.clock_in?.slice(0, 5) || '--:--'}</span>
-                  <span>〜</span>
-                  <span>{tc.clock_out?.slice(0, 5) || '--:--'}</span>
-                  <button onClick={() => { setEditingCard(tc); setShowEditModal(true); }}
-                    className="text-gray-400 hover:text-gray-600 ml-2"><Icons.Edit /></button>
-                </div>
-              ))}
-            </div>
+            <h3 className="font-bold text-gray-700 mb-3">修正申請一覧</h3>
+            {requests.length === 0 ? (
+              <p className="text-gray-400 text-center py-4">未処理の申請はありません</p>
+            ) : (
+              <div className="space-y-3">
+                {requests.map(req => (
+                  <div key={req.id} className="p-3 bg-gray-50 rounded-lg">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <span className="font-medium">{req.user_name}</span>
+                        <span className="text-gray-500 ml-2">{req.work_date}</span>
+                      </div>
+                      <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded">申請中</span>
+                    </div>
+                    <div className="text-sm text-gray-600 mb-2">
+                      <span>出勤: {req.clock_in?.slice(0, 5) || '--:--'}</span>
+                      <span className="mx-2">〜</span>
+                      <span>退勤: {req.clock_out?.slice(0, 5) || '--:--'}</span>
+                    </div>
+                    {req.reason && <p className="text-sm text-gray-500 mb-2">理由: {req.reason}</p>}
+                    <div className="flex gap-2">
+                      <button onClick={() => handleApprove(req.id)}
+                        className="flex-1 bg-green-500 text-white py-2 rounded text-sm">承認</button>
+                      <button onClick={() => setRejectingRequest(req)}
+                        className="flex-1 bg-red-500 text-white py-2 rounded text-sm">却下</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -2895,6 +3029,26 @@ function App() {
                   } catch (e) { alert('削除に失敗: ' + e.message); }
                 }
               }} className="w-full mt-2 text-red-500 text-sm">削除する</button>
+            </div>
+          </div>
+        )}
+
+        {/* 却下理由モーダル */}
+        {rejectingRequest && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl p-6 w-full max-w-sm">
+              <h3 className="font-bold text-lg mb-4">却下理由</h3>
+              <p className="text-gray-500 mb-2">{rejectingRequest.user_name} - {rejectingRequest.work_date}</p>
+              <textarea value={rejectComment}
+                onChange={(e) => setRejectComment(e.target.value)}
+                className="w-full border border-gray-300 rounded px-3 py-2 mb-4" rows="3"
+                placeholder="却下理由を入力してください" />
+              <div className="flex gap-2">
+                <button onClick={() => { setRejectingRequest(null); setRejectComment(''); }}
+                  className="flex-1 bg-gray-200 py-2 rounded-lg">キャンセル</button>
+                <button onClick={handleReject}
+                  className="flex-1 bg-red-500 text-white py-2 rounded-lg">却下する</button>
+              </div>
             </div>
           </div>
         )}

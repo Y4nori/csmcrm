@@ -1478,8 +1478,8 @@ switch ($request) {
 
         if ($method === 'POST') {
             $workDate = date('Y-m-d');
-            $clockIn = $input['time'] ?? date('H:i:s');
-            $clockInType = $input['type'] ?? 'auto';
+            $clockIn = date('H:i:s');
+            $clockInType = 'auto';
 
             // 既存チェック
             $existing = $db->fetch(
@@ -1512,8 +1512,8 @@ switch ($request) {
 
         if ($method === 'POST') {
             $workDate = date('Y-m-d');
-            $clockOut = $input['time'] ?? date('H:i:s');
-            $clockOutType = $input['type'] ?? 'auto';
+            $clockOut = date('H:i:s');
+            $clockOutType = 'auto';
 
             // まず当日のレコードを検索
             $existing = $db->fetch(
@@ -1535,7 +1535,7 @@ switch ($request) {
                     $clockInDateTime = strtotime($yesterday . ' ' . $yesterdayRecord['clock_in']);
                     $nowDateTime = strtotime($workDate . ' ' . $clockOut);
 
-                    if (($nowDateTime - $clockInDateTime) <= 24 * 3600) {
+                    if (($nowDateTime - $clockInDateTime) <= 36 * 3600) {
                         $existing = $yesterdayRecord;
                     }
                 }
@@ -1586,7 +1586,7 @@ switch ($request) {
 
                 if ($yesterdayRecord) {
                     $clockInDateTime = strtotime($yesterday . ' ' . $yesterdayRecord['clock_in']);
-                    if ((time() - $clockInDateTime) <= 24 * 3600) {
+                    if ((time() - $clockInDateTime) <= 36 * 3600) {
                         $yesterdayRecord['is_overnight'] = true;
                         respond($yesterdayRecord);
                     }
@@ -1665,7 +1665,7 @@ switch ($request) {
 
                 // 日付をまたぐ場合（退勤時刻が出勤時刻より前）
                 if ($out < $in) {
-                    $out += 24 * 3600; // 24時間を加算
+                    $out += 36 * 3600; // 24時間を加算
                 }
 
                 $diff = ($out - $in) / 3600;
@@ -2026,6 +2026,141 @@ switch ($request) {
             }
 
             respond($logs);
+        }
+        break;
+
+    case 'timecard-request':
+        checkAuth();
+        if ($method === 'POST') {
+            // タイムカード修正申請を作成
+            $workDate = $input['work_date'] ?? null;
+            $clockIn = $input['clock_in'] ?? null;
+            $clockOut = $input['clock_out'] ?? null;
+            $reason = $input['reason'] ?? '';
+
+            if (!$workDate) {
+                error('日付を指定してください');
+            }
+
+            $db->insert(
+                "INSERT INTO timecard_requests (user_id, work_date, clock_in, clock_out, reason, status, created_at) VALUES (?, ?, ?, ?, ?, 'pending', NOW())",
+                [$_SESSION['user_id'], $workDate, $clockIn, $clockOut, $reason]
+            );
+
+            respond(['message' => '修正申請を送信しました']);
+        } elseif ($method === 'GET') {
+            // 自分の申請一覧を取得
+            $requests = $db->fetchAll(
+                "SELECT tr.*, u.name as user_name FROM timecard_requests tr
+                 JOIN users u ON tr.user_id = u.id
+                 WHERE tr.user_id = ?
+                 ORDER BY tr.created_at DESC",
+                [$_SESSION['user_id']]
+            );
+            respond($requests);
+        }
+        break;
+
+    case 'timecard-requests':
+        checkAdmin();
+        if ($method === 'GET') {
+            // 全申請一覧を取得（管理者用）
+            $status = $_GET['status'] ?? null;
+            $sql = "SELECT tr.*, u.name as user_name FROM timecard_requests tr
+                    JOIN users u ON tr.user_id = u.id";
+            $params = [];
+
+            if ($status) {
+                $sql .= " WHERE tr.status = ?";
+                $params[] = $status;
+            }
+
+            $sql .= " ORDER BY tr.created_at DESC";
+            $requests = $db->fetchAll($sql, $params);
+            respond($requests);
+        }
+        break;
+
+    case 'timecard-request-approve':
+        checkAdmin();
+        if ($method === 'POST') {
+            $id = (int)($input['id'] ?? 0);
+            if ($id <= 0) {
+                error('Invalid request ID');
+            }
+
+            $request = $db->fetch("SELECT * FROM timecard_requests WHERE id = ?", [$id]);
+            if (!$request) {
+                error('申請が見つかりません', 404);
+            }
+
+            if ($request['status'] !== 'pending') {
+                error('この申請は既に処理済みです');
+            }
+
+            // 申請を承認
+            $db->update(
+                "UPDATE timecard_requests SET status = 'approved', processed_by = ?, processed_at = NOW() WHERE id = ?",
+                [$_SESSION['user_id'], $id]
+            );
+
+            // タイムカードを更新または作成
+            $existing = $db->fetch(
+                "SELECT id FROM timecards WHERE user_id = ? AND work_date = ?",
+                [$request['user_id'], $request['work_date']]
+            );
+
+            if ($existing) {
+                $db->update(
+                    "UPDATE timecards SET clock_in = ?, clock_out = ?, clock_in_type = 'corrected', clock_out_type = 'corrected' WHERE id = ?",
+                    [$request['clock_in'], $request['clock_out'], $existing['id']]
+                );
+            } else {
+                $db->insert(
+                    "INSERT INTO timecards (user_id, work_date, clock_in, clock_out, clock_in_type, clock_out_type) VALUES (?, ?, ?, ?, 'corrected', 'corrected')",
+                    [$request['user_id'], $request['work_date'], $request['clock_in'], $request['clock_out']]
+                );
+            }
+
+            respond(['message' => '申請を承認しました']);
+        }
+        break;
+
+    case 'timecard-request-reject':
+        checkAdmin();
+        if ($method === 'POST') {
+            $id = (int)($input['id'] ?? 0);
+            $comment = $input['comment'] ?? '';
+
+            if ($id <= 0) {
+                error('Invalid request ID');
+            }
+
+            $request = $db->fetch("SELECT * FROM timecard_requests WHERE id = ?", [$id]);
+            if (!$request) {
+                error('申請が見つかりません', 404);
+            }
+
+            if ($request['status'] !== 'pending') {
+                error('この申請は既に処理済みです');
+            }
+
+            $db->update(
+                "UPDATE timecard_requests SET status = 'rejected', reject_comment = ?, processed_by = ?, processed_at = NOW() WHERE id = ?",
+                [$comment, $_SESSION['user_id'], $id]
+            );
+
+            respond(['message' => '申請を却下しました']);
+        }
+        break;
+
+    case 'timecard-requests-count':
+        checkAdmin();
+        if ($method === 'GET') {
+            $count = $db->fetch(
+                "SELECT COUNT(*) as count FROM timecard_requests WHERE status = 'pending'"
+            );
+            respond(['count' => (int)$count['count']]);
         }
         break;
 

@@ -2211,7 +2211,7 @@ switch ($request) {
 
             $sql = "SELECT s.id, s.branch_id, s.product_id, s.quantity,
                            b.name as branch_name,
-                           p.name as product_name, p.unit, p.min_stock,
+                           p.name as product_name, p.unit, p.alert_threshold as min_stock,
                            c.id as category_id, c.name as category_name
                     FROM inventory_stocks s
                     JOIN inventory_branches b ON s.branch_id = b.id

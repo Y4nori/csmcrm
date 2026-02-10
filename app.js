@@ -130,7 +130,17 @@ const api = {
   // 履歴API（管理者のみ）
   getLoginLogs: () => api.call('login-logs'),
   getKeyboxLogs: () => api.call('keybox-log'),
-  getAuditLogs: (params) => api.call('audit-logs', 'GET', null, params)
+  getAuditLogs: (params) => api.call('audit-logs', 'GET', null, params),
+
+  // 在庫管理API
+  getInventoryBranches: () => api.call('inventory-branches'),
+  getInventoryCategories: () => api.call('inventory-categories'),
+  getInventoryProducts: (params) => api.call('inventory-products', 'GET', null, params),
+  getInventoryStock: (params) => api.call('inventory-stock', 'GET', null, params),
+  updateInventoryStock: (data) => api.call('inventory-stock-update', 'POST', data),
+  transferInventory: (data) => api.call('inventory-transfer', 'POST', data),
+  getInventoryTransactions: (params) => api.call('inventory-transactions', 'GET', null, params),
+  getInventorySummary: () => api.call('inventory-summary')
 };
 
 // SVGアイコン
@@ -175,7 +185,8 @@ const Icons = {
   Car: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.5 2.8C1.4 11.3 1 12.1 1 13v3c0 .6.4 1 1 1h2"></path><circle cx="7" cy="17" r="2"></circle><circle cx="17" cy="17" r="2"></circle></svg>),
   Calculator: () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"></rect><line x1="8" y1="6" x2="16" y2="6"></line><line x1="8" y1="10" x2="8" y2="10.01"></line><line x1="12" y1="10" x2="12" y2="10.01"></line><line x1="16" y1="10" x2="16" y2="10.01"></line><line x1="8" y1="14" x2="8" y2="14.01"></line><line x1="12" y1="14" x2="12" y2="14.01"></line><line x1="16" y1="14" x2="16" y2="14.01"></line><line x1="8" y1="18" x2="8" y2="18.01"></line><line x1="12" y1="18" x2="12" y2="18.01"></line><line x1="16" y1="18" x2="16" y2="18.01"></line></svg>),
   ExternalLink: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>),
-  Trash2: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>)
+  Trash2: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>),
+  Package: () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16.5 9.4l-9-5.19M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>)
 };
 
 // メインアプリ
@@ -213,6 +224,7 @@ function App() {
     if (path === '/admin/daily-reports') return 'adminDailyReports';
     if (path === '/admin/timecards') return 'adminTimecards';
     if (path === '/admin/audit-logs') return 'adminAuditLogs';
+    if (path === '/inventory') return 'inventory';
     return 'dashboard';
   };
   const currentView = getCurrentView();
@@ -3153,6 +3165,428 @@ function App() {
     );
   };
 
+  // 在庫管理画面
+  const InventoryView = () => {
+    const [activeTab, setActiveTab] = useState('stock');
+    const [branches, setBranches] = useState([]);
+    const [categories, setCategories] = useState([]);
+    const [products, setProducts] = useState([]);
+    const [stock, setStock] = useState([]);
+    const [transactions, setTransactions] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    // フィルター
+    const [selectedBranch, setSelectedBranch] = useState('');
+    const [selectedCategory, setSelectedCategory] = useState('');
+
+    // 入出庫モーダル
+    const [showStockModal, setShowStockModal] = useState(false);
+    const [stockModalType, setStockModalType] = useState('in');
+    const [stockForm, setStockForm] = useState({ branchId: '', productId: '', quantity: '', note: '' });
+
+    // 移動モーダル
+    const [showTransferModal, setShowTransferModal] = useState(false);
+    const [transferForm, setTransferForm] = useState({ fromBranchId: '', toBranchId: '', productId: '', quantity: '', note: '' });
+
+    useEffect(() => {
+      loadInventoryData();
+    }, []);
+
+    useEffect(() => {
+      if (branches.length > 0 || categories.length > 0) {
+        loadStock();
+      }
+    }, [selectedBranch, selectedCategory]);
+
+    const loadInventoryData = async () => {
+      setLoading(true);
+      try {
+        const [branchesData, categoriesData, productsData] = await Promise.all([
+          api.getInventoryBranches(),
+          api.getInventoryCategories(),
+          api.getInventoryProducts()
+        ]);
+        setBranches(branchesData);
+        setCategories(categoriesData);
+        setProducts(productsData);
+        await loadStock();
+      } catch (e) {
+        console.error('Failed to load inventory data:', e);
+        alert('在庫データの読み込みに失敗しました');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const loadStock = async () => {
+      try {
+        const params = {};
+        if (selectedBranch) params.branch_id = selectedBranch;
+        if (selectedCategory) params.category_id = selectedCategory;
+        const stockData = await api.getInventoryStock(params);
+        setStock(stockData);
+      } catch (e) {
+        console.error('Failed to load stock:', e);
+      }
+    };
+
+    const loadTransactions = async () => {
+      try {
+        const params = { limit: 100 };
+        if (selectedBranch) params.branch_id = selectedBranch;
+        const data = await api.getInventoryTransactions(params);
+        setTransactions(data);
+      } catch (e) {
+        console.error('Failed to load transactions:', e);
+      }
+    };
+
+    useEffect(() => {
+      if (activeTab === 'history') {
+        loadTransactions();
+      }
+    }, [activeTab, selectedBranch]);
+
+    const handleStockUpdate = async () => {
+      if (!stockForm.branchId || !stockForm.productId || !stockForm.quantity) {
+        alert('全ての項目を入力してください');
+        return;
+      }
+      try {
+        await api.updateInventoryStock({
+          branchId: parseInt(stockForm.branchId),
+          productId: parseInt(stockForm.productId),
+          type: stockModalType,
+          quantity: parseInt(stockForm.quantity),
+          note: stockForm.note
+        });
+        setShowStockModal(false);
+        setStockForm({ branchId: '', productId: '', quantity: '', note: '' });
+        await loadStock();
+        if (activeTab === 'history') await loadTransactions();
+      } catch (e) {
+        alert('エラー: ' + e.message);
+      }
+    };
+
+    const handleTransfer = async () => {
+      if (!transferForm.fromBranchId || !transferForm.toBranchId || !transferForm.productId || !transferForm.quantity) {
+        alert('全ての項目を入力してください');
+        return;
+      }
+      try {
+        await api.transferInventory({
+          fromBranchId: parseInt(transferForm.fromBranchId),
+          toBranchId: parseInt(transferForm.toBranchId),
+          productId: parseInt(transferForm.productId),
+          quantity: parseInt(transferForm.quantity),
+          note: transferForm.note
+        });
+        setShowTransferModal(false);
+        setTransferForm({ fromBranchId: '', toBranchId: '', productId: '', quantity: '', note: '' });
+        await loadStock();
+        if (activeTab === 'history') await loadTransactions();
+      } catch (e) {
+        alert('エラー: ' + e.message);
+      }
+    };
+
+    // 在庫をカテゴリ・製品でグループ化
+    const groupedStock = stock.reduce((acc, item) => {
+      const key = `${item.branch_id}-${item.category_id}`;
+      if (!acc[item.category_name]) {
+        acc[item.category_name] = {};
+      }
+      if (!acc[item.category_name][item.product_name]) {
+        acc[item.category_name][item.product_name] = {
+          product_id: item.product_id,
+          unit: item.unit,
+          min_stock: item.min_stock,
+          branches: {}
+        };
+      }
+      acc[item.category_name][item.product_name].branches[item.branch_id] = {
+        branch_name: item.branch_name,
+        quantity: item.quantity
+      };
+      return acc;
+    }, {});
+
+    const getTypeColor = (type) => {
+      switch (type) {
+        case 'in': return 'bg-green-100 text-green-700';
+        case 'out': return 'bg-red-100 text-red-700';
+        case 'adjust': return 'bg-blue-100 text-blue-700';
+        case 'transfer_in': return 'bg-purple-100 text-purple-700';
+        case 'transfer_out': return 'bg-orange-100 text-orange-700';
+        default: return 'bg-gray-100 text-gray-700';
+      }
+    };
+
+    if (loading) {
+      return (
+        <div className="flex justify-center items-center py-12">
+          <Icons.Loader />
+          <span className="ml-2 text-gray-500">読み込み中...</span>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-xl font-bold text-gray-800">在庫管理</h2>
+            <p className="text-gray-500 text-sm">{branches.length}営業所 / {products.length}製品</p>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={() => { setStockModalType('in'); setShowStockModal(true); }}
+              className="flex items-center gap-1 bg-green-500 text-white px-3 py-2 rounded-lg text-sm">
+              <Icons.Plus /> 入庫
+            </button>
+            <button onClick={() => { setStockModalType('out'); setShowStockModal(true); }}
+              className="flex items-center gap-1 bg-red-500 text-white px-3 py-2 rounded-lg text-sm">
+              <Icons.Download /> 出庫
+            </button>
+            <button onClick={() => setShowTransferModal(true)}
+              className="flex items-center gap-1 bg-purple-500 text-white px-3 py-2 rounded-lg text-sm">
+              <Icons.ChevronRight /> 移動
+            </button>
+          </div>
+        </div>
+
+        {/* タブ */}
+        <div className="flex gap-2 border-b border-gray-200">
+          {[
+            { key: 'stock', label: '在庫一覧' },
+            { key: 'history', label: '入出庫履歴' }
+          ].map(tab => (
+            <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+              className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${activeTab === tab.key ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500'}`}>
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* フィルター */}
+        <div className="flex gap-3 flex-wrap">
+          <select value={selectedBranch} onChange={(e) => setSelectedBranch(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm">
+            <option value="">全営業所</option>
+            {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+          </select>
+          <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm">
+            <option value="">全カテゴリ</option>
+            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </div>
+
+        {activeTab === 'stock' && (
+          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+            {selectedBranch ? (
+              // 単一営業所表示
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-50 border-b">
+                      <th className="text-left px-4 py-3 font-medium text-gray-600">カテゴリ</th>
+                      <th className="text-left px-4 py-3 font-medium text-gray-600">製品名</th>
+                      <th className="text-center px-4 py-3 font-medium text-gray-600">在庫数</th>
+                      <th className="text-center px-4 py-3 font-medium text-gray-600">単位</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stock.map(item => (
+                      <tr key={`${item.branch_id}-${item.product_id}`} className="border-b hover:bg-gray-50">
+                        <td className="px-4 py-3 text-gray-500">{item.category_name}</td>
+                        <td className="px-4 py-3 font-medium">{item.product_name}</td>
+                        <td className={`px-4 py-3 text-center font-bold ${item.quantity <= item.min_stock && item.min_stock > 0 ? 'text-red-600' : 'text-gray-800'}`}>
+                          {item.quantity}
+                          {item.quantity <= item.min_stock && item.min_stock > 0 && (
+                            <span className="ml-1 text-xs bg-red-100 text-red-600 px-1 rounded">不足</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-center text-gray-500">{item.unit}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              // 全営業所クロス表示
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-50 border-b">
+                      <th className="text-left px-3 py-3 font-medium text-gray-600 sticky left-0 bg-gray-50">カテゴリ</th>
+                      <th className="text-left px-3 py-3 font-medium text-gray-600 sticky left-24 bg-gray-50">製品名</th>
+                      {branches.map(b => (
+                        <th key={b.id} className="text-center px-3 py-3 font-medium text-gray-600 min-w-[80px]">{b.name.replace('営業', '').replace('所', '')}</th>
+                      ))}
+                      <th className="text-center px-3 py-3 font-medium text-gray-600 bg-green-50">合計</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(groupedStock).map(([categoryName, productsInCategory]) =>
+                      Object.entries(productsInCategory).map(([productName, productData], idx) => {
+                        const total = Object.values(productData.branches).reduce((sum, b) => sum + (b.quantity || 0), 0);
+                        return (
+                          <tr key={productData.product_id} className="border-b hover:bg-gray-50">
+                            <td className="px-3 py-2 text-gray-500 sticky left-0 bg-white">{idx === 0 ? categoryName : ''}</td>
+                            <td className="px-3 py-2 font-medium sticky left-24 bg-white">{productName}</td>
+                            {branches.map(b => {
+                              const qty = productData.branches[b.id]?.quantity || 0;
+                              return (
+                                <td key={b.id} className={`px-3 py-2 text-center ${qty === 0 ? 'text-gray-300' : 'text-gray-800'}`}>
+                                  {qty}
+                                </td>
+                              );
+                            })}
+                            <td className="px-3 py-2 text-center font-bold bg-green-50 text-green-700">{total}</td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'history' && (
+          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+            {transactions.length === 0 ? (
+              <div className="text-center py-8 text-gray-400">履歴がありません</div>
+            ) : (
+              <div className="divide-y divide-gray-100 max-h-96 overflow-y-auto">
+                {transactions.map(t => (
+                  <div key={t.id} className="p-3 hover:bg-gray-50">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={`text-xs px-2 py-0.5 rounded ${getTypeColor(t.transaction_type)}`}>
+                        {t.typeLabel}
+                      </span>
+                      <span className="text-sm font-medium text-gray-800">{t.product_name}</span>
+                      <span className="text-sm text-gray-500">x {t.quantity}{t.unit}</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-xs text-gray-500">
+                      <span>{t.branch_name}</span>
+                      {t.related_branch_name && <span>→ {t.related_branch_name}</span>}
+                      <span>{t.quantity_before} → {t.quantity_after}</span>
+                      <span>{t.user_name}</span>
+                      <span>{new Date(t.created_at).toLocaleString('ja-JP')}</span>
+                    </div>
+                    {t.note && <div className="text-xs text-gray-400 mt-1">{t.note}</div>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 入出庫モーダル */}
+        {showStockModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowStockModal(false)}>
+            <div className="bg-white rounded-2xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
+              <h3 className="font-bold text-lg mb-4">
+                {stockModalType === 'in' ? '入庫登録' : stockModalType === 'out' ? '出庫登録' : '在庫調整'}
+              </h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">営業所</label>
+                  <select value={stockForm.branchId} onChange={(e) => setStockForm({ ...stockForm, branchId: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2">
+                    <option value="">選択してください</option>
+                    {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">製品</label>
+                  <select value={stockForm.productId} onChange={(e) => setStockForm({ ...stockForm, productId: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2">
+                    <option value="">選択してください</option>
+                    {products.map(p => <option key={p.id} value={p.id}>{p.category_name} - {p.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">数量</label>
+                  <input type="number" min="1" value={stockForm.quantity}
+                    onChange={(e) => setStockForm({ ...stockForm, quantity: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2" placeholder="数量を入力" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">備考</label>
+                  <input type="text" value={stockForm.note}
+                    onChange={(e) => setStockForm({ ...stockForm, note: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2" placeholder="任意" />
+                </div>
+              </div>
+              <div className="flex gap-3 mt-6">
+                <button onClick={() => setShowStockModal(false)} className="flex-1 bg-gray-100 py-2 rounded-lg">キャンセル</button>
+                <button onClick={handleStockUpdate}
+                  className={`flex-1 text-white py-2 rounded-lg ${stockModalType === 'in' ? 'bg-green-500' : stockModalType === 'out' ? 'bg-red-500' : 'bg-blue-500'}`}>
+                  {stockModalType === 'in' ? '入庫する' : stockModalType === 'out' ? '出庫する' : '調整する'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 移動モーダル */}
+        {showTransferModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowTransferModal(false)}>
+            <div className="bg-white rounded-2xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
+              <h3 className="font-bold text-lg mb-4">在庫移動</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">移動元</label>
+                  <select value={transferForm.fromBranchId} onChange={(e) => setTransferForm({ ...transferForm, fromBranchId: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2">
+                    <option value="">選択してください</option>
+                    {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">移動先</label>
+                  <select value={transferForm.toBranchId} onChange={(e) => setTransferForm({ ...transferForm, toBranchId: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2">
+                    <option value="">選択してください</option>
+                    {branches.filter(b => b.id !== parseInt(transferForm.fromBranchId)).map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">製品</label>
+                  <select value={transferForm.productId} onChange={(e) => setTransferForm({ ...transferForm, productId: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2">
+                    <option value="">選択してください</option>
+                    {products.map(p => <option key={p.id} value={p.id}>{p.category_name} - {p.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">数量</label>
+                  <input type="number" min="1" value={transferForm.quantity}
+                    onChange={(e) => setTransferForm({ ...transferForm, quantity: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2" placeholder="数量を入力" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">備考</label>
+                  <input type="text" value={transferForm.note}
+                    onChange={(e) => setTransferForm({ ...transferForm, note: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2" placeholder="任意" />
+                </div>
+              </div>
+              <div className="flex gap-3 mt-6">
+                <button onClick={() => setShowTransferModal(false)} className="flex-1 bg-gray-100 py-2 rounded-lg">キャンセル</button>
+                <button onClick={handleTransfer} className="flex-1 bg-purple-500 text-white py-2 rounded-lg">移動する</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // モーダル
   const Modal = () => {
     const [formData, setFormData] = useState(editingItem || {});
@@ -3887,6 +4321,7 @@ function App() {
         {currentView === 'adminDailyReports' && <DailyReportAdminView />}
         {currentView === 'adminTimecards' && <TimecardAdminView />}
         {currentView === 'adminAuditLogs' && <AuditLogView />}
+        {currentView === 'inventory' && <InventoryView />}
       </main>
 
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg">
@@ -3901,6 +4336,9 @@ function App() {
           </button>
           <button onClick={() => navigate('/calendar')} className={`flex-1 py-3 text-center ${currentView === 'calendar' ? '' : 'text-gray-400'}`} style={currentView === 'calendar' ? { color: '#5bbd56' } : {}}>
             <div className="flex justify-center mb-1"><Icons.Calendar /></div><p className="text-xs">カレンダー</p>
+          </button>
+          <button onClick={() => navigate('/inventory')} className={`flex-1 py-3 text-center ${currentView === 'inventory' ? '' : 'text-gray-400'}`} style={currentView === 'inventory' ? { color: '#5bbd56' } : {}}>
+            <div className="flex justify-center mb-1"><Icons.Package /></div><p className="text-xs">在庫</p>
           </button>
           {userRole === 'admin' ? (
             <>

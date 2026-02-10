@@ -2164,6 +2164,283 @@ switch ($request) {
         }
         break;
 
+    // ========== 在庫管理 ==========
+    case 'inventory-branches':
+        checkAuth();
+
+        if ($method === 'GET') {
+            $branches = $db->fetchAll("SELECT * FROM inventory_branches WHERE is_active = 1 ORDER BY id");
+            respond($branches);
+        }
+        break;
+
+    case 'inventory-categories':
+        checkAuth();
+
+        if ($method === 'GET') {
+            $categories = $db->fetchAll("SELECT * FROM inventory_categories WHERE is_active = 1 ORDER BY sort_order");
+            respond($categories);
+        }
+        break;
+
+    case 'inventory-products':
+        checkAuth();
+
+        if ($method === 'GET') {
+            $categoryId = $_GET['category_id'] ?? null;
+            $sql = "SELECT p.*, c.name as category_name FROM inventory_products p
+                    JOIN inventory_categories c ON p.category_id = c.id
+                    WHERE p.is_active = 1";
+            $params = [];
+            if ($categoryId) {
+                $sql .= " AND p.category_id = ?";
+                $params[] = $categoryId;
+            }
+            $sql .= " ORDER BY c.sort_order, p.id";
+            $products = $db->fetchAll($sql, $params);
+            respond($products);
+        }
+        break;
+
+    case 'inventory-stock':
+        checkAuth();
+
+        if ($method === 'GET') {
+            $branchId = $_GET['branch_id'] ?? null;
+            $categoryId = $_GET['category_id'] ?? null;
+
+            $sql = "SELECT s.id, s.branch_id, s.product_id, s.quantity,
+                           b.name as branch_name,
+                           p.name as product_name, p.unit, p.min_stock,
+                           c.id as category_id, c.name as category_name
+                    FROM inventory_stock s
+                    JOIN inventory_branches b ON s.branch_id = b.id
+                    JOIN inventory_products p ON s.product_id = p.id
+                    JOIN inventory_categories c ON p.category_id = c.id
+                    WHERE b.is_active = 1 AND p.is_active = 1";
+            $params = [];
+
+            if ($branchId) {
+                $sql .= " AND s.branch_id = ?";
+                $params[] = $branchId;
+            }
+            if ($categoryId) {
+                $sql .= " AND p.category_id = ?";
+                $params[] = $categoryId;
+            }
+
+            $sql .= " ORDER BY b.id, c.sort_order, p.id";
+            $stock = $db->fetchAll($sql, $params);
+            respond($stock);
+        }
+        break;
+
+    case 'inventory-stock-update':
+        checkAuth();
+
+        if ($method === 'POST') {
+            $branchId = (int)($input['branchId'] ?? 0);
+            $productId = (int)($input['productId'] ?? 0);
+            $type = $input['type'] ?? 'adjust';
+            $quantity = (int)($input['quantity'] ?? 0);
+            $note = $input['note'] ?? '';
+
+            if ($branchId <= 0 || $productId <= 0) {
+                error('営業所と製品を指定してください');
+            }
+            if ($quantity == 0) {
+                error('数量を入力してください');
+            }
+
+            // 現在の在庫を取得
+            $current = $db->fetch(
+                "SELECT quantity FROM inventory_stock WHERE branch_id = ? AND product_id = ?",
+                [$branchId, $productId]
+            );
+            $currentQty = $current ? (int)$current['quantity'] : 0;
+
+            // 新しい数量を計算
+            if ($type === 'in') {
+                $newQty = $currentQty + $quantity;
+            } elseif ($type === 'out') {
+                $newQty = $currentQty - $quantity;
+                if ($newQty < 0) {
+                    error('在庫が不足しています');
+                }
+            } elseif ($type === 'adjust') {
+                $newQty = $quantity;
+            } else {
+                error('不正な操作タイプです');
+            }
+
+            // 在庫を更新（UPSERT）
+            $db->query(
+                "INSERT INTO inventory_stock (branch_id, product_id, quantity) VALUES (?, ?, ?)
+                 ON DUPLICATE KEY UPDATE quantity = VALUES(quantity)",
+                [$branchId, $productId, $newQty]
+            );
+
+            // 履歴を記録
+            $db->insert(
+                "INSERT INTO inventory_transactions (branch_id, product_id, transaction_type, quantity, quantity_before, quantity_after, note, user_id, user_name)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [$branchId, $productId, $type, $quantity, $currentQty, $newQty, $note, $_SESSION['user_id'], $_SESSION['name']]
+            );
+
+            respond(['message' => '在庫を更新しました', 'newQuantity' => $newQty]);
+        }
+        break;
+
+    case 'inventory-transfer':
+        checkAuth();
+
+        if ($method === 'POST') {
+            $fromBranchId = (int)($input['fromBranchId'] ?? 0);
+            $toBranchId = (int)($input['toBranchId'] ?? 0);
+            $productId = (int)($input['productId'] ?? 0);
+            $quantity = (int)($input['quantity'] ?? 0);
+            $note = $input['note'] ?? '';
+
+            if ($fromBranchId <= 0 || $toBranchId <= 0 || $productId <= 0) {
+                error('営業所と製品を指定してください');
+            }
+            if ($fromBranchId === $toBranchId) {
+                error('同じ営業所への移動はできません');
+            }
+            if ($quantity <= 0) {
+                error('数量を入力してください');
+            }
+
+            // 元の在庫を確認
+            $fromStock = $db->fetch(
+                "SELECT quantity FROM inventory_stock WHERE branch_id = ? AND product_id = ?",
+                [$fromBranchId, $productId]
+            );
+            $fromQty = $fromStock ? (int)$fromStock['quantity'] : 0;
+
+            if ($fromQty < $quantity) {
+                error('在庫が不足しています');
+            }
+
+            // 先の在庫を取得
+            $toStock = $db->fetch(
+                "SELECT quantity FROM inventory_stock WHERE branch_id = ? AND product_id = ?",
+                [$toBranchId, $productId]
+            );
+            $toQty = $toStock ? (int)$toStock['quantity'] : 0;
+
+            // 元の在庫を減らす
+            $db->update(
+                "UPDATE inventory_stock SET quantity = quantity - ? WHERE branch_id = ? AND product_id = ?",
+                [$quantity, $fromBranchId, $productId]
+            );
+
+            // 先の在庫を増やす（UPSERT）
+            $db->query(
+                "INSERT INTO inventory_stock (branch_id, product_id, quantity) VALUES (?, ?, ?)
+                 ON DUPLICATE KEY UPDATE quantity = quantity + VALUES(quantity)",
+                [$toBranchId, $productId, $quantity]
+            );
+
+            // 履歴を記録（出庫）
+            $db->insert(
+                "INSERT INTO inventory_transactions (branch_id, product_id, transaction_type, quantity, quantity_before, quantity_after, related_branch_id, note, user_id, user_name)
+                 VALUES (?, ?, 'transfer_out', ?, ?, ?, ?, ?, ?, ?)",
+                [$fromBranchId, $productId, $quantity, $fromQty, $fromQty - $quantity, $toBranchId, $note, $_SESSION['user_id'], $_SESSION['name']]
+            );
+
+            // 履歴を記録（入庫）
+            $db->insert(
+                "INSERT INTO inventory_transactions (branch_id, product_id, transaction_type, quantity, quantity_before, quantity_after, related_branch_id, note, user_id, user_name)
+                 VALUES (?, ?, 'transfer_in', ?, ?, ?, ?, ?, ?, ?)",
+                [$toBranchId, $productId, $quantity, $toQty, $toQty + $quantity, $fromBranchId, $note, $_SESSION['user_id'], $_SESSION['name']]
+            );
+
+            respond(['message' => '在庫を移動しました']);
+        }
+        break;
+
+    case 'inventory-transactions':
+        checkAuth();
+
+        if ($method === 'GET') {
+            $branchId = $_GET['branch_id'] ?? null;
+            $productId = $_GET['product_id'] ?? null;
+            $limit = (int)($_GET['limit'] ?? 100);
+
+            $sql = "SELECT t.*, b.name as branch_name, p.name as product_name, p.unit,
+                           rb.name as related_branch_name
+                    FROM inventory_transactions t
+                    JOIN inventory_branches b ON t.branch_id = b.id
+                    JOIN inventory_products p ON t.product_id = p.id
+                    LEFT JOIN inventory_branches rb ON t.related_branch_id = rb.id
+                    WHERE 1=1";
+            $params = [];
+
+            if ($branchId) {
+                $sql .= " AND t.branch_id = ?";
+                $params[] = $branchId;
+            }
+            if ($productId) {
+                $sql .= " AND t.product_id = ?";
+                $params[] = $productId;
+            }
+
+            $sql .= " ORDER BY t.created_at DESC LIMIT ?";
+            $params[] = $limit;
+
+            $transactions = $db->fetchAll($sql, $params);
+
+            // 日本語ラベルを追加
+            $typeLabels = [
+                'in' => '入庫',
+                'out' => '出庫',
+                'adjust' => '調整',
+                'transfer_in' => '移動入庫',
+                'transfer_out' => '移動出庫'
+            ];
+            foreach ($transactions as &$t) {
+                $t['typeLabel'] = $typeLabels[$t['transaction_type']] ?? $t['transaction_type'];
+            }
+
+            respond($transactions);
+        }
+        break;
+
+    case 'inventory-summary':
+        checkAuth();
+
+        if ($method === 'GET') {
+            // 全営業所の在庫サマリー
+            $summary = $db->fetchAll(
+                "SELECT p.id as product_id, c.name as category_name, p.name as product_name, p.unit,
+                        SUM(COALESCE(s.quantity, 0)) as total_quantity, p.min_stock
+                 FROM inventory_products p
+                 JOIN inventory_categories c ON p.category_id = c.id
+                 LEFT JOIN inventory_stock s ON s.product_id = p.id
+                 WHERE p.is_active = 1
+                 GROUP BY p.id, c.name, p.name, p.unit, p.min_stock
+                 ORDER BY c.sort_order, p.id"
+            );
+
+            // 在庫不足アラート
+            $lowStock = $db->fetchAll(
+                "SELECT s.branch_id, b.name as branch_name, s.product_id, p.name as product_name,
+                        s.quantity, p.min_stock, p.unit
+                 FROM inventory_stock s
+                 JOIN inventory_branches b ON s.branch_id = b.id
+                 JOIN inventory_products p ON s.product_id = p.id
+                 WHERE p.is_active = 1 AND b.is_active = 1 AND s.quantity <= p.min_stock AND p.min_stock > 0
+                 ORDER BY b.id, p.id"
+            );
+
+            respond([
+                'summary' => $summary,
+                'lowStock' => $lowStock
+            ]);
+        }
+        break;
+
     default:
         error('Invalid action', 404);
 }

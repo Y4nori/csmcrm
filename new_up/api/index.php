@@ -2187,6 +2187,13 @@ switch ($request) {
         checkAuth();
 
         if ($method === 'GET') {
+            // sort_orderカラムが存在するか確認し、なければ追加
+            try {
+                $db->query("ALTER TABLE inventory_products ADD COLUMN sort_order INT DEFAULT 0");
+            } catch (Exception $e) {
+                // カラムが既に存在する場合は無視
+            }
+
             $categoryId = $_GET['category_id'] ?? null;
             $sql = "SELECT p.*, c.name as category_name FROM inventory_products p
                     JOIN inventory_categories c ON p.category_id = c.id

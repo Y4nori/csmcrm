@@ -2196,7 +2196,7 @@ switch ($request) {
                 $sql .= " AND p.category_id = ?";
                 $params[] = $categoryId;
             }
-            $sql .= " ORDER BY c.sort_order, p.id";
+            $sql .= " ORDER BY p.sort_order, p.id";
             $products = $db->fetchAll($sql, $params);
             respond($products);
         }
@@ -2282,6 +2282,28 @@ switch ($request) {
         }
         break;
 
+    case 'inventory-product-reorder':
+        checkAuth();
+
+        if ($method === 'POST') {
+            $productIds = $input['productIds'] ?? [];
+
+            if (empty($productIds) || !is_array($productIds)) {
+                error('製品IDリストを指定してください');
+            }
+
+            // 並び順を更新
+            foreach ($productIds as $index => $productId) {
+                $db->query(
+                    "UPDATE inventory_products SET sort_order = ? WHERE id = ?",
+                    [$index, (int)$productId]
+                );
+            }
+
+            respond(['message' => '並び順を更新しました']);
+        }
+        break;
+
     case 'inventory-stock':
         checkAuth();
 
@@ -2309,7 +2331,7 @@ switch ($request) {
                 $params[] = $categoryId;
             }
 
-            $sql .= " ORDER BY b.id, c.sort_order, p.id";
+            $sql .= " ORDER BY b.id, p.sort_order, p.id";
             $stock = $db->fetchAll($sql, $params);
             respond($stock);
         }

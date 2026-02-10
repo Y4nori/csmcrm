@@ -143,7 +143,8 @@ const api = {
   getInventorySummary: () => api.call('inventory-summary'),
   updateInventoryProduct: (productId, data) => api.call('inventory-product-update', 'POST', { productId, ...data }),
   createInventoryProduct: (data) => api.call('inventory-product-create', 'POST', data),
-  deleteInventoryProduct: (id) => api.call('inventory-product-delete', 'DELETE', null, { id })
+  deleteInventoryProduct: (id) => api.call('inventory-product-delete', 'DELETE', null, { id }),
+  reorderInventoryProducts: (productIds) => api.call('inventory-product-reorder', 'POST', { productIds })
 };
 
 // SVGアイコン
@@ -1456,6 +1457,22 @@ function App() {
       }
     };
 
+    const moveProduct = async (index, direction) => {
+      const newProducts = [...inventoryProducts];
+      const newIndex = index + direction;
+      if (newIndex < 0 || newIndex >= newProducts.length) return;
+
+      [newProducts[index], newProducts[newIndex]] = [newProducts[newIndex], newProducts[index]];
+      setInventoryProducts(newProducts);
+
+      try {
+        await api.reorderInventoryProducts(newProducts.map(p => p.id));
+      } catch (err) {
+        console.error(err);
+        await loadInventoryProducts();
+      }
+    };
+
     return (
       <div className="space-y-4">
         <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2"><Icons.Settings /> 設定</h2>
@@ -1547,17 +1564,26 @@ function App() {
               </form>
             </div>
             <div className="bg-white border border-gray-200 rounded-xl p-4 md:col-span-3">
-              <h3 className="font-bold text-gray-700 mb-3 flex items-center gap-2"><Icons.Store /> 在庫商品</h3>
+              <h3 className="font-bold text-gray-700 mb-3 flex items-center gap-2"><Icons.Store /> 在庫商品 <span className="text-xs text-gray-400 font-normal">（上下で並び替え）</span></h3>
               {loadingProducts ? (
                 <div className="text-center py-4 text-gray-500">読み込み中...</div>
               ) : (
                 <>
-                  <div className="flex flex-wrap gap-2 mb-3 max-h-48 overflow-y-auto">
-                    {inventoryProducts.map((p) => (
-                      <span key={`product-${p.id}`} className="bg-amber-50 text-amber-700 text-sm px-2 py-1 rounded border border-amber-200 flex items-center gap-1">
-                        {p.name}
-                        <button onClick={() => deleteProduct(p.id)} className="text-amber-400 hover:text-amber-600"><Icons.X /></button>
-                      </span>
+                  <div className="space-y-1 mb-3 max-h-64 overflow-y-auto">
+                    {inventoryProducts.map((p, index) => (
+                      <div key={`product-${p.id}`} className="bg-amber-50 text-amber-700 text-sm px-3 py-2 rounded border border-amber-200 flex items-center justify-between">
+                        <span className="flex items-center gap-2">
+                          <span className="text-amber-400 text-xs w-6">{index + 1}.</span>
+                          {p.name}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <button onClick={() => moveProduct(index, -1)} disabled={index === 0}
+                            className={`px-2 py-1 rounded text-xs ${index === 0 ? 'text-gray-300' : 'text-amber-600 hover:bg-amber-100'}`}>▲</button>
+                          <button onClick={() => moveProduct(index, 1)} disabled={index === inventoryProducts.length - 1}
+                            className={`px-2 py-1 rounded text-xs ${index === inventoryProducts.length - 1 ? 'text-gray-300' : 'text-amber-600 hover:bg-amber-100'}`}>▼</button>
+                          <button onClick={() => deleteProduct(p.id)} className="text-amber-400 hover:text-amber-600 ml-2"><Icons.X /></button>
+                        </div>
+                      </div>
                     ))}
                   </div>
                   <form onSubmit={addProduct} className="flex gap-2">

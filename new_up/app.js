@@ -141,7 +141,9 @@ const api = {
   transferInventory: (data) => api.call('inventory-transfer', 'POST', data),
   getInventoryTransactions: (params) => api.call('inventory-transactions', 'GET', null, params),
   getInventorySummary: () => api.call('inventory-summary'),
-  updateInventoryProduct: (productId, data) => api.call('inventory-product-update', 'POST', { productId, ...data })
+  updateInventoryProduct: (productId, data) => api.call('inventory-product-update', 'POST', { productId, ...data }),
+  createInventoryProduct: (data) => api.call('inventory-product-create', 'POST', data),
+  deleteInventoryProduct: (id) => api.call('inventory-product-delete', 'DELETE', null, { id })
 };
 
 // SVGアイコン
@@ -1345,12 +1347,54 @@ function App() {
     const [localNewPest, setLocalNewPest] = useState('');
     const [localNewWork, setLocalNewWork] = useState('');
     const [localNewArea, setLocalNewArea] = useState('');
+    const [localNewProduct, setLocalNewProduct] = useState('');
+    const [inventoryProducts, setInventoryProducts] = useState([]);
+    const [loadingProducts, setLoadingProducts] = useState(false);
 
     useEffect(() => {
       if (settingsTab === 'users' && users.length === 0) {
         api.getUsers().then(setUsers).catch(console.error);
       }
-    }, [settingsTab, users.length]);
+      if (settingsTab === 'master' && inventoryProducts.length === 0) {
+        loadInventoryProducts();
+      }
+    }, [settingsTab, users.length, inventoryProducts.length]);
+
+    const loadInventoryProducts = async () => {
+      setLoadingProducts(true);
+      try {
+        const products = await api.getInventoryProducts();
+        setInventoryProducts(products);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoadingProducts(false);
+      }
+    };
+
+    const addProduct = async (e) => {
+      e.preventDefault();
+      if (!localNewProduct.trim()) return;
+      try {
+        await api.createInventoryProduct({ name: localNewProduct.trim(), unit: '個' });
+        setLocalNewProduct('');
+        await loadInventoryProducts();
+      } catch (err) {
+        console.error(err);
+        alert('追加に失敗しました: ' + err.message);
+      }
+    };
+
+    const deleteProduct = async (id) => {
+      if (!confirm('この商品を削除しますか？')) return;
+      try {
+        await api.deleteInventoryProduct(id);
+        await loadInventoryProducts();
+      } catch (err) {
+        console.error(err);
+        alert('削除に失敗しました: ' + err.message);
+      }
+    };
 
     const handleSaveUser = async () => {
       if (!userForm.name || !userForm.username) {
@@ -1501,6 +1545,27 @@ function App() {
                 <input type="text" placeholder="新しい作業箇所を追加" value={localNewArea} onChange={e => setLocalNewArea(e.target.value)} className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm" />
                 <button type="submit" className="px-3 py-2 rounded-lg text-white text-sm" style={{ backgroundColor: '#5bbd56' }}>追加</button>
               </form>
+            </div>
+            <div className="bg-white border border-gray-200 rounded-xl p-4 md:col-span-3">
+              <h3 className="font-bold text-gray-700 mb-3 flex items-center gap-2"><Icons.Store /> 在庫商品</h3>
+              {loadingProducts ? (
+                <div className="text-center py-4 text-gray-500">読み込み中...</div>
+              ) : (
+                <>
+                  <div className="flex flex-wrap gap-2 mb-3 max-h-48 overflow-y-auto">
+                    {inventoryProducts.map((p) => (
+                      <span key={`product-${p.id}`} className="bg-amber-50 text-amber-700 text-sm px-2 py-1 rounded border border-amber-200 flex items-center gap-1">
+                        {p.name}
+                        <button onClick={() => deleteProduct(p.id)} className="text-amber-400 hover:text-amber-600"><Icons.X /></button>
+                      </span>
+                    ))}
+                  </div>
+                  <form onSubmit={addProduct} className="flex gap-2">
+                    <input type="text" placeholder="新しい商品を追加" value={localNewProduct} onChange={e => setLocalNewProduct(e.target.value)} className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                    <button type="submit" className="px-3 py-2 rounded-lg text-white text-sm" style={{ backgroundColor: '#5bbd56' }}>追加</button>
+                  </form>
+                </>
+              )}
             </div>
           </div>
         )}
@@ -3180,6 +3245,10 @@ function App() {
     const [selectedBranch, setSelectedBranch] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('');
 
+    // 並び替え
+    const [sortKey, setSortKey] = useState('name');
+    const [sortOrder, setSortOrder] = useState('asc');
+
     // 入出庫モーダル
     const [showStockModal, setShowStockModal] = useState(false);
     const [stockModalType, setStockModalType] = useState('in');
@@ -3298,26 +3367,60 @@ function App() {
       }
     };
 
-    // 在庫をカテゴリ・製品でグループ化
+    // 在庫を製品でグループ化
     const groupedStock = stock.reduce((acc, item) => {
-      const key = `${item.branch_id}-${item.category_id}`;
-      if (!acc[item.category_name]) {
-        acc[item.category_name] = {};
-      }
-      if (!acc[item.category_name][item.product_name]) {
-        acc[item.category_name][item.product_name] = {
+      if (!acc[item.product_name]) {
+        acc[item.product_name] = {
           product_id: item.product_id,
           unit: item.unit,
           min_stock: item.min_stock,
           branches: {}
         };
       }
-      acc[item.category_name][item.product_name].branches[item.branch_id] = {
+      acc[item.product_name].branches[item.branch_id] = {
         branch_name: item.branch_name,
         quantity: item.quantity
       };
       return acc;
     }, {});
+
+    // 並び替え関数
+    const toggleSort = (key) => {
+      if (sortKey === key) {
+        setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+      } else {
+        setSortKey(key);
+        setSortOrder('asc');
+      }
+    };
+
+    // 並び替え適用
+    const sortedStock = [...stock].sort((a, b) => {
+      let compare = 0;
+      if (sortKey === 'name') {
+        compare = a.product_name.localeCompare(b.product_name, 'ja');
+      } else if (sortKey === 'quantity') {
+        compare = a.quantity - b.quantity;
+      } else if (sortKey === 'alert') {
+        compare = (a.min_stock || 0) - (b.min_stock || 0);
+      }
+      return sortOrder === 'asc' ? compare : -compare;
+    });
+
+    // クロス表示用の並び替え
+    const sortedGroupedEntries = Object.entries(groupedStock).sort((a, b) => {
+      let compare = 0;
+      if (sortKey === 'name') {
+        compare = a[0].localeCompare(b[0], 'ja');
+      } else if (sortKey === 'total') {
+        const totalA = Object.values(a[1].branches).reduce((sum, br) => sum + (br.quantity || 0), 0);
+        const totalB = Object.values(b[1].branches).reduce((sum, br) => sum + (br.quantity || 0), 0);
+        compare = totalA - totalB;
+      } else if (sortKey === 'alert') {
+        compare = (a[1].min_stock || 0) - (b[1].min_stock || 0);
+      }
+      return sortOrder === 'asc' ? compare : -compare;
+    });
 
     const getTypeColor = (type) => {
       switch (type) {
@@ -3382,11 +3485,6 @@ function App() {
             <option value="">全営業所</option>
             {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
           </select>
-          <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm">
-            <option value="">全カテゴリ</option>
-            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
         </div>
 
         {activeTab === 'stock' && (
@@ -3397,14 +3495,20 @@ function App() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-gray-50 border-b">
-                      <th className="text-left px-4 py-3 font-medium text-gray-600">カテゴリ</th>
-                      <th className="text-left px-4 py-3 font-medium text-gray-600">製品名</th>
-                      <th className="text-center px-4 py-3 font-medium text-gray-600">在庫数</th>
+                      <th className="text-left px-4 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => toggleSort('name')}>
+                        製品名 {sortKey === 'name' && (sortOrder === 'asc' ? '▲' : '▼')}
+                      </th>
+                      <th className="text-center px-4 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => toggleSort('quantity')}>
+                        在庫数 {sortKey === 'quantity' && (sortOrder === 'asc' ? '▲' : '▼')}
+                      </th>
+                      <th className="text-center px-4 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => toggleSort('alert')}>
+                        アラート {sortKey === 'alert' && (sortOrder === 'asc' ? '▲' : '▼')}
+                      </th>
                       <th className="text-center px-4 py-3 font-medium text-gray-600">単位</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {stock.map(item => (
+                    {sortedStock.map(item => (
                       <tr key={`${item.branch_id}-${item.product_id}`}
                         onClick={() => {
                           setStockForm({ branchId: item.branch_id.toString(), productId: item.product_id.toString(), quantity: '', note: '', alertThreshold: (item.min_stock || 0).toString() });
@@ -3412,7 +3516,6 @@ function App() {
                           setShowStockModal(true);
                         }}
                         className="border-b hover:bg-blue-50 cursor-pointer">
-                        <td className="px-4 py-3 text-gray-500">{item.category_name}</td>
                         <td className="px-4 py-3 font-medium">{item.product_name}</td>
                         <td className={`px-4 py-3 text-center font-bold ${item.quantity <= item.min_stock && item.min_stock > 0 ? 'text-red-600' : 'text-gray-800'}`}>
                           {item.quantity}
@@ -3420,6 +3523,7 @@ function App() {
                             <span className="ml-1 text-xs bg-red-100 text-red-600 px-1 rounded">不足</span>
                           )}
                         </td>
+                        <td className="px-4 py-3 text-center text-gray-500">{item.min_stock || 0}</td>
                         <td className="px-4 py-3 text-center text-gray-500">{item.unit}</td>
                       </tr>
                     ))}
@@ -3429,44 +3533,49 @@ function App() {
             ) : (
               // 全営業所クロス表示
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-sm table-fixed">
                   <thead>
                     <tr className="bg-gray-50 border-b">
-                      <th className="text-left px-3 py-3 font-medium text-gray-600 sticky left-0 bg-gray-50">カテゴリ</th>
-                      <th className="text-left px-3 py-3 font-medium text-gray-600 sticky left-24 bg-gray-50">製品名</th>
+                      <th className="text-left px-2 py-3 font-medium text-gray-600 w-24 cursor-pointer hover:bg-gray-100" onClick={() => toggleSort('name')}>
+                        製品名 {sortKey === 'name' && (sortOrder === 'asc' ? '▲' : '▼')}
+                      </th>
                       {branches.map(b => (
-                        <th key={b.id} className="text-center px-3 py-3 font-medium text-gray-600 min-w-[80px]">{b.name.replace('営業', '').replace('所', '')}</th>
+                        <th key={b.id} className="text-center px-1 py-3 font-medium text-gray-600 w-12">{b.name.replace('営業', '').replace('所', '')}</th>
                       ))}
-                      <th className="text-center px-3 py-3 font-medium text-gray-600 bg-green-50">合計</th>
+                      <th className="text-center px-2 py-3 font-medium text-gray-600 bg-green-50 w-14 cursor-pointer hover:bg-green-100" onClick={() => toggleSort('total')}>
+                        合計 {sortKey === 'total' && (sortOrder === 'asc' ? '▲' : '▼')}
+                      </th>
+                      <th className="text-center px-2 py-3 font-medium text-gray-600 w-14 cursor-pointer hover:bg-gray-100" onClick={() => toggleSort('alert')}>
+                        閾値 {sortKey === 'alert' && (sortOrder === 'asc' ? '▲' : '▼')}
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
-                    {Object.entries(groupedStock).map(([categoryName, productsInCategory]) =>
-                      Object.entries(productsInCategory).map(([productName, productData], idx) => {
-                        const total = Object.values(productData.branches).reduce((sum, b) => sum + (b.quantity || 0), 0);
-                        return (
-                          <tr key={productData.product_id} className="border-b hover:bg-gray-50">
-                            <td className="px-3 py-2 text-gray-500 sticky left-0 bg-white">{idx === 0 ? categoryName : ''}</td>
-                            <td className="px-3 py-2 font-medium sticky left-24 bg-white">{productName}</td>
-                            {branches.map(b => {
-                              const qty = productData.branches[b.id]?.quantity || 0;
-                              return (
-                                <td key={b.id}
-                                  onClick={() => {
-                                    setStockForm({ branchId: b.id.toString(), productId: productData.product_id.toString(), quantity: '', note: '', alertThreshold: (productData.min_stock || 0).toString() });
-                                    setStockModalType('adjust');
-                                    setShowStockModal(true);
-                                  }}
-                                  className={`px-3 py-2 text-center cursor-pointer hover:bg-blue-50 ${qty === 0 ? 'text-gray-300' : 'text-gray-800'}`}>
-                                  {qty}
-                                </td>
-                              );
-                            })}
-                            <td className="px-3 py-2 text-center font-bold bg-green-50 text-green-700">{total}</td>
-                          </tr>
-                        );
-                      })
-                    )}
+                    {sortedGroupedEntries.map(([productName, productData]) => {
+                      const total = Object.values(productData.branches).reduce((sum, b) => sum + (b.quantity || 0), 0);
+                      const isLow = total <= (productData.min_stock || 0) && (productData.min_stock || 0) > 0;
+                      return (
+                        <tr key={productData.product_id} className={`border-b hover:bg-gray-50 ${isLow ? 'bg-red-50' : ''}`}>
+                          <td className="px-2 py-2 font-medium text-sm truncate" title={productName}>{productName}</td>
+                          {branches.map(b => {
+                            const qty = productData.branches[b.id]?.quantity || 0;
+                            return (
+                              <td key={b.id}
+                                onClick={() => {
+                                  setStockForm({ branchId: b.id.toString(), productId: productData.product_id.toString(), quantity: '', note: '', alertThreshold: (productData.min_stock || 0).toString() });
+                                  setStockModalType('adjust');
+                                  setShowStockModal(true);
+                                }}
+                                className={`px-1 py-2 text-center cursor-pointer hover:bg-blue-50 ${qty === 0 ? 'text-gray-300' : 'text-gray-800'}`}>
+                                {qty}
+                              </td>
+                            );
+                          })}
+                          <td className={`px-2 py-2 text-center font-bold bg-green-50 ${isLow ? 'text-red-600' : 'text-green-700'}`}>{total}</td>
+                          <td className="px-2 py-2 text-center text-gray-500 text-xs">{productData.min_stock || 0}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

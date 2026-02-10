@@ -140,7 +140,8 @@ const api = {
   updateInventoryStock: (data) => api.call('inventory-stock-update', 'POST', data),
   transferInventory: (data) => api.call('inventory-transfer', 'POST', data),
   getInventoryTransactions: (params) => api.call('inventory-transactions', 'GET', null, params),
-  getInventorySummary: () => api.call('inventory-summary')
+  getInventorySummary: () => api.call('inventory-summary'),
+  updateInventoryProduct: (productId, data) => api.call('inventory-product-update', 'POST', { productId, ...data })
 };
 
 // SVGアイコン
@@ -3182,7 +3183,7 @@ function App() {
     // 入出庫モーダル
     const [showStockModal, setShowStockModal] = useState(false);
     const [stockModalType, setStockModalType] = useState('in');
-    const [stockForm, setStockForm] = useState({ branchId: '', productId: '', quantity: '', note: '' });
+    const [stockForm, setStockForm] = useState({ branchId: '', productId: '', quantity: '', note: '', alertThreshold: '' });
 
     // 移動モーダル
     const [showTransferModal, setShowTransferModal] = useState(false);
@@ -3260,8 +3261,14 @@ function App() {
           quantity: parseInt(stockForm.quantity),
           note: stockForm.note
         });
+        // アラート閾値も更新
+        if (stockForm.alertThreshold !== '') {
+          await api.updateInventoryProduct(parseInt(stockForm.productId), {
+            alertThreshold: parseInt(stockForm.alertThreshold)
+          });
+        }
         setShowStockModal(false);
-        setStockForm({ branchId: '', productId: '', quantity: '', note: '' });
+        setStockForm({ branchId: '', productId: '', quantity: '', note: '', alertThreshold: '' });
         await loadStock();
         if (activeTab === 'history') await loadTransactions();
       } catch (e) {
@@ -3398,7 +3405,13 @@ function App() {
                   </thead>
                   <tbody>
                     {stock.map(item => (
-                      <tr key={`${item.branch_id}-${item.product_id}`} className="border-b hover:bg-gray-50">
+                      <tr key={`${item.branch_id}-${item.product_id}`}
+                        onClick={() => {
+                          setStockForm({ branchId: item.branch_id.toString(), productId: item.product_id.toString(), quantity: '', note: '', alertThreshold: (item.min_stock || 0).toString() });
+                          setStockModalType('adjust');
+                          setShowStockModal(true);
+                        }}
+                        className="border-b hover:bg-blue-50 cursor-pointer">
                         <td className="px-4 py-3 text-gray-500">{item.category_name}</td>
                         <td className="px-4 py-3 font-medium">{item.product_name}</td>
                         <td className={`px-4 py-3 text-center font-bold ${item.quantity <= item.min_stock && item.min_stock > 0 ? 'text-red-600' : 'text-gray-800'}`}>
@@ -3438,7 +3451,13 @@ function App() {
                             {branches.map(b => {
                               const qty = productData.branches[b.id]?.quantity || 0;
                               return (
-                                <td key={b.id} className={`px-3 py-2 text-center ${qty === 0 ? 'text-gray-300' : 'text-gray-800'}`}>
+                                <td key={b.id}
+                                  onClick={() => {
+                                    setStockForm({ branchId: b.id.toString(), productId: productData.product_id.toString(), quantity: '', note: '', alertThreshold: (productData.min_stock || 0).toString() });
+                                    setStockModalType('adjust');
+                                    setShowStockModal(true);
+                                  }}
+                                  className={`px-3 py-2 text-center cursor-pointer hover:bg-blue-50 ${qty === 0 ? 'text-gray-300' : 'text-gray-800'}`}>
                                   {qty}
                                 </td>
                               );
@@ -3520,6 +3539,12 @@ function App() {
                   <input type="text" value={stockForm.note}
                     onChange={(e) => setStockForm({ ...stockForm, note: e.target.value })}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2" placeholder="任意" />
+                </div>
+                <div className="border-t pt-4 mt-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">アラート閾値（この数以下で不足表示）</label>
+                  <input type="number" min="0" value={stockForm.alertThreshold}
+                    onChange={(e) => setStockForm({ ...stockForm, alertThreshold: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2" placeholder="0" />
                 </div>
               </div>
               <div className="flex gap-3 mt-6">

@@ -2202,6 +2202,28 @@ switch ($request) {
         }
         break;
 
+    case 'inventory-product-update':
+        checkAuth();
+
+        if ($method === 'POST') {
+            $productId = (int)($input['productId'] ?? 0);
+            $alertThreshold = isset($input['alertThreshold']) ? (int)$input['alertThreshold'] : null;
+
+            if ($productId <= 0) {
+                error('製品IDを指定してください');
+            }
+
+            if ($alertThreshold !== null) {
+                $db->query(
+                    "UPDATE inventory_products SET alert_threshold = ? WHERE id = ?",
+                    [$alertThreshold, $productId]
+                );
+            }
+
+            respond(['message' => '製品設定を更新しました']);
+        }
+        break;
+
     case 'inventory-stock':
         checkAuth();
 

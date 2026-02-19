@@ -4055,15 +4055,13 @@ function App() {
                 <input type="text" name="site-address" placeholder="住所" defaultValue={editingItem?.address || ''} className="flex-1 border border-gray-300 rounded-lg px-3 py-2" />
                 <button type="button" onClick={() => { document.querySelector('[name="site-address"]').value = selectedCorp?.address || ''; }} className="text-xs px-2 border border-gray-300 rounded text-gray-500">コピー</button>
               </div>
-              {(userRole === 'admin' || userRole === 'master') && (
-                <div className="p-3 rounded-lg" style={{ backgroundColor: 'rgba(91, 189, 86, 0.1)' }}>
-                  <p className="text-sm font-medium mb-2" style={{ color: '#5bbd56' }}>キーボックス</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    <input type="text" name="site-keybox" placeholder="暗証番号" defaultValue={editingItem?.keybox || ''} className="border border-gray-300 rounded-lg px-3 py-2" />
-                    <input type="text" name="site-keyboxLocation" placeholder="場所" defaultValue={editingItem?.keyboxLocation || ''} className="border border-gray-300 rounded-lg px-3 py-2" />
-                  </div>
+              <div className="p-3 rounded-lg" style={{ backgroundColor: 'rgba(91, 189, 86, 0.1)' }}>
+                <p className="text-sm font-medium mb-2" style={{ color: '#5bbd56' }}>キーボックス</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <input type="text" name="site-keybox" placeholder="暗証番号" defaultValue={editingItem?.keybox || ''} className="border border-gray-300 rounded-lg px-3 py-2" />
+                  <input type="text" name="site-keyboxLocation" placeholder="場所" defaultValue={editingItem?.keyboxLocation || ''} className="border border-gray-300 rounded-lg px-3 py-2" />
                 </div>
-              )}
+              </div>
               <div>
                 <p className="text-sm font-medium text-gray-600 mb-2">対象害虫</p>
                 <div className="flex flex-wrap gap-2">

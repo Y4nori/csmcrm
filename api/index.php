@@ -671,20 +671,15 @@ switch ($request) {
         }
 
         if ($method === 'PUT') {
-            // キーボックス情報の更新は管理者のみ許可
-            $existingSite = $db->fetch("SELECT keybox, keybox_location FROM sites WHERE id = ?", [$id]);
+            // 現場の存在確認
+            $existingSite = $db->fetch("SELECT id FROM sites WHERE id = ?", [$id]);
             if (!$existingSite) {
                 error('Site not found', 404);
             }
 
-            // スタッフはキーボックス情報を変更できない
+            // キーボックス情報の取得
             $keybox = $input['keybox'] ?? '';
             $keyboxLocation = $input['keyboxLocation'] ?? '';
-            if ($_SESSION['role'] !== 'admin' && $_SESSION['role'] !== 'master') {
-                // キーボックス情報は既存の値を維持
-                $keybox = $existingSite['keybox'];
-                $keyboxLocation = $existingSite['keybox_location'];
-            }
 
             $db->update(
                 "UPDATE sites SET name = ?, address = ?, keybox = ?, keybox_location = ?, memo = ? WHERE id = ?",

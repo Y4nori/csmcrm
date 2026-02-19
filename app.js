@@ -1,4 +1,4 @@
-const { useState, useEffect } = React;
+const { useState, useEffect, useMemo } = React;
 const { HashRouter, Routes, Route, useNavigate, useParams, useLocation, Navigate } = ReactRouterDOM;
 
 // 全角→半角変換ユーティリティ
@@ -115,12 +115,9 @@ const api = {
   exportTimecards: (params) => api.call('timecards-export', 'GET', null, params),
 
   // タイムカード修正申請API
-  submitTimecardRequest: (data) => api.call('timecard-request', 'POST', data),
-  getTimecardRequests: (params) => api.call('timecard-requests', 'GET', null, params),
-  getMyTimecardRequests: () => api.call('timecard-request', 'GET'),
-  approveTimecardRequest: (id) => api.call('timecard-request-approve', 'POST', { id }),
-  rejectTimecardRequest: (id, comment) => api.call('timecard-request-reject', 'POST', { id, comment }),
-  getTimecardRequestsCount: () => api.call('timecard-requests-count', 'GET'),
+  getCorrectionRequests: (params) => api.call('time-correction-requests', 'GET', null, params),
+  submitCorrectionRequest: (data) => api.call('time-correction-requests', 'POST', data),
+  processCorrectionRequest: (data) => api.call('process-time-correction', 'POST', data),
 
   // 車両マスターAPI
   getVehicles: () => api.call('vehicles'),
@@ -129,19 +126,7 @@ const api = {
 
   // 履歴API（管理者のみ）
   getLoginLogs: () => api.call('login-logs'),
-  getKeyboxLogs: () => api.call('keybox-log'),
-  getAuditLogs: (params) => api.call('audit-logs', 'GET', null, params),
-
-  // 在庫管理API
-  getInventoryBranches: () => api.call('inventory-branches'),
-  getInventoryCategories: () => api.call('inventory-categories'),
-  getInventoryProducts: (params) => api.call('inventory-products', 'GET', null, params),
-  getInventoryStock: (params) => api.call('inventory-stock', 'GET', null, params),
-  updateInventoryStock: (data) => api.call('inventory-stock-update', 'POST', data),
-  transferInventory: (data) => api.call('inventory-transfer', 'POST', data),
-  getInventoryTransactions: (params) => api.call('inventory-transactions', 'GET', null, params),
-  getInventorySummary: () => api.call('inventory-summary'),
-  updateInventoryProduct: (productId, data) => api.call('inventory-product-update', 'POST', { productId, ...data })
+  getKeyboxLogs: () => api.call('keybox-log')
 };
 
 // SVGアイコン
@@ -186,8 +171,7 @@ const Icons = {
   Car: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.5 2.8C1.4 11.3 1 12.1 1 13v3c0 .6.4 1 1 1h2"></path><circle cx="7" cy="17" r="2"></circle><circle cx="17" cy="17" r="2"></circle></svg>),
   Calculator: () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"></rect><line x1="8" y1="6" x2="16" y2="6"></line><line x1="8" y1="10" x2="8" y2="10.01"></line><line x1="12" y1="10" x2="12" y2="10.01"></line><line x1="16" y1="10" x2="16" y2="10.01"></line><line x1="8" y1="14" x2="8" y2="14.01"></line><line x1="12" y1="14" x2="12" y2="14.01"></line><line x1="16" y1="14" x2="16" y2="14.01"></line><line x1="8" y1="18" x2="8" y2="18.01"></line><line x1="12" y1="18" x2="12" y2="18.01"></line><line x1="16" y1="18" x2="16" y2="18.01"></line></svg>),
   ExternalLink: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>),
-  Trash2: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>),
-  Package: () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16.5 9.4l-9-5.19M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>)
+  Trash2: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>)
 };
 
 // メインアプリ
@@ -224,8 +208,6 @@ function App() {
     if (path === '/menu') return 'menu';
     if (path === '/admin/daily-reports') return 'adminDailyReports';
     if (path === '/admin/timecards') return 'adminTimecards';
-    if (path === '/admin/audit-logs') return 'adminAuditLogs';
-    if (path === '/inventory') return 'inventory';
     return 'dashboard';
   };
   const currentView = getCurrentView();
@@ -394,12 +376,12 @@ function App() {
   };
 
   // 通知生成
-  const generateNotifications = (() => {
+  const generateNotifications = useMemo(() => {
     const notifs = [];
     const today = new Date();
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
-
+    
     corporations.forEach(corp => {
       if (corp.contractEnd) {
         const endDate = new Date(corp.contractEnd);
@@ -421,14 +403,14 @@ function App() {
           const tomorrowMonth = tomorrow.getMonth() + 1;
           const tomorrowDate = tomorrow.getDate();
           const plan = site.yearlyPlan[tomorrowMonth];
-          if (plan?.scheduled && parseInt(plan.date) === tomorrowDate) {
+          if (plan?.scheduled && plan.date === tomorrowDate) {
             notifs.push({ id: `work-${site.id}`, type: 'work', title: '明日施工予定', message: `${corp.name} - ${site.name}`, corpId: corp.id, siteId: site.id, priority: 'medium' });
           }
         }
       });
     });
     return notifs;
-  })();
+  }, [corporations]);
 
   // 今週の施工を取得
   const getThisWeekWorks = () => {
@@ -445,7 +427,7 @@ function App() {
             const month = d.getMonth() + 1;
             const date = d.getDate();
             const plan = site.yearlyPlan[month];
-            if (plan?.scheduled && parseInt(plan.date) === date) {
+            if (plan?.scheduled && plan.date === date) {
               works.push({ ...site, corpName: corp.name, corpId: corp.id, corpAddress: corp.address, scheduledDate: new Date(d), workType: plan.workType });
             }
           }
@@ -759,10 +741,12 @@ function App() {
 
         <div className="flex justify-between items-center mb-2 mt-4">
           <h3 className="text-gray-600 font-medium flex items-center gap-2"><Icons.Store /> 現場一覧</h3>
-          <button onClick={() => { setModalType('site'); setEditingItem(null); setShowModal(true); }}
-            className="flex items-center gap-1 text-white px-3 py-1.5 rounded-lg text-sm" style={{ backgroundColor: '#5bbd56' }}>
-            <Icons.Plus /> 現場追加
-          </button>
+          {userRole === 'admin' && (
+            <button onClick={() => { setModalType('site'); setEditingItem(null); setShowModal(true); }}
+              className="flex items-center gap-1 text-white px-3 py-1.5 rounded-lg text-sm" style={{ backgroundColor: '#5bbd56' }}>
+              <Icons.Plus /> 現場追加
+            </button>
+          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -2075,12 +2059,12 @@ function App() {
                 <div className="grid grid-cols-2 gap-2 mb-2">
                   <div>
                     <label className="text-xs text-gray-500">開始</label>
-                    <input type="text" inputMode="numeric" pattern="[0-9]{1,2}:[0-9]{2}" placeholder="09:00" value={detail.startTime} onChange={(e) => updateDetail(i, 'startTime', e.target.value)}
+                    <input type="time" value={detail.startTime} onChange={(e) => updateDetail(i, 'startTime', e.target.value)}
                       className="w-full border border-gray-300 rounded px-2 py-1 text-sm" />
                   </div>
                   <div>
                     <label className="text-xs text-gray-500">終了</label>
-                    <input type="text" inputMode="numeric" pattern="[0-9]{1,2}:[0-9]{2}" placeholder="17:00" value={detail.endTime} onChange={(e) => updateDetail(i, 'endTime', e.target.value)}
+                    <input type="time" value={detail.endTime} onChange={(e) => updateDetail(i, 'endTime', e.target.value)}
                       className="w-full border border-gray-300 rounded px-2 py-1 text-sm" />
                   </div>
                 </div>
@@ -2104,7 +2088,7 @@ function App() {
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="text-xs text-gray-500">人数</label>
-                    <input type="number" min="1" value={detail.workerCount || ''} onChange={(e) => updateDetail(i, 'workerCount', e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+                    <input type="number" min="1" value={detail.workerCount} onChange={(e) => updateDetail(i, 'workerCount', parseInt(e.target.value) || 1)}
                       className="w-full border border-gray-300 rounded px-2 py-1 text-sm" />
                   </div>
                   <div>
@@ -2218,7 +2202,8 @@ function App() {
     const [showEditModal, setShowEditModal] = useState(false);
     const [editingCard, setEditingCard] = useState(null);
     const [showCorrectionModal, setShowCorrectionModal] = useState(false);
-    const [correctionData, setCorrectionData] = useState({ work_date: '', clock_in: '', clock_out: '', reason: '' });
+    const [correctionCard, setCorrectionCard] = useState(null);
+    const [correctionForm, setCorrectionForm] = useState({ clock_in: '', clock_out: '', reason: '' });
     const [myRequests, setMyRequests] = useState([]);
 
     useEffect(() => {
@@ -2227,24 +2212,8 @@ function App() {
     }, []);
 
     useEffect(() => {
-      let cancelled = false;
-
-      const load = async () => {
-        try {
-          const todayData = await api.getTodayTimecard();
-          if (!cancelled) setTodayCard(todayData);
-        } catch (e) { console.error(e); }
-
-        setLoading(true);
-        try {
-          const monthData = await api.getTimecards({ year_month: selectedMonth });
-          if (!cancelled) setMonthCards(monthData);
-        } catch (e) { console.error(e); }
-        if (!cancelled) setLoading(false);
-      };
-
-      load();
-      return () => { cancelled = true; };
+      loadTodayCard();
+      loadMonthCards();
     }, [selectedMonth]);
 
     const loadTodayCard = async () => {
@@ -2265,32 +2234,43 @@ function App() {
 
     const loadMyRequests = async () => {
       try {
-        const data = await api.getMyTimecardRequests();
+        const data = await api.getCorrectionRequests();
         setMyRequests(data);
       } catch (e) { console.error(e); }
     };
 
+    useEffect(() => { loadMyRequests(); }, []);
+
     const handleSubmitCorrection = async () => {
-      if (!correctionData.work_date) {
-        alert('日付を入力してください');
-        return;
-      }
       try {
-        await api.submitTimecardRequest(correctionData);
-        alert('修正申請を送信しました');
+        await api.submitCorrectionRequest({
+          work_date: correctionCard.work_date,
+          clock_in: correctionForm.clock_in ? correctionForm.clock_in + ':00' : null,
+          clock_out: correctionForm.clock_out ? correctionForm.clock_out + ':00' : null,
+          reason: correctionForm.reason
+        });
         setShowCorrectionModal(false);
-        setCorrectionData({ work_date: '', clock_in: '', clock_out: '', reason: '' });
+        setCorrectionCard(null);
+        setCorrectionForm({ clock_in: '', clock_out: '', reason: '' });
         loadMyRequests();
-      } catch (e) {
-        alert(e.message);
+        alert('修正申請を送信しました');
+      } catch (e) { alert('申請に失敗しました: ' + e.message); }
+    };
+
+    const correctionStatusLabel = (status) => {
+      switch (status) {
+        case 'pending': return { label: '申請中', color: 'bg-yellow-100 text-yellow-700' };
+        case 'approved': return { label: '承認済', color: 'bg-green-100 text-green-700' };
+        case 'rejected': return { label: '却下', color: 'bg-red-100 text-red-700' };
+        default: return { label: status, color: 'bg-gray-100 text-gray-600' };
       }
     };
 
     const handleClockIn = async () => {
       try {
         await api.clockIn({ type: 'auto' });
-        await loadTodayCard();
-        await loadMonthCards();
+        loadTodayCard();
+        loadMonthCards();
       } catch (e) {
         alert(e.message);
       }
@@ -2299,10 +2279,36 @@ function App() {
     const handleClockOut = async () => {
       try {
         await api.clockOut({ type: 'auto' });
-        await loadTodayCard();
-        await loadMonthCards();
+        loadTodayCard();
+        loadMonthCards();
       } catch (e) {
         alert(e.message);
+      }
+    };
+
+    const handleManualClockIn = async () => {
+      const time = prompt('出勤時刻を入力 (HH:MM)', currentTime.toTimeString().slice(0, 5));
+      if (time) {
+        try {
+          await api.clockIn({ time: time + ':00', type: 'manual' });
+          loadTodayCard();
+          loadMonthCards();
+        } catch (e) {
+          alert(e.message);
+        }
+      }
+    };
+
+    const handleManualClockOut = async () => {
+      const time = prompt('退勤時刻を入力 (HH:MM)', currentTime.toTimeString().slice(0, 5));
+      if (time) {
+        try {
+          await api.clockOut({ time: time + ':00', type: 'manual' });
+          loadTodayCard();
+          loadMonthCards();
+        } catch (e) {
+          alert(e.message);
+        }
       }
     };
 
@@ -2322,15 +2328,27 @@ function App() {
 
           <div className="flex gap-3 justify-center mb-4">
             {!todayCard?.clock_in ? (
-              <button onClick={handleClockIn}
-                className="px-8 py-4 rounded-xl text-white text-lg font-bold" style={{ backgroundColor: '#5bbd56' }}>
-                出勤
-              </button>
+              <>
+                <button onClick={handleClockIn}
+                  className="px-8 py-4 rounded-xl text-white text-lg font-bold" style={{ backgroundColor: '#5bbd56' }}>
+                  出勤
+                </button>
+                <button onClick={handleManualClockIn}
+                  className="px-4 py-4 rounded-xl bg-gray-200 text-gray-600 text-sm">
+                  手入力
+                </button>
+              </>
             ) : !todayCard?.clock_out ? (
-              <button onClick={handleClockOut}
-                className="px-8 py-4 rounded-xl text-white text-lg font-bold bg-orange-500">
-                退勤
-              </button>
+              <>
+                <button onClick={handleClockOut}
+                  className="px-8 py-4 rounded-xl text-white text-lg font-bold bg-orange-500">
+                  退勤
+                </button>
+                <button onClick={handleManualClockOut}
+                  className="px-4 py-4 rounded-xl bg-gray-200 text-gray-600 text-sm">
+                  手入力
+                </button>
+              </>
             ) : (
               <p className="text-green-600 font-medium">本日の打刻完了</p>
             )}
@@ -2364,11 +2382,21 @@ function App() {
               {monthCards.map(card => (
                 <div key={card.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
                   <span className="font-medium text-gray-700">{card.work_date}</span>
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
                     <span className="text-sm">{formatTime(card.clock_in)} - {formatTime(card.clock_out)}</span>
-                    {currentUser?.role === 'admin' && (
+                    {currentUser?.role === 'admin' ? (
                       <button onClick={() => { setEditingCard(card); setShowEditModal(true); }}
                         className="text-gray-400 hover:text-gray-600"><Icons.Edit /></button>
+                    ) : (
+                      <button onClick={() => {
+                        setCorrectionCard(card);
+                        setCorrectionForm({
+                          clock_in: card.clock_in?.slice(0, 5) || '',
+                          clock_out: card.clock_out?.slice(0, 5) || '',
+                          reason: ''
+                        });
+                        setShowCorrectionModal(true);
+                      }} className="text-xs px-2 py-1 bg-yellow-100 text-yellow-700 rounded">修正申請</button>
                     )}
                   </div>
                 </div>
@@ -2376,6 +2404,66 @@ function App() {
             </div>
           )}
         </div>
+
+        {currentUser?.role !== 'admin' && myRequests.length > 0 && (
+          <div className="bg-white border border-gray-200 rounded-xl p-4">
+            <h3 className="font-bold text-gray-700 mb-3">修正申請一覧</h3>
+            <div className="space-y-2 max-h-40 overflow-y-auto">
+              {myRequests.map(req => {
+                const st = correctionStatusLabel(req.status);
+                return (
+                  <div key={req.id} className="p-2 bg-gray-50 rounded-lg text-sm">
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium">{req.work_date}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded ${st.color}`}>{st.label}</span>
+                    </div>
+                    <p className="text-gray-500 text-xs mt-1">
+                      出勤: {req.requested_clock_in?.slice(0, 5) || '--:--'} / 退勤: {req.requested_clock_out?.slice(0, 5) || '--:--'}
+                    </p>
+                    <p className="text-gray-400 text-xs">理由: {req.reason}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {showCorrectionModal && correctionCard && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl p-6 w-full max-w-sm">
+              <h3 className="font-bold text-lg mb-2">修正申請</h3>
+              <p className="text-gray-500 mb-4">{correctionCard.work_date}</p>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-sm text-gray-500">出勤時刻</label>
+                  <input type="time" value={correctionForm.clock_in}
+                    onChange={(e) => setCorrectionForm({ ...correctionForm, clock_in: e.target.value })}
+                    className="w-full border border-gray-300 rounded px-3 py-2" />
+                </div>
+                <div>
+                  <label className="text-sm text-gray-500">退勤時刻</label>
+                  <input type="time" value={correctionForm.clock_out}
+                    onChange={(e) => setCorrectionForm({ ...correctionForm, clock_out: e.target.value })}
+                    className="w-full border border-gray-300 rounded px-3 py-2" />
+                </div>
+                <div>
+                  <label className="text-sm text-gray-500">理由 <span className="text-red-500">*</span></label>
+                  <textarea value={correctionForm.reason}
+                    onChange={(e) => setCorrectionForm({ ...correctionForm, reason: e.target.value })}
+                    placeholder="修正理由を入力してください"
+                    className="w-full border border-gray-300 rounded px-3 py-2 h-20 resize-none" />
+                </div>
+              </div>
+              <div className="flex gap-2 mt-4">
+                <button onClick={() => { setShowCorrectionModal(false); setCorrectionCard(null); }}
+                  className="flex-1 bg-gray-200 py-2 rounded-lg">キャンセル</button>
+                <button onClick={handleSubmitCorrection}
+                  disabled={!correctionForm.reason}
+                  className="flex-1 text-white py-2 rounded-lg disabled:opacity-50" style={{ backgroundColor: '#5bbd56' }}>申請する</button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {showEditModal && editingCard && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -2420,54 +2508,6 @@ function App() {
                   } catch (e) { alert(e.message); }
                 }
               }} className="w-full mt-2 text-red-500 text-sm py-2 hover:bg-red-50 rounded-lg">削除する</button>
-            </div>
-          </div>
-        )}
-
-        {/* 修正申請ボタン */}
-        <div className="bg-white border border-gray-200 rounded-xl p-4">
-          <button onClick={() => setShowCorrectionModal(true)}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-500 text-white rounded-lg">
-            <Icons.Edit /> 打刻修正を申請
-          </button>
-        </div>
-
-        {/* 修正申請モーダル */}
-        {showCorrectionModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl p-6 w-full max-w-sm">
-              <h3 className="font-bold text-lg mb-4">打刻修正申請</h3>
-              <div className="space-y-3">
-                <div>
-                  <label className="text-sm text-gray-500">日付</label>
-                  <input type="date" value={correctionData.work_date}
-                    onChange={(e) => setCorrectionData({ ...correctionData, work_date: e.target.value })}
-                    className="w-full border border-gray-300 rounded px-3 py-2" />
-                </div>
-                <div>
-                  <label className="text-sm text-gray-500">出勤時刻</label>
-                  <input type="time" value={correctionData.clock_in}
-                    onChange={(e) => setCorrectionData({ ...correctionData, clock_in: e.target.value + ':00' })}
-                    className="w-full border border-gray-300 rounded px-3 py-2" />
-                </div>
-                <div>
-                  <label className="text-sm text-gray-500">退勤時刻</label>
-                  <input type="time" value={correctionData.clock_out}
-                    onChange={(e) => setCorrectionData({ ...correctionData, clock_out: e.target.value + ':00' })}
-                    className="w-full border border-gray-300 rounded px-3 py-2" />
-                </div>
-                <div>
-                  <label className="text-sm text-gray-500">理由</label>
-                  <textarea value={correctionData.reason}
-                    onChange={(e) => setCorrectionData({ ...correctionData, reason: e.target.value })}
-                    className="w-full border border-gray-300 rounded px-3 py-2" rows="3"
-                    placeholder="修正が必要な理由を入力してください" />
-                </div>
-              </div>
-              <div className="flex gap-2 mt-4">
-                <button onClick={() => setShowCorrectionModal(false)} className="flex-1 bg-gray-200 py-2 rounded-lg">キャンセル</button>
-                <button onClick={handleSubmitCorrection} className="flex-1 bg-blue-500 text-white py-2 rounded-lg">申請する</button>
-              </div>
             </div>
           </div>
         )}
@@ -2517,20 +2557,6 @@ function App() {
             </div>
             <Icons.ChevronRight className="ml-auto text-gray-400" />
           </button>
-
-          {(userRole === 'master' || userRole === 'admin') && (
-            <button onClick={() => navigate('/admin/audit-logs')}
-              className="w-full bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-4 text-left hover:bg-gray-50">
-              <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: 'rgba(91, 189, 86, 0.1)' }}>
-                <Icons.FileText style={{ color: '#5bbd56' }} />
-              </div>
-              <div>
-                <p className="font-bold text-gray-800">操作履歴</p>
-                <p className="text-sm text-gray-500">システム操作ログの確認</p>
-              </div>
-              <Icons.ChevronRight className="ml-auto text-gray-400" />
-            </button>
-          )}
         </div>
 
         <div className="bg-white border border-gray-200 rounded-xl p-4 mt-6">
@@ -2600,7 +2626,7 @@ function App() {
           <select value={selectedUser} onChange={(e) => setSelectedUser(e.target.value)}
             className="border border-gray-300 rounded px-3 py-2">
             <option value="">全員</option>
-            {users.map(u => (
+            {users.filter(u => u.role === 'staff').map(u => (
               <option key={u.id} value={u.id}>{u.name}</option>
             ))}
           </select>
@@ -2788,23 +2814,25 @@ function App() {
 
   // ========== 管理者用タイムカード管理 ==========
   const TimecardAdminView = () => {
-    const [activeTab, setActiveTab] = useState('timecards');
     const [timecards, setTimecards] = useState([]);
-    const [requests, setRequests] = useState([]);
-    const [requestsCount, setRequestsCount] = useState(0);
     const [loading, setLoading] = useState(true);
     const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
     const [selectedUser, setSelectedUser] = useState('');
     const [showEditModal, setShowEditModal] = useState(false);
     const [editingCard, setEditingCard] = useState(null);
-    const [rejectingRequest, setRejectingRequest] = useState(null);
-    const [rejectComment, setRejectComment] = useState('');
+    const [activeTab, setActiveTab] = useState('timecards');
+    const [correctionRequests, setCorrectionRequests] = useState([]);
+    const [correctionLoading, setCorrectionLoading] = useState(false);
 
     useEffect(() => {
       loadTimecards();
-      loadRequests();
-      loadRequestsCount();
     }, [selectedMonth, selectedUser]);
+
+    useEffect(() => {
+      if (activeTab === 'corrections') {
+        loadCorrectionRequests();
+      }
+    }, [activeTab]);
 
     const loadTimecards = async () => {
       setLoading(true);
@@ -2817,44 +2845,24 @@ function App() {
       setLoading(false);
     };
 
-    const loadRequests = async () => {
+    const loadCorrectionRequests = async () => {
+      setCorrectionLoading(true);
       try {
-        const data = await api.getTimecardRequests({ status: 'pending' });
-        setRequests(data);
+        const data = await api.getCorrectionRequests();
+        setCorrectionRequests(data);
       } catch (e) { console.error(e); }
+      setCorrectionLoading(false);
     };
 
-    const loadRequestsCount = async () => {
+    const handleProcessCorrection = async (requestId, action) => {
+      const actionLabel = action === 'approved' ? '承認' : '却下';
+      if (!confirm(`この修正申請を${actionLabel}しますか？`)) return;
       try {
-        const data = await api.getTimecardRequestsCount();
-        setRequestsCount(data.count);
-      } catch (e) { console.error(e); }
-    };
-
-    const handleApprove = async (id) => {
-      if (!confirm('この申請を承認しますか？')) return;
-      try {
-        await api.approveTimecardRequest(id);
-        alert('承認しました');
-        loadRequests();
-        loadRequestsCount();
-        loadTimecards();
+        await api.processCorrectionRequest({ id: requestId, action });
+        loadCorrectionRequests();
+        if (action === 'approved') loadTimecards();
       } catch (e) {
-        alert(e.message);
-      }
-    };
-
-    const handleReject = async () => {
-      if (!rejectingRequest) return;
-      try {
-        await api.rejectTimecardRequest(rejectingRequest.id, rejectComment);
-        alert('却下しました');
-        setRejectingRequest(null);
-        setRejectComment('');
-        loadRequests();
-        loadRequestsCount();
-      } catch (e) {
-        alert(e.message);
+        alert(`${actionLabel}処理に失敗しました: ` + e.message);
       }
     };
 
@@ -2865,8 +2873,10 @@ function App() {
       window.open(`${basePath}api/index.php?action=timecards-export&${params.toString()}`, '_blank');
     };
 
+    const pendingCount = correctionRequests.filter(r => r.status === 'pending').length;
+
     // 集計計算（user_idでグループ化）
-    const summary = (() => {
+    const summary = useMemo(() => {
       const byUser = {};
       timecards.forEach(tc => {
         const key = tc.user_id;
@@ -2876,16 +2886,21 @@ function App() {
         byUser[key].days++;
         if (tc.clock_in && tc.clock_out) {
           const inTime = new Date(`2000-01-01T${tc.clock_in}`);
-          let outTime = new Date(`2000-01-01T${tc.clock_out}`);
-          // 日をまたぐ場合（退勤時刻が出勤時刻より前）は翌日として計算
-          if (outTime < inTime) {
-            outTime = new Date(`2000-01-02T${tc.clock_out}`);
-          }
+          const outTime = new Date(`2000-01-01T${tc.clock_out}`);
           byUser[key].totalHours += (outTime - inTime) / 3600000;
         }
       });
       return byUser;
-    })();
+    }, [timecards]);
+
+    const correctionStatusLabel = (status) => {
+      switch (status) {
+        case 'pending': return { label: '申請中', color: 'bg-yellow-100 text-yellow-700' };
+        case 'approved': return { label: '承認済', color: 'bg-green-100 text-green-700' };
+        case 'rejected': return { label: '却下', color: 'bg-red-100 text-red-700' };
+        default: return { label: status, color: 'bg-gray-100 text-gray-600' };
+      }
+    };
 
     return (
       <div className="space-y-4">
@@ -2894,17 +2909,17 @@ function App() {
           <h2 className="text-xl font-bold text-gray-800">タイムカード管理</h2>
         </div>
 
-        {/* タブ */}
+        {/* タブ切り替え */}
         <div className="flex border-b border-gray-200">
           <button onClick={() => setActiveTab('timecards')}
-            className={`px-4 py-2 font-medium ${activeTab === 'timecards' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'}`}>
+            className={`flex-1 py-3 text-center text-sm font-medium border-b-2 ${activeTab === 'timecards' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500'}`}>
             タイムカード
           </button>
-          <button onClick={() => setActiveTab('requests')}
-            className={`px-4 py-2 font-medium relative ${activeTab === 'requests' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'}`}>
+          <button onClick={() => setActiveTab('corrections')}
+            className={`flex-1 py-3 text-center text-sm font-medium border-b-2 relative ${activeTab === 'corrections' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500'}`}>
             修正申請
-            {requestsCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">{requestsCount}</span>
+            {pendingCount > 0 && (
+              <span className="absolute -top-1 right-4 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">{pendingCount}</span>
             )}
           </button>
         </div>
@@ -2917,7 +2932,7 @@ function App() {
               <select value={selectedUser} onChange={(e) => setSelectedUser(e.target.value)}
                 className="border border-gray-300 rounded px-3 py-2">
                 <option value="">全員</option>
-                {users.map(u => (
+                {users.filter(u => u.role === 'staff').map(u => (
                   <option key={u.id} value={u.id}>{u.name}</option>
                 ))}
               </select>
@@ -2966,35 +2981,41 @@ function App() {
             )}
           </>
         ) : (
+          /* 修正申請タブ */
           <div className="bg-white border border-gray-200 rounded-xl p-4">
             <h3 className="font-bold text-gray-700 mb-3">修正申請一覧</h3>
-            {requests.length === 0 ? (
-              <p className="text-gray-400 text-center py-4">未処理の申請はありません</p>
+            {correctionLoading ? (
+              <div className="text-center py-8"><Icons.Loader /></div>
+            ) : correctionRequests.length === 0 ? (
+              <div className="text-center py-8 text-gray-400">修正申請はありません</div>
             ) : (
               <div className="space-y-3">
-                {requests.map(req => (
-                  <div key={req.id} className="p-3 bg-gray-50 rounded-lg">
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <span className="font-medium">{req.user_name}</span>
-                        <span className="text-gray-500 ml-2">{req.work_date}</span>
+                {correctionRequests.map(req => {
+                  const st = correctionStatusLabel(req.status);
+                  return (
+                    <div key={req.id} className="border border-gray-200 rounded-xl p-4">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <span className="font-bold text-gray-800">{req.user_name}</span>
+                          <span className="ml-3 text-gray-600">{req.work_date}</span>
+                        </div>
+                        <span className={`text-xs px-2 py-1 rounded ${st.color}`}>{st.label}</span>
                       </div>
-                      <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded">申請中</span>
+                      <p className="text-sm text-gray-600">
+                        出勤: {req.requested_clock_in?.slice(0, 5) || '--:--'} 〜 退勤: {req.requested_clock_out?.slice(0, 5) || '--:--'}
+                      </p>
+                      <p className="text-sm text-gray-500 mt-1">理由: {req.reason}</p>
+                      {req.status === 'pending' && (
+                        <div className="flex gap-2 mt-3">
+                          <button onClick={() => handleProcessCorrection(req.id, 'approved')}
+                            className="flex-1 py-2 text-white rounded-lg text-sm font-medium" style={{ backgroundColor: '#5bbd56' }}>承認</button>
+                          <button onClick={() => handleProcessCorrection(req.id, 'rejected')}
+                            className="flex-1 py-2 bg-red-500 text-white rounded-lg text-sm font-medium">却下</button>
+                        </div>
+                      )}
                     </div>
-                    <div className="text-sm text-gray-600 mb-2">
-                      <span>出勤: {req.clock_in?.slice(0, 5) || '--:--'}</span>
-                      <span className="mx-2">〜</span>
-                      <span>退勤: {req.clock_out?.slice(0, 5) || '--:--'}</span>
-                    </div>
-                    {req.reason && <p className="text-sm text-gray-500 mb-2">理由: {req.reason}</p>}
-                    <div className="flex gap-2">
-                      <button onClick={() => handleApprove(req.id)}
-                        className="flex-1 bg-green-500 text-white py-2 rounded text-sm">承認</button>
-                      <button onClick={() => setRejectingRequest(req)}
-                        className="flex-1 bg-red-500 text-white py-2 rounded text-sm">却下</button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -3042,569 +3063,6 @@ function App() {
                   } catch (e) { alert('削除に失敗: ' + e.message); }
                 }
               }} className="w-full mt-2 text-red-500 text-sm">削除する</button>
-            </div>
-          </div>
-        )}
-
-        {/* 却下理由モーダル */}
-        {rejectingRequest && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl p-6 w-full max-w-sm">
-              <h3 className="font-bold text-lg mb-4">却下理由</h3>
-              <p className="text-gray-500 mb-2">{rejectingRequest.user_name} - {rejectingRequest.work_date}</p>
-              <textarea value={rejectComment}
-                onChange={(e) => setRejectComment(e.target.value)}
-                className="w-full border border-gray-300 rounded px-3 py-2 mb-4" rows="3"
-                placeholder="却下理由を入力してください" />
-              <div className="flex gap-2">
-                <button onClick={() => { setRejectingRequest(null); setRejectComment(''); }}
-                  className="flex-1 bg-gray-200 py-2 rounded-lg">キャンセル</button>
-                <button onClick={handleReject}
-                  className="flex-1 bg-red-500 text-white py-2 rounded-lg">却下する</button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  // ========== 管理者用操作履歴 ==========
-  const AuditLogView = () => {
-    const [logs, setLogs] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [selectedUser, setSelectedUser] = useState('');
-    const [selectedType, setSelectedType] = useState('');
-    const [dateFrom, setDateFrom] = useState('');
-    const [dateTo, setDateTo] = useState('');
-
-    useEffect(() => {
-      loadLogs();
-    }, [selectedUser, selectedType, dateFrom, dateTo]);
-
-    const loadLogs = async () => {
-      setLoading(true);
-      try {
-        const params = {};
-        if (selectedUser) params.user_id = selectedUser;
-        if (selectedType) params.target_type = selectedType;
-        if (dateFrom) params.date_from = dateFrom;
-        if (dateTo) params.date_to = dateTo;
-        const data = await api.getAuditLogs(params);
-        setLogs(data);
-      } catch (e) { console.error(e); }
-      setLoading(false);
-    };
-
-    const getActionColor = (action) => {
-      switch (action) {
-        case 'create': return 'bg-green-100 text-green-700';
-        case 'update': return 'bg-blue-100 text-blue-700';
-        case 'delete': return 'bg-red-100 text-red-700';
-        default: return 'bg-gray-100 text-gray-700';
-      }
-    };
-
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/menu')} className="text-gray-500"><Icons.ChevronLeft /></button>
-          <h2 className="text-xl font-bold text-gray-800">操作履歴</h2>
-        </div>
-
-        <div className="bg-white border border-gray-200 rounded-xl p-4 flex flex-wrap gap-3 items-center">
-          <select value={selectedUser} onChange={(e) => setSelectedUser(e.target.value)}
-            className="border border-gray-300 rounded px-3 py-2 text-sm">
-            <option value="">全ユーザー</option>
-            {users.map(u => (
-              <option key={u.id} value={u.id}>{u.name}</option>
-            ))}
-          </select>
-          <select value={selectedType} onChange={(e) => setSelectedType(e.target.value)}
-            className="border border-gray-300 rounded px-3 py-2 text-sm">
-            <option value="">全種別</option>
-            <option value="user">ユーザー</option>
-            <option value="corporation">法人</option>
-            <option value="site">現場</option>
-          </select>
-          <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)}
-            className="border border-gray-300 rounded px-3 py-2 text-sm" placeholder="開始日" />
-          <span className="text-gray-400">〜</span>
-          <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)}
-            className="border border-gray-300 rounded px-3 py-2 text-sm" placeholder="終了日" />
-        </div>
-
-        {loading ? (
-          <div className="text-center py-8"><Icons.Loader /></div>
-        ) : logs.length === 0 ? (
-          <div className="text-center py-8 text-gray-400">操作履歴がありません</div>
-        ) : (
-          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-            <div className="divide-y divide-gray-100 max-h-96 overflow-y-auto">
-              {logs.map(log => (
-                <div key={log.id} className="p-3 hover:bg-gray-50">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className={`text-xs px-2 py-0.5 rounded ${getActionColor(log.action)}`}>
-                      {log.actionLabel}
-                    </span>
-                    <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
-                      {log.targetTypeLabel}
-                    </span>
-                    <span className="text-sm font-medium text-gray-800">{log.target_name}</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-xs text-gray-500">
-                    <span>{log.user_name}</span>
-                    <span>{new Date(log.created_at).toLocaleString('ja-JP')}</span>
-                    {log.ip_address && <span className="text-gray-400">{log.ip_address}</span>}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  // 在庫管理画面
-  const InventoryView = () => {
-    const [activeTab, setActiveTab] = useState('stock');
-    const [branches, setBranches] = useState([]);
-    const [categories, setCategories] = useState([]);
-    const [products, setProducts] = useState([]);
-    const [stock, setStock] = useState([]);
-    const [transactions, setTransactions] = useState([]);
-    const [loading, setLoading] = useState(true);
-
-    // フィルター
-    const [selectedBranch, setSelectedBranch] = useState('');
-    const [selectedCategory, setSelectedCategory] = useState('');
-
-    // 入出庫モーダル
-    const [showStockModal, setShowStockModal] = useState(false);
-    const [stockModalType, setStockModalType] = useState('in');
-    const [stockForm, setStockForm] = useState({ branchId: '', productId: '', quantity: '', note: '', alertThreshold: '' });
-
-    // 移動モーダル
-    const [showTransferModal, setShowTransferModal] = useState(false);
-    const [transferForm, setTransferForm] = useState({ fromBranchId: '', toBranchId: '', productId: '', quantity: '', note: '' });
-
-    useEffect(() => {
-      loadInventoryData();
-    }, []);
-
-    useEffect(() => {
-      if (branches.length > 0 || categories.length > 0) {
-        loadStock();
-      }
-    }, [selectedBranch, selectedCategory]);
-
-    const loadInventoryData = async () => {
-      setLoading(true);
-      try {
-        const [branchesData, categoriesData, productsData] = await Promise.all([
-          api.getInventoryBranches(),
-          api.getInventoryCategories(),
-          api.getInventoryProducts()
-        ]);
-        setBranches(branchesData);
-        setCategories(categoriesData);
-        setProducts(productsData);
-        await loadStock();
-      } catch (e) {
-        console.error('Failed to load inventory data:', e);
-        alert('在庫データの読み込みに失敗しました');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    const loadStock = async () => {
-      try {
-        const params = {};
-        if (selectedBranch) params.branch_id = selectedBranch;
-        if (selectedCategory) params.category_id = selectedCategory;
-        const stockData = await api.getInventoryStock(params);
-        setStock(stockData);
-      } catch (e) {
-        console.error('Failed to load stock:', e);
-      }
-    };
-
-    const loadTransactions = async () => {
-      try {
-        const params = { limit: 100 };
-        if (selectedBranch) params.branch_id = selectedBranch;
-        const data = await api.getInventoryTransactions(params);
-        setTransactions(data);
-      } catch (e) {
-        console.error('Failed to load transactions:', e);
-      }
-    };
-
-    useEffect(() => {
-      if (activeTab === 'history') {
-        loadTransactions();
-      }
-    }, [activeTab, selectedBranch]);
-
-    const handleStockUpdate = async () => {
-      if (!stockForm.branchId || !stockForm.productId || !stockForm.quantity) {
-        alert('全ての項目を入力してください');
-        return;
-      }
-      try {
-        await api.updateInventoryStock({
-          branchId: parseInt(stockForm.branchId),
-          productId: parseInt(stockForm.productId),
-          type: stockModalType,
-          quantity: parseInt(stockForm.quantity),
-          note: stockForm.note
-        });
-        // アラート閾値も更新
-        if (stockForm.alertThreshold !== '') {
-          await api.updateInventoryProduct(parseInt(stockForm.productId), {
-            alertThreshold: parseInt(stockForm.alertThreshold)
-          });
-        }
-        setShowStockModal(false);
-        setStockForm({ branchId: '', productId: '', quantity: '', note: '', alertThreshold: '' });
-        await loadStock();
-        if (activeTab === 'history') await loadTransactions();
-      } catch (e) {
-        alert('エラー: ' + e.message);
-      }
-    };
-
-    const handleTransfer = async () => {
-      if (!transferForm.fromBranchId || !transferForm.toBranchId || !transferForm.productId || !transferForm.quantity) {
-        alert('全ての項目を入力してください');
-        return;
-      }
-      try {
-        await api.transferInventory({
-          fromBranchId: parseInt(transferForm.fromBranchId),
-          toBranchId: parseInt(transferForm.toBranchId),
-          productId: parseInt(transferForm.productId),
-          quantity: parseInt(transferForm.quantity),
-          note: transferForm.note
-        });
-        setShowTransferModal(false);
-        setTransferForm({ fromBranchId: '', toBranchId: '', productId: '', quantity: '', note: '' });
-        await loadStock();
-        if (activeTab === 'history') await loadTransactions();
-      } catch (e) {
-        alert('エラー: ' + e.message);
-      }
-    };
-
-    // 在庫をカテゴリ・製品でグループ化
-    const groupedStock = stock.reduce((acc, item) => {
-      const key = `${item.branch_id}-${item.category_id}`;
-      if (!acc[item.category_name]) {
-        acc[item.category_name] = {};
-      }
-      if (!acc[item.category_name][item.product_name]) {
-        acc[item.category_name][item.product_name] = {
-          product_id: item.product_id,
-          unit: item.unit,
-          min_stock: item.min_stock,
-          branches: {}
-        };
-      }
-      acc[item.category_name][item.product_name].branches[item.branch_id] = {
-        branch_name: item.branch_name,
-        quantity: item.quantity
-      };
-      return acc;
-    }, {});
-
-    const getTypeColor = (type) => {
-      switch (type) {
-        case 'in': return 'bg-green-100 text-green-700';
-        case 'out': return 'bg-red-100 text-red-700';
-        case 'adjust': return 'bg-blue-100 text-blue-700';
-        case 'transfer_in': return 'bg-purple-100 text-purple-700';
-        case 'transfer_out': return 'bg-orange-100 text-orange-700';
-        default: return 'bg-gray-100 text-gray-700';
-      }
-    };
-
-    if (loading) {
-      return (
-        <div className="flex justify-center items-center py-12">
-          <Icons.Loader />
-          <span className="ml-2 text-gray-500">読み込み中...</span>
-        </div>
-      );
-    }
-
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-xl font-bold text-gray-800">在庫管理</h2>
-            <p className="text-gray-500 text-sm">{branches.length}営業所 / {products.length}製品</p>
-          </div>
-          <div className="flex gap-2">
-            <button onClick={() => { setStockModalType('in'); setShowStockModal(true); }}
-              className="flex items-center gap-1 bg-green-500 text-white px-3 py-2 rounded-lg text-sm">
-              <Icons.Plus /> 入庫
-            </button>
-            <button onClick={() => { setStockModalType('out'); setShowStockModal(true); }}
-              className="flex items-center gap-1 bg-red-500 text-white px-3 py-2 rounded-lg text-sm">
-              <Icons.Download /> 出庫
-            </button>
-            <button onClick={() => setShowTransferModal(true)}
-              className="flex items-center gap-1 bg-purple-500 text-white px-3 py-2 rounded-lg text-sm">
-              <Icons.ChevronRight /> 移動
-            </button>
-          </div>
-        </div>
-
-        {/* タブ */}
-        <div className="flex gap-2 border-b border-gray-200">
-          {[
-            { key: 'stock', label: '在庫一覧' },
-            { key: 'history', label: '入出庫履歴' }
-          ].map(tab => (
-            <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-              className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${activeTab === tab.key ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500'}`}>
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {/* フィルター */}
-        <div className="flex gap-3 flex-wrap">
-          <select value={selectedBranch} onChange={(e) => setSelectedBranch(e.target.value)}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm">
-            <option value="">全営業所</option>
-            {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-          </select>
-          <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm">
-            <option value="">全カテゴリ</option>
-            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-        </div>
-
-        {activeTab === 'stock' && (
-          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-            {selectedBranch ? (
-              // 単一営業所表示
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-gray-50 border-b">
-                      <th className="text-left px-4 py-3 font-medium text-gray-600">カテゴリ</th>
-                      <th className="text-left px-4 py-3 font-medium text-gray-600">製品名</th>
-                      <th className="text-center px-4 py-3 font-medium text-gray-600">在庫数</th>
-                      <th className="text-center px-4 py-3 font-medium text-gray-600">単位</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {stock.map(item => (
-                      <tr key={`${item.branch_id}-${item.product_id}`}
-                        onClick={() => {
-                          setStockForm({ branchId: item.branch_id.toString(), productId: item.product_id.toString(), quantity: '', note: '', alertThreshold: (item.min_stock || 0).toString() });
-                          setStockModalType('adjust');
-                          setShowStockModal(true);
-                        }}
-                        className="border-b hover:bg-blue-50 cursor-pointer">
-                        <td className="px-4 py-3 text-gray-500">{item.category_name}</td>
-                        <td className="px-4 py-3 font-medium">{item.product_name}</td>
-                        <td className={`px-4 py-3 text-center font-bold ${item.quantity <= item.min_stock && item.min_stock > 0 ? 'text-red-600' : 'text-gray-800'}`}>
-                          {item.quantity}
-                          {item.quantity <= item.min_stock && item.min_stock > 0 && (
-                            <span className="ml-1 text-xs bg-red-100 text-red-600 px-1 rounded">不足</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-center text-gray-500">{item.unit}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              // 全営業所クロス表示
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-gray-50 border-b">
-                      <th className="text-left px-3 py-3 font-medium text-gray-600 sticky left-0 bg-gray-50">カテゴリ</th>
-                      <th className="text-left px-3 py-3 font-medium text-gray-600 sticky left-24 bg-gray-50">製品名</th>
-                      {branches.map(b => (
-                        <th key={b.id} className="text-center px-3 py-3 font-medium text-gray-600 min-w-[80px]">{b.name.replace('営業', '').replace('所', '')}</th>
-                      ))}
-                      <th className="text-center px-3 py-3 font-medium text-gray-600 bg-green-50">合計</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {Object.entries(groupedStock).map(([categoryName, productsInCategory]) =>
-                      Object.entries(productsInCategory).map(([productName, productData], idx) => {
-                        const total = Object.values(productData.branches).reduce((sum, b) => sum + (b.quantity || 0), 0);
-                        return (
-                          <tr key={productData.product_id} className="border-b hover:bg-gray-50">
-                            <td className="px-3 py-2 text-gray-500 sticky left-0 bg-white">{idx === 0 ? categoryName : ''}</td>
-                            <td className="px-3 py-2 font-medium sticky left-24 bg-white">{productName}</td>
-                            {branches.map(b => {
-                              const qty = productData.branches[b.id]?.quantity || 0;
-                              return (
-                                <td key={b.id}
-                                  onClick={() => {
-                                    setStockForm({ branchId: b.id.toString(), productId: productData.product_id.toString(), quantity: '', note: '', alertThreshold: (productData.min_stock || 0).toString() });
-                                    setStockModalType('adjust');
-                                    setShowStockModal(true);
-                                  }}
-                                  className={`px-3 py-2 text-center cursor-pointer hover:bg-blue-50 ${qty === 0 ? 'text-gray-300' : 'text-gray-800'}`}>
-                                  {qty}
-                                </td>
-                              );
-                            })}
-                            <td className="px-3 py-2 text-center font-bold bg-green-50 text-green-700">{total}</td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === 'history' && (
-          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-            {transactions.length === 0 ? (
-              <div className="text-center py-8 text-gray-400">履歴がありません</div>
-            ) : (
-              <div className="divide-y divide-gray-100 max-h-96 overflow-y-auto">
-                {transactions.map(t => (
-                  <div key={t.id} className="p-3 hover:bg-gray-50">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className={`text-xs px-2 py-0.5 rounded ${getTypeColor(t.transaction_type)}`}>
-                        {t.typeLabel}
-                      </span>
-                      <span className="text-sm font-medium text-gray-800">{t.product_name}</span>
-                      <span className="text-sm text-gray-500">x {t.quantity}{t.unit}</span>
-                    </div>
-                    <div className="flex items-center gap-3 text-xs text-gray-500">
-                      <span>{t.branch_name}</span>
-                      {t.related_branch_name && <span>→ {t.related_branch_name}</span>}
-                      <span>{t.quantity_before} → {t.quantity_after}</span>
-                      <span>{t.user_name}</span>
-                      <span>{new Date(t.created_at).toLocaleString('ja-JP')}</span>
-                    </div>
-                    {t.note && <div className="text-xs text-gray-400 mt-1">{t.note}</div>}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* 入出庫モーダル */}
-        {showStockModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowStockModal(false)}>
-            <div className="bg-white rounded-2xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
-              <h3 className="font-bold text-lg mb-4">
-                {stockModalType === 'in' ? '入庫登録' : stockModalType === 'out' ? '出庫登録' : '在庫調整'}
-              </h3>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">営業所</label>
-                  <select value={stockForm.branchId} onChange={(e) => setStockForm({ ...stockForm, branchId: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2">
-                    <option value="">選択してください</option>
-                    {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">製品</label>
-                  <select value={stockForm.productId} onChange={(e) => setStockForm({ ...stockForm, productId: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2">
-                    <option value="">選択してください</option>
-                    {products.map(p => <option key={p.id} value={p.id}>{p.category_name} - {p.name}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">数量</label>
-                  <input type="number" min="1" value={stockForm.quantity}
-                    onChange={(e) => setStockForm({ ...stockForm, quantity: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2" placeholder="数量を入力" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">備考</label>
-                  <input type="text" value={stockForm.note}
-                    onChange={(e) => setStockForm({ ...stockForm, note: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2" placeholder="任意" />
-                </div>
-                <div className="border-t pt-4 mt-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">アラート閾値（この数以下で不足表示）</label>
-                  <input type="number" min="0" value={stockForm.alertThreshold}
-                    onChange={(e) => setStockForm({ ...stockForm, alertThreshold: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2" placeholder="0" />
-                </div>
-              </div>
-              <div className="flex gap-3 mt-6">
-                <button onClick={() => setShowStockModal(false)} className="flex-1 bg-gray-100 py-2 rounded-lg">キャンセル</button>
-                <button onClick={handleStockUpdate}
-                  className={`flex-1 text-white py-2 rounded-lg ${stockModalType === 'in' ? 'bg-green-500' : stockModalType === 'out' ? 'bg-red-500' : 'bg-blue-500'}`}>
-                  {stockModalType === 'in' ? '入庫する' : stockModalType === 'out' ? '出庫する' : '調整する'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* 移動モーダル */}
-        {showTransferModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowTransferModal(false)}>
-            <div className="bg-white rounded-2xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
-              <h3 className="font-bold text-lg mb-4">在庫移動</h3>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">移動元</label>
-                  <select value={transferForm.fromBranchId} onChange={(e) => setTransferForm({ ...transferForm, fromBranchId: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2">
-                    <option value="">選択してください</option>
-                    {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">移動先</label>
-                  <select value={transferForm.toBranchId} onChange={(e) => setTransferForm({ ...transferForm, toBranchId: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2">
-                    <option value="">選択してください</option>
-                    {branches.filter(b => b.id !== parseInt(transferForm.fromBranchId)).map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">製品</label>
-                  <select value={transferForm.productId} onChange={(e) => setTransferForm({ ...transferForm, productId: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2">
-                    <option value="">選択してください</option>
-                    {products.map(p => <option key={p.id} value={p.id}>{p.category_name} - {p.name}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">数量</label>
-                  <input type="number" min="1" value={transferForm.quantity}
-                    onChange={(e) => setTransferForm({ ...transferForm, quantity: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2" placeholder="数量を入力" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">備考</label>
-                  <input type="text" value={transferForm.note}
-                    onChange={(e) => setTransferForm({ ...transferForm, note: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2" placeholder="任意" />
-                </div>
-              </div>
-              <div className="flex gap-3 mt-6">
-                <button onClick={() => setShowTransferModal(false)} className="flex-1 bg-gray-100 py-2 rounded-lg">キャンセル</button>
-                <button onClick={handleTransfer} className="flex-1 bg-purple-500 text-white py-2 rounded-lg">移動する</button>
-              </div>
             </div>
           </div>
         )}
@@ -3983,15 +3441,15 @@ function App() {
 
           {modalType === 'photo' && (
             <div className="space-y-4">
-              <p className="text-sm text-gray-500">写真をアップロードしてください（最大10枚、自動圧縮）</p>
+              <p className="text-sm text-gray-500">写真をアップロードしてください（自動的に圧縮されます）</p>
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
-                <input type="file" accept="image/*" multiple={true} id="photo-upload" className="hidden" onChange={async (e) => {
-                  const files = Array.from(e.target.files).slice(0, 10); // 最大10枚
-                  if (files.length === 0) return;
-
+                <input type="file" accept="image/*" multiple={false} id="photo-upload" className="hidden" onChange={async (e) => {
+                  const file = e.target.files[0];
+                  if (!file) return;
+                  
                   // 画像を圧縮
                   const compressImage = (file, maxWidth = 1200, quality = 0.7) => {
-                    return new Promise((resolve, reject) => {
+                    return new Promise((resolve) => {
                       const reader = new FileReader();
                       reader.onload = (e) => {
                         const img = new Image();
@@ -3999,36 +3457,30 @@ function App() {
                           const canvas = document.createElement('canvas');
                           let width = img.width;
                           let height = img.height;
-
+                          
                           if (width > maxWidth) {
                             height = (height * maxWidth) / width;
                             width = maxWidth;
                           }
-
+                          
                           canvas.width = width;
                           canvas.height = height;
                           const ctx = canvas.getContext('2d');
                           ctx.drawImage(img, 0, 0, width, height);
                           resolve(canvas.toDataURL('image/jpeg', quality));
                         };
-                        img.onerror = reject;
                         img.src = e.target.result;
                       };
-                      reader.onerror = reject;
                       reader.readAsDataURL(file);
                     });
                   };
-
+                  
                   try {
-                    // 全ファイルを並列圧縮
-                    const compressPromises = files.map(file => compressImage(file));
-                    const compressed = await Promise.all(compressPromises);
-                    const photos = compressed.map((data, i) => ({
-                      imageData: data,
-                      fileName: files[i].name,
-                      size: Math.round(data.length / 1024)
-                    }));
-                    setFormData({ ...formData, selectedPhotos: photos });
+                    const compressed = await compressImage(file);
+                    setFormData({ ...formData, imageData: compressed, fileName: file.name });
+                    document.getElementById('photo-preview').src = compressed;
+                    document.getElementById('photo-preview').style.display = 'block';
+                    document.getElementById('photo-size').textContent = `圧縮後: ${Math.round(compressed.length / 1024)}KB`;
                   } catch (err) {
                     alert('画像の処理に失敗しました: ' + err.message);
                   }
@@ -4036,57 +3488,36 @@ function App() {
                 <label htmlFor="photo-upload" className="cursor-pointer block">
                   <div className="flex justify-center mb-2"><Icons.Camera /></div>
                   <p className="text-gray-600">タップして写真を撮影・選択</p>
-                  <p className="text-xs text-gray-400">JPG, PNG対応（最大10枚）</p>
+                  <p className="text-xs text-gray-400">JPG, PNG対応</p>
                 </label>
               </div>
-              {/* 複数写真プレビュー */}
-              {formData.selectedPhotos && formData.selectedPhotos.length > 0 && (
-                <div>
-                  <p className="text-sm text-gray-600 mb-2">{formData.selectedPhotos.length}/10枚選択中</p>
-                  <div className="grid grid-cols-3 gap-2">
-                    {formData.selectedPhotos.map((photo, i) => (
-                      <div key={i} className="relative aspect-square">
-                        <img src={photo.imageData} alt="" className="w-full h-full object-cover rounded-lg" />
-                        <button type="button" onClick={() => {
-                          const newPhotos = formData.selectedPhotos.filter((_, idx) => idx !== i);
-                          setFormData({ ...formData, selectedPhotos: newPhotos });
-                        }} className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">×</button>
-                        <span className="absolute bottom-1 left-1 bg-black/60 text-white text-xs px-1 rounded">{photo.size}KB</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+              <img id="photo-preview" src="" alt="" className="w-full rounded-lg hidden" />
+              <p id="photo-size" className="text-xs text-gray-400"></p>
               <input type="date" name="photo-date" defaultValue={new Date().toISOString().split('T')[0]} className="w-full border border-gray-300 rounded-lg px-3 py-2" style={{ backgroundColor: '#ffffff', WebkitAppearance: 'none' }} />
-              <input type="text" name="photo-note" placeholder="メモ（任意・全写真共通）" className="w-full border border-gray-300 rounded-lg px-3 py-2" />
+              <input type="text" name="photo-note" placeholder="メモ（任意）" className="w-full border border-gray-300 rounded-lg px-3 py-2" />
               <div className="flex gap-3 mt-4">
-                <button type="button" onClick={() => { setShowModal(false); setFormData({ ...formData, selectedPhotos: [] }); }} className="flex-1 bg-gray-100 py-2 rounded-lg">キャンセル</button>
+                <button type="button" onClick={() => setShowModal(false)} className="flex-1 bg-gray-100 py-2 rounded-lg">キャンセル</button>
                 <button type="button" onClick={async () => {
-                  const photos = formData.selectedPhotos || [];
-                  if (photos.length === 0) { alert('写真を選択してください'); return; }
+                  if (!formData.imageData) { alert('写真を選択してください'); return; }
                   setSaving(true);
                   try {
                     const photoDate = document.querySelector('[name="photo-date"]').value;
                     const photoNote = document.querySelector('[name="photo-note"]').value;
-                    // 順次アップロード
-                    for (const photo of photos) {
-                      await api.createPhoto({
-                        siteId: selectedSite.id,
-                        imageData: photo.imageData,
-                        date: photoDate,
-                        note: photoNote
-                      });
-                    }
+                    await api.createPhoto({ 
+                      siteId: selectedSite.id, 
+                      imageData: formData.imageData,
+                      date: photoDate,
+                      note: photoNote
+                    });
                     await loadData();
                     setShowModal(false);
-                    setFormData({ ...formData, selectedPhotos: [] });
                   } catch (err) {
                     alert('保存に失敗しました: ' + err.message);
                   } finally {
                     setSaving(false);
                   }
                 }} className="flex-1 text-white py-2 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#5bbd56' }} disabled={saving}>
-                  {saving ? <Icons.Loader className="animate-spin" /> : `アップロード${formData.selectedPhotos?.length > 0 ? ` (${formData.selectedPhotos.length}枚)` : ''}`}
+                  {saving ? <Icons.Loader /> : 'アップロード'}
                 </button>
               </div>
             </div>
@@ -4125,76 +3556,10 @@ function App() {
                     type="number"
                     min="1"
                     max="31"
-                    placeholder="固定日"
+                    placeholder="日"
                     className="w-16 border border-gray-300 rounded px-2 py-1 text-sm"
                     onChange={e => e.target.value && setAllDates(e.target.value)}
                   />
-                  <select
-                    className="border border-gray-300 rounded px-2 py-1 text-sm"
-                    onChange={e => {
-                      if (e.target.value) {
-                        const newData = { ...yearlyPlanData };
-                        Object.keys(newData).forEach(month => {
-                          if (newData[month]?.scheduled) {
-                            newData[month] = { ...newData[month], dateType: 'relative', datePattern: e.target.value, date: null };
-                          }
-                        });
-                        setYearlyPlanData(newData);
-                      }
-                    }}
-                    defaultValue=""
-                  >
-                    <option value="" disabled>相対日付</option>
-                    <optgroup label="日曜日">
-                      <option value="first_sun">第1日曜</option>
-                      <option value="second_sun">第2日曜</option>
-                      <option value="third_sun">第3日曜</option>
-                      <option value="fourth_sun">第4日曜</option>
-                      <option value="last_sun">最終日曜</option>
-                    </optgroup>
-                    <optgroup label="月曜日">
-                      <option value="first_mon">第1月曜</option>
-                      <option value="second_mon">第2月曜</option>
-                      <option value="third_mon">第3月曜</option>
-                      <option value="fourth_mon">第4月曜</option>
-                      <option value="last_mon">最終月曜</option>
-                    </optgroup>
-                    <optgroup label="火曜日">
-                      <option value="first_tue">第1火曜</option>
-                      <option value="second_tue">第2火曜</option>
-                      <option value="third_tue">第3火曜</option>
-                      <option value="fourth_tue">第4火曜</option>
-                      <option value="last_tue">最終火曜</option>
-                    </optgroup>
-                    <optgroup label="水曜日">
-                      <option value="first_wed">第1水曜</option>
-                      <option value="second_wed">第2水曜</option>
-                      <option value="third_wed">第3水曜</option>
-                      <option value="fourth_wed">第4水曜</option>
-                      <option value="last_wed">最終水曜</option>
-                    </optgroup>
-                    <optgroup label="木曜日">
-                      <option value="first_thu">第1木曜</option>
-                      <option value="second_thu">第2木曜</option>
-                      <option value="third_thu">第3木曜</option>
-                      <option value="fourth_thu">第4木曜</option>
-                      <option value="last_thu">最終木曜</option>
-                    </optgroup>
-                    <optgroup label="金曜日">
-                      <option value="first_fri">第1金曜</option>
-                      <option value="second_fri">第2金曜</option>
-                      <option value="third_fri">第3金曜</option>
-                      <option value="fourth_fri">第4金曜</option>
-                      <option value="last_fri">最終金曜</option>
-                    </optgroup>
-                    <optgroup label="土曜日">
-                      <option value="first_sat">第1土曜</option>
-                      <option value="second_sat">第2土曜</option>
-                      <option value="third_sat">第3土曜</option>
-                      <option value="fourth_sat">第4土曜</option>
-                      <option value="last_sat">最終土曜</option>
-                    </optgroup>
-                  </select>
                   <select
                     className="border border-gray-300 rounded px-2 py-1 text-sm"
                     onChange={e => e.target.value && setAllWorkTypes(e.target.value)}
@@ -4212,69 +3577,17 @@ function App() {
                 {months.map(m => {
                   const plan = yearlyPlanData[m];
                   const isActive = plan?.scheduled;
-                  const isRelative = plan?.dateType === 'relative';
-                  const patternLabels = {
-                    'first_sun': '第1日曜', 'second_sun': '第2日曜', 'third_sun': '第3日曜', 'fourth_sun': '第4日曜', 'last_sun': '最終日曜',
-                    'first_mon': '第1月曜', 'second_mon': '第2月曜', 'third_mon': '第3月曜', 'fourth_mon': '第4月曜', 'last_mon': '最終月曜',
-                    'first_tue': '第1火曜', 'second_tue': '第2火曜', 'third_tue': '第3火曜', 'fourth_tue': '第4火曜', 'last_tue': '最終火曜',
-                    'first_wed': '第1水曜', 'second_wed': '第2水曜', 'third_wed': '第3水曜', 'fourth_wed': '第4水曜', 'last_wed': '最終水曜',
-                    'first_thu': '第1木曜', 'second_thu': '第2木曜', 'third_thu': '第3木曜', 'fourth_thu': '第4木曜', 'last_thu': '最終木曜',
-                    'first_fri': '第1金曜', 'second_fri': '第2金曜', 'third_fri': '第3金曜', 'fourth_fri': '第4金曜', 'last_fri': '最終金曜',
-                    'first_sat': '第1土曜', 'second_sat': '第2土曜', 'third_sat': '第3土曜', 'fourth_sat': '第4土曜', 'last_sat': '最終土曜'
-                  };
                   return (
-                    <div key={m} className={`p-2 rounded-lg border-2 ${isActive ? (isRelative ? 'border-blue-400 bg-blue-50' : 'border-green-400 bg-green-50') : 'border-gray-200 bg-gray-50'}`}>
+                    <div key={m} className={`p-2 rounded-lg border-2 ${isActive ? 'border-green-400 bg-green-50' : 'border-gray-200 bg-gray-50'}`}>
                       <label className="flex items-center gap-2 cursor-pointer mb-2">
                         <input type="checkbox" checked={isActive || false} onChange={() => toggleMonth(m)} className="w-4 h-4" />
                         <span className="font-medium">{m}月</span>
                       </label>
                       {isActive && (
                         <div className="space-y-1">
-                          {/* タブ切り替え */}
-                          <div className="flex rounded overflow-hidden border border-gray-300 mb-1">
-                            <button type="button" onClick={() => updateMonthPlan(m, 'dateType', 'absolute')}
-                              className={`flex-1 py-1 text-xs ${!isRelative ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-600'}`}>固定</button>
-                            <button type="button" onClick={() => updateMonthPlan(m, 'dateType', 'relative')}
-                              className={`flex-1 py-1 text-xs ${isRelative ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-600'}`}>相対</button>
-                          </div>
-                          {isRelative ? (
-                            <select value={plan?.datePattern || ''} onChange={e => updateMonthPlan(m, 'datePattern', e.target.value)}
-                              className="w-full border border-gray-300 rounded px-2 py-1 text-xs">
-                              <option value="">選択</option>
-                              <optgroup label="日曜">
-                                <option value="first_sun">第1</option><option value="second_sun">第2</option>
-                                <option value="third_sun">第3</option><option value="fourth_sun">第4</option><option value="last_sun">最終</option>
-                              </optgroup>
-                              <optgroup label="月曜">
-                                <option value="first_mon">第1</option><option value="second_mon">第2</option>
-                                <option value="third_mon">第3</option><option value="fourth_mon">第4</option><option value="last_mon">最終</option>
-                              </optgroup>
-                              <optgroup label="火曜">
-                                <option value="first_tue">第1</option><option value="second_tue">第2</option>
-                                <option value="third_tue">第3</option><option value="fourth_tue">第4</option><option value="last_tue">最終</option>
-                              </optgroup>
-                              <optgroup label="水曜">
-                                <option value="first_wed">第1</option><option value="second_wed">第2</option>
-                                <option value="third_wed">第3</option><option value="fourth_wed">第4</option><option value="last_wed">最終</option>
-                              </optgroup>
-                              <optgroup label="木曜">
-                                <option value="first_thu">第1</option><option value="second_thu">第2</option>
-                                <option value="third_thu">第3</option><option value="fourth_thu">第4</option><option value="last_thu">最終</option>
-                              </optgroup>
-                              <optgroup label="金曜">
-                                <option value="first_fri">第1</option><option value="second_fri">第2</option>
-                                <option value="third_fri">第3</option><option value="fourth_fri">第4</option><option value="last_fri">最終</option>
-                              </optgroup>
-                              <optgroup label="土曜">
-                                <option value="first_sat">第1</option><option value="second_sat">第2</option>
-                                <option value="third_sat">第3</option><option value="fourth_sat">第4</option><option value="last_sat">最終</option>
-                              </optgroup>
-                            </select>
-                          ) : (
-                            <input type="number" min="1" max="31" value={plan?.date || 15}
-                              onChange={e => updateMonthPlan(m, 'date', parseInt(e.target.value))}
-                              className="w-full border border-gray-300 rounded px-2 py-1 text-sm" placeholder="日" />
-                          )}
+                          <input type="number" min="1" max="31" value={plan?.date || 15}
+                            onChange={e => updateMonthPlan(m, 'date', parseInt(e.target.value))}
+                            className="w-full border border-gray-300 rounded px-2 py-1 text-sm" placeholder="日" />
                           <select value={plan?.workType || ''} onChange={e => updateMonthPlan(m, 'workType', e.target.value)}
                             className="w-full border border-gray-300 rounded px-2 py-1 text-sm">
                             {(masterData.workTypes || []).map(w => <option key={w} value={w}>{w}</option>)}
@@ -4323,10 +3636,12 @@ function App() {
                   <h2 className="text-xl font-bold text-gray-800">顧客一覧</h2>
                   <p className="text-gray-500 text-sm">{corporations.length}社 / {totalSites}現場</p>
                 </div>
-                <button onClick={() => { setModalType('corp'); setEditingItem(null); setShowModal(true); }}
-                  className="flex items-center gap-1 text-white px-4 py-2 rounded-lg text-sm font-medium" style={{ backgroundColor: '#5bbd56' }}>
-                  <Icons.Plus /> 法人追加
-                </button>
+                {userRole === 'admin' && (
+                  <button onClick={() => { setModalType('corp'); setEditingItem(null); setShowModal(true); }}
+                    className="flex items-center gap-1 text-white px-4 py-2 rounded-lg text-sm font-medium" style={{ backgroundColor: '#5bbd56' }}>
+                    <Icons.Plus /> 法人追加
+                  </button>
+                )}
               </div>
               <input type="text" placeholder="法人名・現場名で検索..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full bg-white border border-gray-300 rounded-lg px-4 py-3 mb-4" autoComplete="off" />
@@ -4345,8 +3660,6 @@ function App() {
         {currentView === 'menu' && <AdminMenuView />}
         {currentView === 'adminDailyReports' && <DailyReportAdminView />}
         {currentView === 'adminTimecards' && <TimecardAdminView />}
-        {currentView === 'adminAuditLogs' && <AuditLogView />}
-        {currentView === 'inventory' && <InventoryView />}
       </main>
 
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg">
@@ -4361,9 +3674,6 @@ function App() {
           </button>
           <button onClick={() => navigate('/calendar')} className={`flex-1 py-3 text-center ${currentView === 'calendar' ? '' : 'text-gray-400'}`} style={currentView === 'calendar' ? { color: '#5bbd56' } : {}}>
             <div className="flex justify-center mb-1"><Icons.Calendar /></div><p className="text-xs">カレンダー</p>
-          </button>
-          <button onClick={() => navigate('/inventory')} className={`flex-1 py-3 text-center ${currentView === 'inventory' ? '' : 'text-gray-400'}`} style={currentView === 'inventory' ? { color: '#5bbd56' } : {}}>
-            <div className="flex justify-center mb-1"><Icons.Package /></div><p className="text-xs">在庫</p>
           </button>
           {userRole === 'admin' ? (
             <>

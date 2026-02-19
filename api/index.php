@@ -44,6 +44,20 @@ $input = json_decode(file_get_contents('php://input'), true) ?? [];
 // データベース接続
 $db = Database::getInstance();
 
+// 修正申請テーブル自動作成
+$db->query("CREATE TABLE IF NOT EXISTS time_correction_requests (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    work_date DATE NOT NULL,
+    requested_clock_in TIME NULL,
+    requested_clock_out TIME NULL,
+    reason TEXT,
+    status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
+    processed_by INT NULL,
+    processed_at DATETIME NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+)");
+
 // レスポンス関数
 function respond($data, $status = 200) {
     http_response_code($status);
@@ -1628,6 +1642,125 @@ switch ($request) {
 
             $db->delete("DELETE FROM timecards WHERE id = ?", [$id]);
             respond(['message' => 'タイムカードを削除しました']);
+        }
+        break;
+
+    // ========== タイムカード修正申請 ==========
+    case 'time-correction-requests':
+        checkAuth();
+
+        if ($method === 'GET') {
+            if ($_SESSION['role'] === 'admin' || $_SESSION['role'] === 'master') {
+                $status = $_GET['status'] ?? null;
+                $sql = "SELECT tcr.*, u.name as user_name
+                        FROM time_correction_requests tcr
+                        JOIN users u ON tcr.user_id = u.id";
+                $params = [];
+                if ($status) {
+                    $sql .= " WHERE tcr.status = ?";
+                    $params[] = $status;
+                }
+                $sql .= " ORDER BY tcr.created_at DESC";
+                $requests = $db->fetchAll($sql, $params);
+            } else {
+                $sql = "SELECT tcr.*, u.name as user_name
+                        FROM time_correction_requests tcr
+                        JOIN users u ON tcr.user_id = u.id
+                        WHERE tcr.user_id = ?
+                        ORDER BY tcr.created_at DESC";
+                $requests = $db->fetchAll($sql, [$_SESSION['user_id']]);
+            }
+            respond($requests);
+        } elseif ($method === 'POST') {
+            $workDate = $input['work_date'] ?? '';
+            $clockIn = $input['clock_in'] ?? null;
+            $clockOut = $input['clock_out'] ?? null;
+            $reason = $input['reason'] ?? '';
+
+            if (empty($workDate)) error('日付は必須です');
+            if (empty($clockIn) && empty($clockOut)) error('出勤または退勤時刻を入力してください');
+            if (empty($reason)) error('理由は必須です');
+
+            // 重複チェック
+            $existing = $db->fetch(
+                "SELECT id FROM time_correction_requests WHERE user_id = ? AND work_date = ? AND status = 'pending'",
+                [$_SESSION['user_id'], $workDate]
+            );
+            if ($existing) {
+                error('この日付の修正申請が既に申請中です');
+            }
+
+            $db->insert(
+                "INSERT INTO time_correction_requests (user_id, work_date, requested_clock_in, requested_clock_out, reason) VALUES (?, ?, ?, ?, ?)",
+                [$_SESSION['user_id'], $workDate, $clockIn, $clockOut, $reason]
+            );
+
+            respond(['message' => '修正申請を送信しました']);
+        }
+        break;
+
+    case 'process-time-correction':
+        checkAdmin();
+
+        if ($method === 'POST') {
+            $requestId = $input['id'] ?? 0;
+            $action = $input['action'] ?? '';
+
+            if (!in_array($action, ['approved', 'rejected'])) {
+                error('無効なアクションです');
+            }
+
+            $request = $db->fetch(
+                "SELECT * FROM time_correction_requests WHERE id = ? AND status = 'pending'",
+                [$requestId]
+            );
+            if (!$request) {
+                error('修正申請が見つかりません', 404);
+            }
+
+            // ステータス更新
+            $db->update(
+                "UPDATE time_correction_requests SET status = ?, processed_by = ?, processed_at = NOW() WHERE id = ?",
+                [$action, $_SESSION['user_id'], $requestId]
+            );
+
+            // 承認の場合、タイムカードを更新
+            if ($action === 'approved') {
+                $existing = $db->fetch(
+                    "SELECT id FROM timecards WHERE user_id = ? AND work_date = ?",
+                    [$request['user_id'], $request['work_date']]
+                );
+
+                if ($existing) {
+                    $updates = [];
+                    $params = [];
+                    if ($request['requested_clock_in']) {
+                        $updates[] = "clock_in = ?";
+                        $updates[] = "clock_in_type = 'manual'";
+                        $params[] = $request['requested_clock_in'];
+                    }
+                    if ($request['requested_clock_out']) {
+                        $updates[] = "clock_out = ?";
+                        $updates[] = "clock_out_type = 'manual'";
+                        $params[] = $request['requested_clock_out'];
+                    }
+                    if (!empty($updates)) {
+                        $params[] = $existing['id'];
+                        $db->update(
+                            "UPDATE timecards SET " . implode(', ', $updates) . " WHERE id = ?",
+                            $params
+                        );
+                    }
+                } else {
+                    $db->insert(
+                        "INSERT INTO timecards (user_id, work_date, clock_in, clock_in_type, clock_out, clock_out_type) VALUES (?, ?, ?, 'manual', ?, 'manual')",
+                        [$request['user_id'], $request['work_date'], $request['requested_clock_in'], $request['requested_clock_out']]
+                    );
+                }
+            }
+
+            $msg = $action === 'approved' ? '承認しました' : '却下しました';
+            respond(['message' => $msg]);
         }
         break;
 

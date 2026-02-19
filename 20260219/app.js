@@ -492,20 +492,20 @@ function App() {
             <h1 className="text-2xl font-bold text-gray-800">CSM業務管理</h1>
             <p className="text-gray-500 text-sm mt-2">ログインしてください</p>
           </div>
-          <div className="space-y-4">
+          <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); handleLogin(); }}>
             <div>
               <label className="text-gray-600 text-sm font-medium">ユーザー名</label>
               <input type="text" value={loginForm.username} onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })}
-                className="w-full bg-white border border-gray-300 rounded-lg px-4 py-3 mt-1" placeholder="ユーザー名を入力" />
+                className="w-full bg-white border border-gray-300 rounded-lg px-4 py-3 mt-1" placeholder="ユーザー名を入力" autoComplete="username" />
             </div>
             <div>
               <label className="text-gray-600 text-sm font-medium">パスワード</label>
               <input type="password" value={loginForm.password} onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                onKeyPress={(e) => e.key === 'Enter' && handleLogin()} className="w-full bg-white border border-gray-300 rounded-lg px-4 py-3 mt-1" placeholder="パスワードを入力" />
+                className="w-full bg-white border border-gray-300 rounded-lg px-4 py-3 mt-1" placeholder="パスワードを入力" autoComplete="current-password" />
             </div>
             {loginError && <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-2"><span className="text-red-500"><Icons.AlertCircle /></span><p className="text-red-600 text-sm">{loginError}</p></div>}
-            <button onClick={handleLogin} className="w-full text-white py-3 rounded-lg font-medium" style={{ backgroundColor: '#5bbd56' }}>ログイン</button>
-          </div>
+            <button type="submit" className="w-full text-white py-3 rounded-lg font-medium" style={{ backgroundColor: '#5bbd56' }}>ログイン</button>
+          </form>
         </div>
       </div>
     );

@@ -63,6 +63,12 @@ $db->query("CREATE TABLE IF NOT EXISTS time_correction_requests (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 )");
 
+// 倉庫支店を自動追加（存在しない場合のみ）
+$warehouseExists = $db->fetch("SELECT id FROM inventory_branches WHERE name = '倉庫' OR code = 'WAREHOUSE'");
+if (!$warehouseExists) {
+    $db->query("INSERT INTO inventory_branches (name, code, is_active) VALUES ('倉庫', 'WAREHOUSE', 1)");
+}
+
 // レスポンス関数
 function respond($data, $status = 200) {
     http_response_code($status);

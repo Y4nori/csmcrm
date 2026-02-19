@@ -3610,8 +3610,25 @@ function App() {
                       return (
                         <tr key={productData.product_id} className={`border-b hover:bg-gray-50 ${isLow ? 'bg-red-50' : ''}`}>
                           <td className="px-2 py-2 font-medium text-sm truncate" title={productName}>{productName}</td>
-                          <td className="px-1 py-2 text-center bg-blue-50 text-gray-400">0</td>
-                          {branches.map(b => {
+                          {/* 倉庫列 */}
+                          {(() => {
+                            const warehouseBranch = branches.find(b => b.code === 'WAREHOUSE' || b.name === '倉庫');
+                            const warehouseQty = warehouseBranch ? (productData.branches[warehouseBranch.id]?.quantity || 0) : 0;
+                            return (
+                              <td
+                                onClick={() => {
+                                  if (warehouseBranch) {
+                                    setStockForm({ branchId: warehouseBranch.id.toString(), productId: productData.product_id.toString(), quantity: '', note: '', alertThreshold: (productData.min_stock || 0).toString() });
+                                    setStockModalType('adjust');
+                                    setShowStockModal(true);
+                                  }
+                                }}
+                                className={`px-1 py-2 text-center bg-blue-50 cursor-pointer hover:bg-blue-100 ${warehouseQty === 0 ? 'text-gray-300' : 'text-blue-700 font-medium'}`}>
+                                {warehouseQty}
+                              </td>
+                            );
+                          })()}
+                          {branches.filter(b => b.code !== 'WAREHOUSE' && b.name !== '倉庫').map(b => {
                             const qty = productData.branches[b.id]?.quantity || 0;
                             return (
                               <td key={b.id}
@@ -4008,8 +4025,8 @@ function App() {
               const data = {
                 name: form['site-name'].value,
                 address: form['site-address'].value,
-                keybox: form['site-keybox'].value,
-                keyboxLocation: form['site-keyboxLocation'].value,
+                keybox: form['site-keybox']?.value || editingItem?.keybox || '',
+                keyboxLocation: form['site-keyboxLocation']?.value || editingItem?.keyboxLocation || '',
                 pests: formData.pests || [],
                 workTypes: formData.workTypes || [],
                 workAreas: formData.workAreas || [],
@@ -4038,13 +4055,15 @@ function App() {
                 <input type="text" name="site-address" placeholder="住所" defaultValue={editingItem?.address || ''} className="flex-1 border border-gray-300 rounded-lg px-3 py-2" />
                 <button type="button" onClick={() => { document.querySelector('[name="site-address"]').value = selectedCorp?.address || ''; }} className="text-xs px-2 border border-gray-300 rounded text-gray-500">コピー</button>
               </div>
-              <div className="p-3 rounded-lg" style={{ backgroundColor: 'rgba(91, 189, 86, 0.1)' }}>
-                <p className="text-sm font-medium mb-2" style={{ color: '#5bbd56' }}>キーボックス</p>
-                <div className="grid grid-cols-2 gap-2">
-                  <input type="text" name="site-keybox" placeholder="暗証番号" defaultValue={editingItem?.keybox || ''} className="border border-gray-300 rounded-lg px-3 py-2" />
-                  <input type="text" name="site-keyboxLocation" placeholder="場所" defaultValue={editingItem?.keyboxLocation || ''} className="border border-gray-300 rounded-lg px-3 py-2" />
+              {(userRole === 'admin' || userRole === 'master') && (
+                <div className="p-3 rounded-lg" style={{ backgroundColor: 'rgba(91, 189, 86, 0.1)' }}>
+                  <p className="text-sm font-medium mb-2" style={{ color: '#5bbd56' }}>キーボックス</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input type="text" name="site-keybox" placeholder="暗証番号" defaultValue={editingItem?.keybox || ''} className="border border-gray-300 rounded-lg px-3 py-2" />
+                    <input type="text" name="site-keyboxLocation" placeholder="場所" defaultValue={editingItem?.keyboxLocation || ''} className="border border-gray-300 rounded-lg px-3 py-2" />
+                  </div>
                 </div>
-              </div>
+              )}
               <div>
                 <p className="text-sm font-medium text-gray-600 mb-2">対象害虫</p>
                 <div className="flex flex-wrap gap-2">

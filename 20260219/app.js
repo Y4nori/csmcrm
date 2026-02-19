@@ -64,12 +64,13 @@ const api = {
   login: (username, password) => api.call('login', 'POST', { username, password }),
   logout: () => api.call('logout', 'POST'),
   checkAuth: async () => {
-    // 401エラーをコンソールに出さないよう、専用の処理
+    // 401エラーをコンソールに出さないよう、200で返してチェック
     const basePath = window.location.pathname.replace(/\/[^\/]*$/, '/');
     const url = `${basePath}api/index.php?action=check-auth`;
     const res = await fetch(url, { credentials: 'include' });
-    if (!res.ok) return null;
-    return res.json();
+    const data = await res.json();
+    if (data.authenticated === false) return null;
+    return data;
   },
   
   getCorps: () => api.call('corporations'),

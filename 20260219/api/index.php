@@ -243,7 +243,8 @@ switch ($request) {
                 'role' => $_SESSION['role']
             ]);
         } else {
-            error('Not authenticated', 401);
+            // 未認証時は200で返す（ブラウザコンソールの401エラー表示を回避）
+            respond(['authenticated' => false]);
         }
         break;
 

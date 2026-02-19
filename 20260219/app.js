@@ -63,7 +63,14 @@ const api = {
   
   login: (username, password) => api.call('login', 'POST', { username, password }),
   logout: () => api.call('logout', 'POST'),
-  checkAuth: () => api.call('check-auth'),
+  checkAuth: async () => {
+    // 401エラーをコンソールに出さないよう、専用の処理
+    const basePath = window.location.pathname.replace(/\/[^\/]*$/, '/');
+    const url = `${basePath}api/index.php?action=check-auth`;
+    const res = await fetch(url, { credentials: 'include' });
+    if (!res.ok) return null;
+    return res.json();
+  },
   
   getCorps: () => api.call('corporations'),
   createCorp: (data) => api.call('corporations', 'POST', data),
@@ -263,9 +270,13 @@ function App() {
   const checkAuthStatus = async () => {
     try {
       const user = await api.checkAuth();
-      setCurrentUser(user);
-      setIsLoggedIn(true);
-      await loadData(user.role);
+      if (user) {
+        setCurrentUser(user);
+        setIsLoggedIn(true);
+        await loadData(user.role);
+      } else {
+        setIsLoggedIn(false);
+      }
     } catch (e) {
       setIsLoggedIn(false);
     } finally {

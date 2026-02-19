@@ -327,10 +327,25 @@ function App() {
     try {
       await api.logout();
     } catch (e) {}
+
+    // ブラウザキャッシュをクリア
+    if ('caches' in window) {
+      try {
+        const cacheNames = await caches.keys();
+        await Promise.all(cacheNames.map(name => caches.delete(name)));
+      } catch (e) {}
+    }
+
+    // ストレージをクリア
+    localStorage.clear();
+    sessionStorage.clear();
+
     setIsLoggedIn(false);
     setCurrentUser(null);
     setLoginForm({ username: '', password: '' });
-    navigate('/');
+
+    // 強制リロードでメモリキャッシュもクリア
+    window.location.href = window.location.origin + window.location.pathname;
   };
 
   // ユーティリティ関数

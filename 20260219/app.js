@@ -4025,8 +4025,8 @@ function App() {
               const data = {
                 name: form['site-name'].value,
                 address: form['site-address'].value,
-                keybox: form['site-keybox']?.value || editingItem?.keybox || '',
-                keyboxLocation: form['site-keyboxLocation']?.value || editingItem?.keyboxLocation || '',
+                keybox: form['site-keybox'].value,
+                keyboxLocation: form['site-keyboxLocation'].value,
                 pests: formData.pests || [],
                 workTypes: formData.workTypes || [],
                 workAreas: formData.workAreas || [],

@@ -50,18 +50,26 @@ $input = json_decode(file_get_contents('php://input'), true) ?? [];
 $db = Database::getInstance();
 
 // 修正申請テーブル自動作成
-$db->query("CREATE TABLE IF NOT EXISTS time_correction_requests (
+$db->query("CREATE TABLE IF NOT EXISTS timecard_requests (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
     work_date DATE NOT NULL,
-    requested_clock_in TIME NULL,
-    requested_clock_out TIME NULL,
+    clock_in TIME NULL,
+    clock_out TIME NULL,
     reason TEXT,
     status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
+    reject_comment TEXT NULL,
     processed_by INT NULL,
     processed_at DATETIME NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 )");
+
+// timecard_requestsテーブルにreject_commentカラムがなければ追加
+try {
+    $db->query("ALTER TABLE timecard_requests ADD COLUMN reject_comment TEXT NULL AFTER status");
+} catch (Exception $e) {
+    // カラムが既に存在する場合は無視
+}
 
 // 倉庫支店を自動追加（存在しない場合のみ）
 $warehouseExists = $db->fetch("SELECT id FROM inventory_branches WHERE name = '倉庫' OR code = 'WAREHOUSE'");
@@ -187,6 +195,18 @@ function logAudit($action, $targetType, $targetId, $targetName, $details = null)
         error_log("Audit log error: " . $e->getMessage());
     }
 }
+
+// グローバル例外ハンドラ（未キャッチ例外でもJSONレスポンスを返す）
+set_exception_handler(function($e) {
+    http_response_code(500);
+    header('Content-Type: application/json; charset=utf-8');
+    if (DEBUG_MODE) {
+        echo json_encode(['error' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
+    } else {
+        echo json_encode(['error' => 'Internal Server Error'], JSON_UNESCAPED_UNICODE);
+    }
+    exit;
+});
 
 // ルーティング
 switch ($request) {
@@ -2238,31 +2258,61 @@ switch ($request) {
                 error('この申請は既に処理済みです');
             }
 
-            // 申請を承認
-            $db->update(
-                "UPDATE timecard_requests SET status = 'approved', processed_by = ?, processed_at = NOW() WHERE id = ?",
-                [$_SESSION['user_id'], $id]
-            );
-
-            // タイムカードを更新または作成
-            $existing = $db->fetch(
-                "SELECT id FROM timecards WHERE user_id = ? AND work_date = ?",
-                [$request['user_id'], $request['work_date']]
-            );
-
-            if ($existing) {
+            try {
+                // 申請を承認
                 $db->update(
-                    "UPDATE timecards SET clock_in = ?, clock_out = ?, clock_in_type = 'corrected', clock_out_type = 'corrected' WHERE id = ?",
-                    [$request['clock_in'], $request['clock_out'], $existing['id']]
+                    "UPDATE timecard_requests SET status = 'approved', processed_by = ?, processed_at = NOW() WHERE id = ?",
+                    [$_SESSION['user_id'], $id]
                 );
-            } else {
-                $db->insert(
-                    "INSERT INTO timecards (user_id, work_date, clock_in, clock_out, clock_in_type, clock_out_type) VALUES (?, ?, ?, ?, 'corrected', 'corrected')",
-                    [$request['user_id'], $request['work_date'], $request['clock_in'], $request['clock_out']]
-                );
-            }
 
-            respond(['message' => '申請を承認しました']);
+                // タイムカードを更新または作成
+                $existing = $db->fetch(
+                    "SELECT id FROM timecards WHERE user_id = ? AND work_date = ?",
+                    [$request['user_id'], $request['work_date']]
+                );
+
+                // clock_in_typeカラムの存在チェック
+                $hasTypeColumn = false;
+                try {
+                    $cols = $db->fetchAll("SHOW COLUMNS FROM timecards LIKE 'clock_in_type'");
+                    $hasTypeColumn = !empty($cols);
+                } catch (Exception $e) {}
+
+                if ($existing) {
+                    if ($hasTypeColumn) {
+                        $db->update(
+                            "UPDATE timecards SET clock_in = ?, clock_out = ?, clock_in_type = 'corrected', clock_out_type = 'corrected' WHERE id = ?",
+                            [$request['clock_in'], $request['clock_out'], $existing['id']]
+                        );
+                    } else {
+                        $db->update(
+                            "UPDATE timecards SET clock_in = ?, clock_out = ? WHERE id = ?",
+                            [$request['clock_in'], $request['clock_out'], $existing['id']]
+                        );
+                    }
+                } else {
+                    if ($hasTypeColumn) {
+                        $db->insert(
+                            "INSERT INTO timecards (user_id, work_date, clock_in, clock_out, clock_in_type, clock_out_type) VALUES (?, ?, ?, ?, 'corrected', 'corrected')",
+                            [$request['user_id'], $request['work_date'], $request['clock_in'], $request['clock_out']]
+                        );
+                    } else {
+                        $db->insert(
+                            "INSERT INTO timecards (user_id, work_date, clock_in, clock_out) VALUES (?, ?, ?, ?)",
+                            [$request['user_id'], $request['work_date'], $request['clock_in'], $request['clock_out']]
+                        );
+                    }
+                }
+
+                respond(['message' => '申請を承認しました']);
+            } catch (Exception $e) {
+                // 承認ステータスをロールバック
+                $db->update(
+                    "UPDATE timecard_requests SET status = 'pending', processed_by = NULL, processed_at = NULL WHERE id = ?",
+                    [$id]
+                );
+                error('承認処理中にエラーが発生しました: ' . ($e->getMessage()));
+            }
         }
         break;
 
@@ -2285,10 +2335,18 @@ switch ($request) {
                 error('この申請は既に処理済みです');
             }
 
-            $db->update(
-                "UPDATE timecard_requests SET status = 'rejected', reject_comment = ?, processed_by = ?, processed_at = NOW() WHERE id = ?",
-                [$comment, $_SESSION['user_id'], $id]
-            );
+            try {
+                $db->update(
+                    "UPDATE timecard_requests SET status = 'rejected', reject_comment = ?, processed_by = ?, processed_at = NOW() WHERE id = ?",
+                    [$comment, $_SESSION['user_id'], $id]
+                );
+            } catch (Exception $e) {
+                // reject_commentカラムがない場合のフォールバック
+                $db->update(
+                    "UPDATE timecard_requests SET status = 'rejected', processed_by = ?, processed_at = NOW() WHERE id = ?",
+                    [$_SESSION['user_id'], $id]
+                );
+            }
 
             respond(['message' => '申請を却下しました']);
         }

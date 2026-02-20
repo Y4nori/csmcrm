@@ -52,12 +52,17 @@ const api = {
     }
     
     const res = await fetch(url, options);
-    const json = await res.json();
-    
+    let json;
+    try {
+      json = await res.json();
+    } catch (e) {
+      throw new Error('サーバーエラーが発生しました（レスポンスの解析に失敗）');
+    }
+
     if (!res.ok) {
       throw new Error(json.error || 'API Error');
     }
-    
+
     return json;
   },
   

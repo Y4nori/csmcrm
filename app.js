@@ -273,6 +273,8 @@ function App() {
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState(null);
   const [editingItem, setEditingItem] = useState(null);
+  const [lightboxPhoto, setLightboxPhoto] = useState(null);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [calendarMonth, setCalendarMonth] = useState(new Date());
   
@@ -1031,7 +1033,7 @@ function App() {
               <div className="grid grid-cols-2 gap-2">
                 {selectedSite.photos.map((photo, i) => (
                   <div key={i} className="relative bg-gray-100 rounded-lg overflow-hidden aspect-square">
-                    <img src={photo.url} alt="" className="w-full h-full object-cover" />
+                    <img src={photo.url} alt="" className="w-full h-full object-cover cursor-pointer" onClick={() => { setLightboxPhoto(photo); setLightboxIndex(i); }} />
                     <button
                       onClick={async () => {
                         if (confirm('この写真を削除しますか？')) {
@@ -4574,6 +4576,25 @@ function App() {
       </nav>
 
       {showModal && <Modal />}
+
+      {lightboxPhoto && (
+        <div className="fixed inset-0 bg-black/90 flex flex-col items-center justify-center z-[60]" onClick={() => setLightboxPhoto(null)}>
+          <button className="absolute top-4 right-4 text-white text-3xl font-bold z-10 w-10 h-10 flex items-center justify-center" onClick={() => setLightboxPhoto(null)}>&times;</button>
+          {selectedSite?.photos?.length > 1 && (
+            <>
+              <button className="absolute left-2 top-1/2 -translate-y-1/2 text-white text-4xl font-bold z-10 w-12 h-12 flex items-center justify-center"
+                onClick={(e) => { e.stopPropagation(); const photos = selectedSite.photos; const prev = (lightboxIndex - 1 + photos.length) % photos.length; setLightboxIndex(prev); setLightboxPhoto(photos[prev]); }}>&lsaquo;</button>
+              <button className="absolute right-2 top-1/2 -translate-y-1/2 text-white text-4xl font-bold z-10 w-12 h-12 flex items-center justify-center"
+                onClick={(e) => { e.stopPropagation(); const photos = selectedSite.photos; const next = (lightboxIndex + 1) % photos.length; setLightboxIndex(next); setLightboxPhoto(photos[next]); }}>&rsaquo;</button>
+            </>
+          )}
+          <img src={lightboxPhoto.url} alt="" className="max-w-full max-h-[85vh] object-contain" onClick={(e) => e.stopPropagation()} />
+          <div className="text-white text-sm mt-2">
+            {formatDate(lightboxPhoto.date)}{lightboxPhoto.note ? ` - ${lightboxPhoto.note}` : ''}
+            {selectedSite?.photos?.length > 1 && ` (${lightboxIndex + 1}/${selectedSite.photos.length})`}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

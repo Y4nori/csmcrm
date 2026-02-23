@@ -806,9 +806,9 @@ function App() {
           {(selectedCorp?.sites || []).map((site) => (
             <div key={site.id} onClick={() => navigate(`/sites/${site.id}`)}
               className="bg-white border border-gray-200 rounded-xl p-4 cursor-pointer hover:border-green-400">
-              <div className="flex justify-between items-center">
-                <h3 className="font-bold text-gray-800">{site.name}</h3>
-                <div className="flex items-center gap-2">
+              <div className="flex justify-between items-center gap-2">
+                <h3 className="font-bold text-gray-800 min-w-0 break-words">{site.name}</h3>
+                <div className="flex items-center gap-2 shrink-0">
                   {userRole === 'admin' && (
                     <button
                       onClick={(e) => { e.stopPropagation(); setDeletingSite(site); setShowSiteDeleteConfirm(true); }}
@@ -863,7 +863,7 @@ function App() {
           <button onClick={() => { setShowKeybox(false); navigate(`/corporations/${selectedCorp?.id}`); }} className="text-gray-400"><Icons.ChevronLeft /></button>
           <div className="flex-1">
             <p className="text-gray-500 text-sm truncate">{selectedCorp?.name}</p>
-            <h2 className="text-xl font-bold text-gray-800">{selectedSite?.name}</h2>
+            <h2 className="text-xl font-bold text-gray-800 break-words">{selectedSite?.name}</h2>
           </div>
           <button onClick={() => { setModalType('site'); setEditingItem(selectedSite); setShowModal(true); }} className="text-gray-400"><Icons.Edit /></button>
         </div>

@@ -2684,6 +2684,86 @@ switch ($request) {
         }
         break;
 
+    case 'inventory-product-create':
+        checkAuth();
+
+        if ($method === 'POST') {
+            $name = trim($input['name'] ?? '');
+            $unit = trim($input['unit'] ?? '個');
+            $alertThreshold = isset($input['alertThreshold']) ? (int)$input['alertThreshold'] : 0;
+
+            if (empty($name)) {
+                error('製品名を入力してください');
+            }
+
+            // デフォルトカテゴリを取得（なければ作成）
+            $defaultCategory = $db->fetch("SELECT id FROM inventory_categories WHERE is_active = 1 ORDER BY sort_order LIMIT 1");
+            if (!$defaultCategory) {
+                $db->query("INSERT INTO inventory_categories (name, sort_order, is_active) VALUES ('一般', 1, 1)");
+                $categoryId = $db->lastInsertId();
+            } else {
+                $categoryId = $defaultCategory['id'];
+            }
+
+            // 製品を追加
+            $db->query(
+                "INSERT INTO inventory_products (name, category_id, unit, alert_threshold, is_active) VALUES (?, ?, ?, ?, 1)",
+                [$name, $categoryId, $unit, $alertThreshold]
+            );
+            $productId = $db->lastInsertId();
+
+            // 全営業所に初期在庫0で登録
+            $branches = $db->fetchAll("SELECT id FROM inventory_branches WHERE is_active = 1");
+            foreach ($branches as $branch) {
+                $db->query(
+                    "INSERT INTO inventory_stocks (branch_id, product_id, quantity) VALUES (?, ?, 0)",
+                    [$branch['id'], $productId]
+                );
+            }
+
+            respond(['id' => $productId, 'message' => '製品を追加しました']);
+        }
+        break;
+
+    case 'inventory-product-delete':
+        checkAuth();
+
+        if ($method === 'DELETE') {
+            $productId = (int)($_GET['id'] ?? 0);
+
+            if ($productId <= 0) {
+                error('製品IDを指定してください');
+            }
+
+            // 論理削除
+            $db->query("UPDATE inventory_products SET is_active = 0 WHERE id = ?", [$productId]);
+
+            respond(['message' => '製品を削除しました']);
+        }
+        break;
+
+    case 'inventory-product-reorder':
+        checkAuth();
+
+        if ($method === 'POST') {
+            $productIds = $input['productIds'] ?? [];
+
+            if (empty($productIds) || !is_array($productIds)) {
+                error('製品IDリストを指定してください');
+            }
+
+            // 並び順を更新
+            foreach ($productIds as $index => $productId) {
+                $db->query(
+                    "UPDATE inventory_products SET sort_order = ? WHERE id = ?",
+                    [$index, (int)$productId]
+                );
+            }
+
+            respond(['message' => '並び順を更新しました']);
+        }
+        break;
+
     default:
         error('Invalid action', 404);
 }

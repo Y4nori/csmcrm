@@ -2200,12 +2200,12 @@ function App() {
                 <div className="grid grid-cols-2 gap-2 mb-2">
                   <div>
                     <label className="text-xs text-gray-500">開始</label>
-                    <input type="text" inputMode="numeric" pattern="[0-9]{1,2}:[0-9]{2}" placeholder="09:00" value={detail.startTime} onChange={(e) => updateDetail(i, 'startTime', e.target.value)}
+                    <input type="time" value={detail.startTime} onChange={(e) => updateDetail(i, 'startTime', e.target.value)}
                       className="w-full border border-gray-300 rounded px-2 py-1 text-sm" />
                   </div>
                   <div>
                     <label className="text-xs text-gray-500">終了</label>
-                    <input type="text" inputMode="numeric" pattern="[0-9]{1,2}:[0-9]{2}" placeholder="17:00" value={detail.endTime} onChange={(e) => updateDetail(i, 'endTime', e.target.value)}
+                    <input type="time" value={detail.endTime} onChange={(e) => updateDetail(i, 'endTime', e.target.value)}
                       className="w-full border border-gray-300 rounded px-2 py-1 text-sm" />
                   </div>
                 </div>

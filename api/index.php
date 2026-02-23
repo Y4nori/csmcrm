@@ -2699,18 +2699,16 @@ switch ($request) {
             // デフォルトカテゴリを取得（なければ作成）
             $defaultCategory = $db->fetch("SELECT id FROM inventory_categories WHERE is_active = 1 ORDER BY sort_order LIMIT 1");
             if (!$defaultCategory) {
-                $db->query("INSERT INTO inventory_categories (name, sort_order, is_active) VALUES ('一般', 1, 1)");
-                $categoryId = $db->lastInsertId();
+                $categoryId = $db->insert("INSERT INTO inventory_categories (name, sort_order, is_active) VALUES ('一般', 1, 1)");
             } else {
                 $categoryId = $defaultCategory['id'];
             }
 
             // 製品を追加
-            $db->query(
+            $productId = $db->insert(
                 "INSERT INTO inventory_products (name, category_id, unit, alert_threshold, is_active) VALUES (?, ?, ?, ?, 1)",
                 [$name, $categoryId, $unit, $alertThreshold]
             );
-            $productId = $db->lastInsertId();
 
             // 全営業所に初期在庫0で登録
             $branches = $db->fetchAll("SELECT id FROM inventory_branches WHERE is_active = 1");

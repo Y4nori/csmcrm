@@ -750,7 +750,7 @@ function App() {
         <div className="flex items-center gap-3 mb-4">
           <button onClick={() => navigate('/corporations')} className="text-gray-400 hover:text-gray-600"><Icons.ChevronLeft /></button>
           <div className="flex-1">
-            <h2 className="text-xl font-bold text-gray-800 truncate">{selectedCorp?.name}</h2>
+            <h2 className="text-xl font-bold text-gray-800 break-words">{selectedCorp?.name}</h2>
             <p className="text-gray-500 text-sm">{(selectedCorp?.sites || []).length}現場</p>
           </div>
           {userRole === 'admin' && (

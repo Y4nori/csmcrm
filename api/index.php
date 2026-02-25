@@ -642,7 +642,7 @@ switch ($request) {
             logAudit('update', 'corporation', $id, $input['name'] ?? '');
             respond(['message' => 'Corporation updated']);
         } elseif ($method === 'DELETE') {
-            checkAdmin();
+            checkAuth(); // スタッフも法人削除可能
             $corp = $db->fetch("SELECT name FROM corporations WHERE id = ?", [$id]);
             $db->delete("DELETE FROM corporations WHERE id = ?", [$id]);
             logAudit('delete', 'corporation', $id, $corp['name'] ?? 'Unknown');

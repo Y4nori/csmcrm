@@ -753,16 +753,14 @@ function App() {
             <h2 className="text-xl font-bold text-gray-800 break-words">{selectedCorp?.name}</h2>
             <p className="text-gray-500 text-sm">{(selectedCorp?.sites || []).length}現場</p>
           </div>
-          {userRole === 'admin' && (
-            <div className="flex items-center gap-2">
-              <button onClick={() => { setModalType('corp'); setEditingItem(selectedCorp); setShowModal(true); }} className="text-gray-400 hover:text-gray-600">
-                <Icons.Edit />
-              </button>
-              <button onClick={() => setShowDeleteConfirm(true)} className="text-red-400 hover:text-red-600">
-                <Icons.Trash />
-              </button>
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            <button onClick={() => { setModalType('corp'); setEditingItem(selectedCorp); setShowModal(true); }} className="text-gray-400 hover:text-gray-600">
+              <Icons.Edit />
+            </button>
+            <button onClick={() => setShowDeleteConfirm(true)} className="text-red-400 hover:text-red-600">
+              <Icons.Trash />
+            </button>
+          </div>
         </div>
 
         <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">

@@ -4616,7 +4616,7 @@ function App() {
         {currentView === 'inventory' && <InventoryView />}
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg">
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-20">
         <div className="max-w-5xl mx-auto flex">
           <button onClick={() => navigate('/')} className={`flex-1 py-3 text-center ${currentView === 'dashboard' ? '' : 'text-gray-400'}`} style={currentView === 'dashboard' ? { color: '#5bbd56' } : {}}>
             <div className="flex justify-center mb-1"><Icons.Home /></div><p className="text-xs">ホーム</p>

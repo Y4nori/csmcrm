@@ -2491,7 +2491,7 @@ switch ($request) {
             if ($branchId <= 0 || $productId <= 0) {
                 error('営業所と製品を指定してください');
             }
-            if ($quantity == 0) {
+            if ($quantity == 0 && $type !== 'adjust') {
                 error('数量を入力してください');
             }
 

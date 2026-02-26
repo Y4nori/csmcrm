@@ -3432,6 +3432,7 @@ function App() {
           product_id: item.product_id,
           unit: item.unit,
           min_stock: item.min_stock,
+          category_name: item.category_name,
           branches: {}
         };
       }
@@ -3461,6 +3462,8 @@ function App() {
         compare = a.quantity - b.quantity;
       } else if (sortKey === 'alert') {
         compare = (a.min_stock || 0) - (b.min_stock || 0);
+      } else if (sortKey === 'category') {
+        compare = (a.category_name || '').localeCompare(b.category_name || '', 'ja');
       }
       return sortOrder === 'asc' ? compare : -compare;
     });
@@ -3476,6 +3479,8 @@ function App() {
         compare = totalA - totalB;
       } else if (sortKey === 'alert') {
         compare = (a[1].min_stock || 0) - (b[1].min_stock || 0);
+      } else if (sortKey === 'category') {
+        compare = (a[1].category_name || '').localeCompare(b[1].category_name || '', 'ja');
       }
       return sortOrder === 'asc' ? compare : -compare;
     });
@@ -3556,6 +3561,9 @@ function App() {
                       <th className="text-left px-4 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => toggleSort('name')}>
                         製品名 {sortKey === 'name' && (sortOrder === 'asc' ? '▲' : '▼')}
                       </th>
+                      <th className="text-left px-4 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => toggleSort('category')}>
+                        資材 {sortKey === 'category' && (sortOrder === 'asc' ? '▲' : '▼')}
+                      </th>
                       <th className="text-center px-4 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => toggleSort('quantity')}>
                         在庫数 {sortKey === 'quantity' && (sortOrder === 'asc' ? '▲' : '▼')}
                       </th>
@@ -3575,6 +3583,7 @@ function App() {
                         }}
                         className="border-b hover:bg-blue-50 cursor-pointer">
                         <td className="px-4 py-3 font-medium">{item.product_name}</td>
+                        <td className="px-4 py-3 text-gray-500">{item.category_name}</td>
                         <td className={`px-4 py-3 text-center font-bold ${item.quantity <= item.min_stock && item.min_stock > 0 ? 'text-red-600' : 'text-gray-800'}`}>
                           {item.quantity}
                           {item.quantity <= item.min_stock && item.min_stock > 0 && (
@@ -3597,6 +3606,9 @@ function App() {
                       <th className="text-left px-2 py-3 font-medium text-gray-600 w-24 cursor-pointer hover:bg-gray-100" onClick={() => toggleSort('name')}>
                         製品名 {sortKey === 'name' && (sortOrder === 'asc' ? '▲' : '▼')}
                       </th>
+                      <th className="text-left px-2 py-3 font-medium text-gray-600 w-20 cursor-pointer hover:bg-gray-100" onClick={() => toggleSort('category')}>
+                        資材 {sortKey === 'category' && (sortOrder === 'asc' ? '▲' : '▼')}
+                      </th>
                       <th className="text-center px-1 py-3 font-medium text-blue-600 bg-blue-50 w-12">倉庫</th>
                       {branches.map(b => (
                         <th key={b.id} className="text-center px-1 py-3 font-medium text-gray-600 w-12">{b.name.replace('営業', '').replace('所', '')}</th>
@@ -3616,6 +3628,7 @@ function App() {
                       return (
                         <tr key={productData.product_id} className={`border-b hover:bg-gray-50 ${isLow ? 'bg-red-50' : ''}`}>
                           <td className="px-2 py-2 font-medium text-sm truncate" title={productName}>{productName}</td>
+                          <td className="px-2 py-2 text-xs text-gray-500 truncate" title={productData.category_name}>{productData.category_name}</td>
                           {/* 倉庫列 */}
                           {(() => {
                             const warehouseBranch = branches.find(b => b.code === 'WAREHOUSE' || b.name === '倉庫');

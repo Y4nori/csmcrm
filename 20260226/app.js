@@ -3671,18 +3671,18 @@ function App() {
               </div>
             ) : (
               // 全営業所クロス表示
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto relative">
                 <table className="w-full text-sm table-fixed">
                   <thead>
                     <tr className="bg-gray-50 border-b">
-                      <th className="text-left px-2 py-3 font-medium text-gray-600 w-24 cursor-pointer hover:bg-gray-100" onClick={() => toggleSort('name')}>
+                      <th className="text-left px-2 py-3 font-medium text-gray-600 w-24 cursor-pointer hover:bg-gray-100 sticky left-0 z-10 bg-gray-50" onClick={() => toggleSort('name')}>
                         製品名 {sortKey === 'name' && (sortOrder === 'asc' ? '▲' : '▼')}
                       </th>
-                      <th className="text-left px-2 py-3 font-medium text-gray-600 w-20 cursor-pointer hover:bg-gray-100" onClick={() => toggleSort('category')}>
+                      <th className="text-left px-2 py-3 font-medium text-gray-600 w-20 cursor-pointer hover:bg-gray-100 sticky left-24 z-10 bg-gray-50" style={{boxShadow: '2px 0 4px rgba(0,0,0,0.06)'}} onClick={() => toggleSort('category')}>
                         資材 {sortKey === 'category' && (sortOrder === 'asc' ? '▲' : '▼')}
                       </th>
                       <th className="text-center px-1 py-3 font-medium text-blue-600 bg-blue-50 w-12">倉庫</th>
-                      {branches.map(b => (
+                      {branches.filter(b => b.code !== 'WAREHOUSE' && b.name !== '倉庫').map(b => (
                         <th key={b.id} className="text-center px-1 py-3 font-medium text-gray-600 w-12">{b.name.replace('営業', '').replace('所', '')}</th>
                       ))}
                       <th className="text-center px-2 py-3 font-medium text-gray-600 bg-green-50 w-14 cursor-pointer hover:bg-green-100" onClick={() => toggleSort('total')}>
@@ -3699,8 +3699,8 @@ function App() {
                       const isLow = total <= (productData.min_stock || 0) && (productData.min_stock || 0) > 0;
                       return (
                         <tr key={productData.product_id} className={`border-b hover:bg-gray-50 ${isLow ? 'bg-red-50' : ''}`}>
-                          <td className="px-2 py-2 font-medium text-sm truncate" title={productName}>{productName}</td>
-                          <td className="px-2 py-2 text-xs text-gray-500 truncate" title={productData.category_name}>{productData.category_name}</td>
+                          <td className={`px-2 py-2 font-medium text-sm truncate sticky left-0 z-10 ${isLow ? 'bg-red-50' : 'bg-white'}`} title={productName}>{productName}</td>
+                          <td className={`px-2 py-2 text-xs text-gray-500 truncate sticky left-24 z-10 ${isLow ? 'bg-red-50' : 'bg-white'}`} style={{boxShadow: '2px 0 4px rgba(0,0,0,0.06)'}} title={productData.category_name}>{productData.category_name}</td>
                           {/* 倉庫列 */}
                           {(() => {
                             const warehouseBranch = branches.find(b => b.code === 'WAREHOUSE' || b.name === '倉庫');

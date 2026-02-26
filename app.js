@@ -3302,6 +3302,7 @@ function App() {
     // フィルター
     const [selectedBranch, setSelectedBranch] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('');
+    const [selectedProduct, setSelectedProduct] = useState('');
 
     // 並び替え
     const [sortKey, setSortKey] = useState('name');
@@ -3426,7 +3427,12 @@ function App() {
     };
 
     // 在庫を製品でグループ化
-    const groupedStock = stock.reduce((acc, item) => {
+    // 商品フィルター（グループ化前）
+    const stockForGrouping = selectedProduct
+      ? stock.filter(item => item.product_id.toString() === selectedProduct)
+      : stock;
+
+    const groupedStock = stockForGrouping.reduce((acc, item) => {
       if (!acc[item.product_name]) {
         acc[item.product_name] = {
           product_id: item.product_id,
@@ -3453,8 +3459,13 @@ function App() {
       }
     };
 
+    // 商品フィルター適用
+    const filteredStock = selectedProduct
+      ? stock.filter(item => item.product_id.toString() === selectedProduct)
+      : stock;
+
     // 並び替え適用
-    const sortedStock = [...stock].sort((a, b) => {
+    const sortedStock = [...filteredStock].sort((a, b) => {
       let compare = 0;
       if (sortKey === 'name') {
         compare = a.product_name.localeCompare(b.product_name, 'ja');
@@ -3552,6 +3563,11 @@ function App() {
             className="border border-gray-300 rounded-lg px-3 py-2 text-sm">
             <option value="">全資材</option>
             {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+          <select value={selectedProduct} onChange={(e) => setSelectedProduct(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm">
+            <option value="">全商品</option>
+            {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
         </div>
 

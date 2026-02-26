@@ -3675,10 +3675,10 @@ function App() {
                 <table className="w-full text-sm table-fixed">
                   <thead>
                     <tr className="bg-gray-50 border-b">
-                      <th className="text-left px-2 py-3 font-medium text-gray-600 w-24 cursor-pointer hover:bg-gray-100 sticky left-0 z-10 bg-gray-50" style={{boxShadow: '2px 0 4px rgba(0,0,0,0.06)'}} onClick={() => toggleSort('name')}>
+                      <th className="text-left px-2 py-3 font-medium text-gray-600 w-24 cursor-pointer hover:bg-gray-100 sticky left-0 z-10 bg-gray-50" onClick={() => toggleSort('name')}>
                         製品名 {sortKey === 'name' && (sortOrder === 'asc' ? '▲' : '▼')}
                       </th>
-                      <th className="text-center px-1 py-3 font-medium text-blue-600 bg-blue-50 w-12">倉庫</th>
+                      <th className="text-center px-1 py-3 font-medium text-blue-600 bg-blue-50 w-12 sticky left-24 z-10" style={{boxShadow: '2px 0 4px rgba(0,0,0,0.06)'}}>倉庫</th>
                       {branches.filter(b => b.code !== 'WAREHOUSE' && b.name !== '倉庫').map(b => (
                         <th key={b.id} className="text-center px-1 py-3 font-medium text-gray-600 w-12">{b.name.replace('営業', '').replace('所', '')}</th>
                       ))}
@@ -3696,7 +3696,7 @@ function App() {
                       const isLow = total <= (productData.min_stock || 0) && (productData.min_stock || 0) > 0;
                       return (
                         <tr key={productData.product_id} className={`border-b hover:bg-gray-50 ${isLow ? 'bg-red-50' : ''}`}>
-                          <td className={`px-2 py-2 font-medium text-sm truncate sticky left-0 z-10 ${isLow ? 'bg-red-50' : 'bg-white'}`} style={{boxShadow: '2px 0 4px rgba(0,0,0,0.06)'}} title={productName}>{productName}</td>
+                          <td className={`px-2 py-2 font-medium text-sm truncate sticky left-0 z-10 ${isLow ? 'bg-red-50' : 'bg-white'}`} title={productName}>{productName}</td>
                           {/* 倉庫列 */}
                           {(() => {
                             const warehouseBranch = branches.find(b => b.code === 'WAREHOUSE' || b.name === '倉庫');
@@ -3710,7 +3710,8 @@ function App() {
                                     setShowStockModal(true);
                                   }
                                 }}
-                                className={`px-1 py-2 text-center bg-blue-50 cursor-pointer hover:bg-blue-100 ${warehouseQty === 0 ? 'text-gray-300' : 'text-blue-700 font-medium'}`}>
+                                className={`px-1 py-2 text-center bg-blue-50 cursor-pointer hover:bg-blue-100 sticky left-24 z-10 ${warehouseQty === 0 ? 'text-gray-300' : 'text-blue-700 font-medium'}`}
+                                style={{boxShadow: '2px 0 4px rgba(0,0,0,0.06)'}}>
                                 {warehouseQty}
                               </td>
                             );

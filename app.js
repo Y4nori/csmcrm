@@ -3711,7 +3711,7 @@ function App() {
                   <select value={stockForm.productId} onChange={(e) => setStockForm({ ...stockForm, productId: e.target.value })}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2">
                     <option value="">選択してください</option>
-                    {products.map(p => <option key={p.id} value={p.id}>{p.category_name} - {p.name}</option>)}
+                    {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </select>
                 </div>
                 <div>
@@ -3771,7 +3771,7 @@ function App() {
                   <select value={transferForm.productId} onChange={(e) => setTransferForm({ ...transferForm, productId: e.target.value })}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2">
                     <option value="">選択してください</option>
-                    {products.map(p => <option key={p.id} value={p.id}>{p.category_name} - {p.name}</option>)}
+                    {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </select>
                 </div>
                 <div>

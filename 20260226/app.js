@@ -554,6 +554,16 @@ function App() {
   // ダッシュボード
   const Dashboard = () => {
     const [workTab, setWorkTab] = useState('today');
+    const [pendingTimecardRequests, setPendingTimecardRequests] = useState([]);
+
+    useEffect(() => {
+      if (userRole === 'admin') {
+        api.getTimecardRequests({ status: 'pending' }).then(data => {
+          setPendingTimecardRequests(data || []);
+        }).catch(() => {});
+      }
+    }, [userRole]);
+
     const thisWeekWorks = getThisWeekWorks();
     const today = new Date();
     const todayWorks = thisWeekWorks.filter(w => w.scheduledDate.toDateString() === today.toDateString());
@@ -598,6 +608,33 @@ function App() {
             </div>
           );
         })()}
+
+        {userRole === 'admin' && pendingTimecardRequests.length > 0 && (
+          <div className="bg-orange-50 border-2 border-orange-300 rounded-xl p-4" style={{boxShadow: '0 0 8px rgba(249,115,22,0.2)'}}>
+            <h3 className="font-bold text-orange-700 flex items-center gap-2 mb-3">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              タイムカード修正申請 ({pendingTimecardRequests.length}件)
+            </h3>
+            <div className="space-y-2 max-h-48 overflow-y-auto">
+              {pendingTimecardRequests.map(req => (
+                <div key={req.id} className="bg-orange-100 text-orange-800 text-sm p-3 rounded-lg border border-orange-200" onClick={() => setCurrentPage('admin-timecard')} style={{cursor: 'pointer'}}>
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold">{req.user_name}</span>
+                    <span className="text-xs bg-orange-200 text-orange-700 px-2 py-0.5 rounded-full font-medium">未処理</span>
+                  </div>
+                  <div className="mt-1 text-orange-700">
+                    <span>{req.work_date}</span>
+                    <span className="mx-2">|</span>
+                    <span>出勤: {req.clock_in?.slice(0, 5) || '--:--'}</span>
+                    <span className="mx-1">〜</span>
+                    <span>退勤: {req.clock_out?.slice(0, 5) || '--:--'}</span>
+                  </div>
+                  {req.reason && <p className="mt-1 text-xs text-orange-600">理由: {req.reason}</p>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
           <div className="flex border-b border-gray-200">

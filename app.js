@@ -3696,7 +3696,7 @@ function App() {
                       const isLow = total <= (productData.min_stock || 0) && (productData.min_stock || 0) > 0;
                       return (
                         <tr key={productData.product_id} className={`border-b hover:bg-gray-50 ${isLow ? 'bg-red-50' : ''}`}>
-                          <td className={`px-2 py-2 font-medium text-sm truncate sticky left-0 z-10 ${isLow ? 'bg-red-50' : 'bg-white'}`} title={productName}>{productName}</td>
+                          <td className={`px-2 py-1 font-medium text-xs sticky left-0 z-10 ${isLow ? 'bg-red-50' : 'bg-white'}`} style={{boxShadow: '2px 0 4px rgba(0,0,0,0.06)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden'}} title={productName}>{productName}</td>
                           {/* 倉庫列 */}
                           {(() => {
                             const warehouseBranch = branches.find(b => b.code === 'WAREHOUSE' || b.name === '倉庫');

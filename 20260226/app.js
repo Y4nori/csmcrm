@@ -2350,6 +2350,10 @@ function App() {
     }, []);
 
     useEffect(() => {
+      loadMyRequests();
+    }, []);
+
+    useEffect(() => {
       let cancelled = false;
 
       const load = async () => {
@@ -2398,12 +2402,17 @@ function App() {
         alert('日付を入力してください');
         return;
       }
+      if (!correctionData.reason) {
+        alert('理由を入力してください');
+        return;
+      }
       try {
         await api.submitTimecardRequest(correctionData);
         alert('修正申請を送信しました');
         setShowCorrectionModal(false);
         setCorrectionData({ work_date: '', clock_in: '', clock_out: '', reason: '' });
         loadMyRequests();
+        loadMonthCards();
       } catch (e) {
         alert(e.message);
       }
@@ -2486,12 +2495,23 @@ function App() {
             <div className="space-y-2 max-h-60 overflow-y-auto">
               {monthCards.map(card => (
                 <div key={card.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
-                  <span className="font-medium text-gray-700">{card.work_date}</span>
-                  <div className="flex items-center gap-4">
+                  <span className="font-medium text-gray-700 text-sm">{card.work_date}</span>
+                  <div className="flex items-center gap-2">
                     <span className="text-sm">{formatTime(card.clock_in)} - {formatTime(card.clock_out)}</span>
-                    {currentUser?.role === 'admin' && (
+                    {(currentUser?.role === 'admin' || currentUser?.role === 'master') ? (
                       <button onClick={() => { setEditingCard(card); setShowEditModal(true); }}
                         className="text-gray-400 hover:text-gray-600"><Icons.Edit /></button>
+                    ) : (
+                      <button onClick={() => {
+                        setCorrectionData({
+                          work_date: card.work_date,
+                          clock_in: card.clock_in || '',
+                          clock_out: card.clock_out || '',
+                          reason: ''
+                        });
+                        setShowCorrectionModal(true);
+                      }}
+                        className="text-xs text-blue-500 hover:text-blue-700 whitespace-nowrap">修正申請</button>
                     )}
                   </div>
                 </div>
@@ -2549,11 +2569,42 @@ function App() {
 
         {/* 修正申請ボタン */}
         <div className="bg-white border border-gray-200 rounded-xl p-4">
-          <button onClick={() => setShowCorrectionModal(true)}
+          <button onClick={() => {
+            setCorrectionData({ work_date: '', clock_in: '', clock_out: '', reason: '' });
+            setShowCorrectionModal(true);
+          }}
             className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-500 text-white rounded-lg">
             <Icons.Edit /> 打刻修正を申請
           </button>
         </div>
+
+        {/* 申請履歴 */}
+        {myRequests.length > 0 && (
+          <div className="bg-white border border-gray-200 rounded-xl p-4">
+            <h3 className="font-bold text-gray-700 mb-3">修正申請履歴</h3>
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {myRequests.map(req => (
+                <div key={req.id} className="p-3 bg-gray-50 rounded-lg">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="font-medium text-sm text-gray-700">{req.work_date}</span>
+                    <span className={`text-xs px-2 py-0.5 rounded ${
+                      req.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                      req.status === 'approved' ? 'bg-green-100 text-green-700' :
+                      'bg-red-100 text-red-700'
+                    }`}>
+                      {req.status === 'pending' ? '申請中' : req.status === 'approved' ? '承認済' : '却下'}
+                    </span>
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    {req.clock_in?.slice(0, 5) || '--:--'} 〜 {req.clock_out?.slice(0, 5) || '--:--'}
+                  </div>
+                  {req.reason && <p className="text-xs text-gray-500 mt-1">理由: {req.reason}</p>}
+                  {req.reject_comment && <p className="text-xs text-red-500 mt-1">却下理由: {req.reject_comment}</p>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* 修正申請モーダル */}
         {showCorrectionModal && (
@@ -3302,6 +3353,7 @@ function App() {
     // フィルター
     const [selectedBranch, setSelectedBranch] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('');
+    const [selectedProduct, setSelectedProduct] = useState('');
 
     // 並び替え
     const [sortKey, setSortKey] = useState('name');
@@ -3426,12 +3478,18 @@ function App() {
     };
 
     // 在庫を製品でグループ化
-    const groupedStock = stock.reduce((acc, item) => {
+    // 商品フィルター（グループ化前）
+    const stockForGrouping = selectedProduct
+      ? stock.filter(item => item.product_id.toString() === selectedProduct)
+      : stock;
+
+    const groupedStock = stockForGrouping.reduce((acc, item) => {
       if (!acc[item.product_name]) {
         acc[item.product_name] = {
           product_id: item.product_id,
           unit: item.unit,
           min_stock: item.min_stock,
+          category_name: item.category_name,
           branches: {}
         };
       }
@@ -3452,8 +3510,13 @@ function App() {
       }
     };
 
+    // 商品フィルター適用
+    const filteredStock = selectedProduct
+      ? stock.filter(item => item.product_id.toString() === selectedProduct)
+      : stock;
+
     // 並び替え適用
-    const sortedStock = [...stock].sort((a, b) => {
+    const sortedStock = [...filteredStock].sort((a, b) => {
       let compare = 0;
       if (sortKey === 'name') {
         compare = a.product_name.localeCompare(b.product_name, 'ja');
@@ -3461,6 +3524,8 @@ function App() {
         compare = a.quantity - b.quantity;
       } else if (sortKey === 'alert') {
         compare = (a.min_stock || 0) - (b.min_stock || 0);
+      } else if (sortKey === 'category') {
+        compare = (a.category_name || '').localeCompare(b.category_name || '', 'ja');
       }
       return sortOrder === 'asc' ? compare : -compare;
     });
@@ -3476,6 +3541,8 @@ function App() {
         compare = totalA - totalB;
       } else if (sortKey === 'alert') {
         compare = (a[1].min_stock || 0) - (b[1].min_stock || 0);
+      } else if (sortKey === 'category') {
+        compare = (a[1].category_name || '').localeCompare(b[1].category_name || '', 'ja');
       }
       return sortOrder === 'asc' ? compare : -compare;
     });
@@ -3543,6 +3610,16 @@ function App() {
             <option value="">全営業所</option>
             {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
           </select>
+          <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm">
+            <option value="">全資材</option>
+            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+          <select value={selectedProduct} onChange={(e) => setSelectedProduct(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm">
+            <option value="">全商品</option>
+            {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
         </div>
 
         {activeTab === 'stock' && (
@@ -3555,6 +3632,9 @@ function App() {
                     <tr className="bg-gray-50 border-b">
                       <th className="text-left px-4 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => toggleSort('name')}>
                         製品名 {sortKey === 'name' && (sortOrder === 'asc' ? '▲' : '▼')}
+                      </th>
+                      <th className="text-left px-4 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => toggleSort('category')}>
+                        資材 {sortKey === 'category' && (sortOrder === 'asc' ? '▲' : '▼')}
                       </th>
                       <th className="text-center px-4 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => toggleSort('quantity')}>
                         在庫数 {sortKey === 'quantity' && (sortOrder === 'asc' ? '▲' : '▼')}
@@ -3575,6 +3655,7 @@ function App() {
                         }}
                         className="border-b hover:bg-blue-50 cursor-pointer">
                         <td className="px-4 py-3 font-medium">{item.product_name}</td>
+                        <td className="px-4 py-3 text-gray-500">{item.category_name}</td>
                         <td className={`px-4 py-3 text-center font-bold ${item.quantity <= item.min_stock && item.min_stock > 0 ? 'text-red-600' : 'text-gray-800'}`}>
                           {item.quantity}
                           {item.quantity <= item.min_stock && item.min_stock > 0 && (
@@ -3597,6 +3678,9 @@ function App() {
                       <th className="text-left px-2 py-3 font-medium text-gray-600 w-24 cursor-pointer hover:bg-gray-100" onClick={() => toggleSort('name')}>
                         製品名 {sortKey === 'name' && (sortOrder === 'asc' ? '▲' : '▼')}
                       </th>
+                      <th className="text-left px-2 py-3 font-medium text-gray-600 w-20 cursor-pointer hover:bg-gray-100" onClick={() => toggleSort('category')}>
+                        資材 {sortKey === 'category' && (sortOrder === 'asc' ? '▲' : '▼')}
+                      </th>
                       <th className="text-center px-1 py-3 font-medium text-blue-600 bg-blue-50 w-12">倉庫</th>
                       {branches.map(b => (
                         <th key={b.id} className="text-center px-1 py-3 font-medium text-gray-600 w-12">{b.name.replace('営業', '').replace('所', '')}</th>
@@ -3616,6 +3700,7 @@ function App() {
                       return (
                         <tr key={productData.product_id} className={`border-b hover:bg-gray-50 ${isLow ? 'bg-red-50' : ''}`}>
                           <td className="px-2 py-2 font-medium text-sm truncate" title={productName}>{productName}</td>
+                          <td className="px-2 py-2 text-xs text-gray-500 truncate" title={productData.category_name}>{productData.category_name}</td>
                           {/* 倉庫列 */}
                           {(() => {
                             const warehouseBranch = branches.find(b => b.code === 'WAREHOUSE' || b.name === '倉庫');

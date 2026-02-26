@@ -25,12 +25,12 @@ CREATE TABLE inventory_branches (
 
 -- Insert 6 branches
 INSERT INTO inventory_branches (name, code) VALUES
-('大阪営業', 'OSAKA'),
-('阪和営業', 'HANWA'),
+('大阪支店', 'OSAKA'),
+('阪和営業所', 'HANWA'),
 ('大阪北営業所', 'OSAKA_N'),
-('京滋営業', 'KEIJI'),
-('福知山営業', 'FUKUCHI'),
-('神戸営業所', 'KOBE');
+('京滋支店', 'KEIJI'),
+('福知山営業所', 'FUKUCHI'),
+('神戸支店', 'KOBE');
 
 -- ============================================
 -- 2. Categories (カテゴリ)

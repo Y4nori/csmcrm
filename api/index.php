@@ -97,6 +97,20 @@ if (!$warehouseExists) {
     $db->query("INSERT INTO inventory_branches (name, code, is_active) VALUES ('倉庫', 'WAREHOUSE', 1)");
 }
 
+// 営業所名の更新（旧名→新名）
+$branchRenames = [
+    ['大阪営業', '大阪支店'],
+    ['阪和営業', '阪和営業所'],
+    ['京滋営業', '京滋支店'],
+    ['福知山営業', '福知山営業所'],
+    ['神戸営業所', '神戸支店'],
+];
+foreach ($branchRenames as $rename) {
+    try {
+        $db->update("UPDATE inventory_branches SET name = ? WHERE name = ?", [$rename[1], $rename[0]]);
+    } catch (Exception $e) {}
+}
+
 // レスポンス関数
 function respond($data, $status = 200) {
     http_response_code($status);

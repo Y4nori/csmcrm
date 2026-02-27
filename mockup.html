@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CSM業務管理 - UIデザインモックアップ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --primary: #00B894;
+            --primary-light: #E8F8F5;
+            --primary-dark: #00997B;
+            --primary-gradient: linear-gradient(135deg, #00B894, #00D2A0);
+            --bg: #F5F6FA;
+            --card-bg: #FFFFFF;
+            --text-primary: #2D3436;
+            --text-secondary: #636E72;
+            --text-muted: #B2BEC3;
+            --border: #E9ECEF;
+            --shadow: 0 2px 12px rgba(0,0,0,0.06);
+            --shadow-lg: 0 4px 20px rgba(0,0,0,0.08);
+            --radius: 16px;
+            --radius-sm: 12px;
+            --radius-xs: 8px;
+        }
+        * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+            background: var(--bg);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Phone Frame */
+        .phone-frame {
+            width: 390px;
+            height: 844px;
+            border: 3px solid #E0E0E0;
+            border-radius: 40px;
+            overflow: hidden;
+            position: relative;
+            background: var(--bg);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+        }
+        .phone-content {
+            height: 100%;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        .phone-content::-webkit-scrollbar { display: none; }
+
+        /* Screen Switcher */
+        .screen-switcher {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 24px;
+        }
+        .screen-btn {
+            padding: 10px 20px;
+            border: 2px solid var(--border);
+            border-radius: 24px;
+            background: white;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            transition: all 0.2s;
+        }
+        .screen-btn.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+        .screen-btn:hover:not(.active) {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        /* Cards */
+        .card {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 20px;
+        }
+
+        /* Bottom Nav */
+        .bottom-nav {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            border-top: 1px solid var(--border);
+            display: flex;
+            padding: 8px 0 24px;
+            z-index: 10;
+        }
+        .nav-item {
+            flex: 1;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 10px;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        .nav-item.active { color: var(--primary); }
+        .nav-item svg { width: 24px; height: 24px; margin: 0 auto 2px; }
+
+        /* Tags */
+        .tag {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .tag-red { background: #FFEEF0; color: #E74C3C; }
+        .tag-blue { background: #EBF5FB; color: #2980B9; }
+        .tag-purple { background: #F4ECF7; color: #8E44AD; }
+        .tag-green { background: var(--primary-light); color: var(--primary-dark); }
+        .tag-orange { background: #FFF3E0; color: #E67E22; }
+
+        /* Status Badge */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        /* Inputs */
+        .input-modern {
+            width: 100%;
+            padding: 14px 16px;
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 16px;
+            background: #FAFBFC;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            outline: none;
+        }
+        .input-modern:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(0, 184, 148, 0.12);
+            background: white;
+        }
+
+        .screen { display: none; }
+        .screen.active { display: block; }
+
+        /* Keybox Card */
+        .keybox-card {
+            border: 2px solid var(--primary);
+            border-radius: var(--radius);
+            background: var(--primary-light);
+            padding: 16px 20px;
+        }
+
+        /* Tab */
+        .tab-bar {
+            display: flex;
+            border-bottom: 2px solid var(--border);
+            gap: 0;
+        }
+        .tab-item {
+            flex: 1;
+            text-align: center;
+            padding: 12px 8px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-muted);
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .tab-item.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+        }
+
+        /* Table Modern */
+        .table-modern {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-size: 13px;
+        }
+        .table-modern th {
+            background: var(--primary-light);
+            color: var(--primary-dark);
+            padding: 10px 12px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 12px;
+        }
+        .table-modern th:first-child { border-radius: var(--radius-xs) 0 0 0; }
+        .table-modern th:last-child { border-radius: 0 var(--radius-xs) 0 0; }
+        .table-modern td {
+            padding: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+        .table-modern tr:last-child td { border-bottom: none; }
+        .table-modern tr:hover td { background: #FAFBFC; }
+    </style>
+</head>
+<body>
+    <div style="max-width: 1200px; margin: 0 auto; padding: 40px 20px;">
+        <h1 style="font-size: 28px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px;">CSM業務管理 - UIデザインモックアップ</h1>
+        <p style="color: var(--text-secondary); margin-bottom: 24px;">GCOO風モダンデザイン - 画面を切り替えて確認</p>
+
+        <div class="screen-switcher">
+            <button class="screen-btn active" onclick="showScreen('login')">1. ログイン</button>
+            <button class="screen-btn" onclick="showScreen('dashboard')">2. ダッシュボード</button>
+            <button class="screen-btn" onclick="showScreen('customers')">3. 顧客一覧</button>
+            <button class="screen-btn" onclick="showScreen('site-detail')">4. 現場詳細</button>
+            <button class="screen-btn" onclick="showScreen('inventory')">5. 在庫管理</button>
+        </div>
+
+        <div style="display: flex; justify-content: center;">
+            <div class="phone-frame">
+                <div class="phone-content">
+
+                    <!-- ========== 1. LOGIN ========== -->
+                    <div id="screen-login" class="screen active">
+                        <div style="min-height: 844px; background: linear-gradient(160deg, #00B894 0%, #00D2A0 40%, #E8F8F5 100%); display: flex; flex-direction: column; justify-content: center; padding: 32px;">
+                            <!-- Logo Area -->
+                            <div style="text-align: center; margin-bottom: 48px;">
+                                <div style="width: 80px; height: 80px; background: white; border-radius: 20px; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 8px 32px rgba(0,0,0,0.12); margin-bottom: 20px;">
+                                    <span style="font-size: 32px; font-weight: 800; color: var(--primary);">CS</span>
+                                </div>
+                                <h1 style="color: white; font-size: 26px; font-weight: 700; margin: 0;">CSM業務管理</h1>
+                                <p style="color: rgba(255,255,255,0.8); font-size: 14px; margin-top: 6px;">害虫駆除・施設管理システム</p>
+                            </div>
+
+                            <!-- Login Card -->
+                            <div class="card" style="padding: 32px 24px;">
+                                <div style="margin-bottom: 20px;">
+                                    <label style="font-size: 13px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 6px;">ユーザー名</label>
+                                    <input class="input-modern" type="text" placeholder="ユーザー名を入力" value="tanaka">
+                                </div>
+                                <div style="margin-bottom: 28px;">
+                                    <label style="font-size: 13px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 6px;">パスワード</label>
+                                    <input class="input-modern" type="password" placeholder="パスワードを入力" value="••••••••">
+                                </div>
+                                <button style="width: 100%; padding: 16px; background: var(--primary-gradient); color: white; border: none; border-radius: var(--radius-sm); font-size: 16px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 16px rgba(0, 184, 148, 0.3);">
+                                    ログイン
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ========== 2. DASHBOARD ========== -->
+                    <div id="screen-dashboard" class="screen">
+                        <div style="min-height: 844px; background: var(--bg); padding-bottom: 80px;">
+                            <!-- Top Bar -->
+                            <div style="background: white; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 5; box-shadow: 0 1px 4px rgba(0,0,0,0.04);">
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <div style="width: 36px; height: 36px; background: var(--primary); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                                        <span style="color: white; font-weight: 800; font-size: 14px;">CS</span>
+                                    </div>
+                                    <span style="font-weight: 700; font-size: 17px;">CSM業務管理</span>
+                                </div>
+                                <div style="position: relative; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                                    <svg width="22" height="22" fill="none" stroke="var(--text-secondary)" stroke-width="2" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                                    <div style="position: absolute; top: 6px; right: 8px; width: 8px; height: 8px; background: #E74C3C; border-radius: 50%; border: 2px solid white;"></div>
+                                </div>
+                            </div>
+
+                            <div style="padding: 16px 16px 0;">
+                                <!-- Greeting Card -->
+                                <div style="background: var(--primary-gradient); border-radius: var(--radius); padding: 24px; color: white; margin-bottom: 20px; position: relative; overflow: hidden;">
+                                    <div style="position: absolute; right: -20px; top: -20px; width: 120px; height: 120px; background: rgba(255,255,255,0.1); border-radius: 50%;"></div>
+                                    <div style="position: absolute; right: 30px; bottom: -30px; width: 80px; height: 80px; background: rgba(255,255,255,0.08); border-radius: 50%;"></div>
+                                    <p style="font-size: 14px; opacity: 0.9; margin: 0 0 4px;">おはようございます</p>
+                                    <h2 style="font-size: 22px; font-weight: 700; margin: 0 0 8px;">田中さん</h2>
+                                    <p style="font-size: 13px; opacity: 0.85; margin: 0;">2月27日（木）・ 今日の予定 <strong style="font-size: 20px; vertical-align: middle;">3</strong> 件</p>
+                                </div>
+
+                                <!-- Summary Cards -->
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px;">
+                                    <div class="card" style="padding: 16px;">
+                                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                                            <div style="width: 36px; height: 36px; background: #FFEEF0; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                                                <svg width="18" height="18" fill="none" stroke="#E74C3C" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                                            </div>
+                                        </div>
+                                        <p style="font-size: 12px; color: var(--text-muted); margin: 0;">未送信請求</p>
+                                        <p style="font-size: 28px; font-weight: 800; color: #E74C3C; margin: 2px 0 0;">2</p>
+                                    </div>
+                                    <div class="card" style="padding: 16px;">
+                                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                                            <div style="width: 36px; height: 36px; background: #FFF3E0; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                                                <svg width="18" height="18" fill="none" stroke="#E67E22" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                                            </div>
+                                        </div>
+                                        <p style="font-size: 12px; color: var(--text-muted); margin: 0;">未入金</p>
+                                        <p style="font-size: 28px; font-weight: 800; color: #E67E22; margin: 2px 0 0;">5</p>
+                                    </div>
+                                    <div class="card" style="padding: 16px;">
+                                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                                            <div style="width: 36px; height: 36px; background: var(--primary-light); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                                                <svg width="18" height="18" fill="none" stroke="var(--primary)" stroke-width="2" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                                            </div>
+                                        </div>
+                                        <p style="font-size: 12px; color: var(--text-muted); margin: 0;">今日の作業</p>
+                                        <p style="font-size: 28px; font-weight: 800; color: var(--primary); margin: 2px 0 0;">3</p>
+                                    </div>
+                                    <div class="card" style="padding: 16px;">
+                                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                                            <div style="width: 36px; height: 36px; background: #EBF5FB; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                                                <svg width="18" height="18" fill="none" stroke="#2980B9" stroke-width="2" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
+                                            </div>
+                                        </div>
+                                        <p style="font-size: 12px; color: var(--text-muted); margin: 0;">在庫アラート</p>
+                                        <p style="font-size: 28px; font-weight: 800; color: #2980B9; margin: 2px 0 0;">1</p>
+                                    </div>
+                                </div>
+
+                                <!-- Section Header -->
+                                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                                    <h3 style="font-size: 16px; font-weight: 700; margin: 0;">今日の作業予定</h3>
+                                    <span style="font-size: 13px; color: var(--primary); font-weight: 600; cursor: pointer;">すべて見る &rsaquo;</span>
+                                </div>
+
+                                <!-- Work Items -->
+                                <div class="card" style="padding: 0; overflow: hidden; margin-bottom: 12px;">
+                                    <div style="padding: 16px; display: flex; gap: 14px; align-items: flex-start;">
+                                        <div style="width: 44px; height: 44px; background: var(--primary-light); border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                                            <svg width="20" height="20" fill="none" stroke="var(--primary)" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+                                        </div>
+                                        <div style="flex: 1; min-width: 0;">
+                                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                                                <span style="font-weight: 700; font-size: 14px;">ABC商業ビル</span>
+                                                <span class="tag tag-green" style="font-size: 11px;">定期点検</span>
+                                            </div>
+                                            <p style="font-size: 12px; color: var(--text-secondary); margin: 0;">ABC商事株式会社</p>
+                                            <p style="font-size: 12px; color: var(--text-muted); margin: 4px 0 0;">
+                                                <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="display: inline; vertical-align: middle;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                                                09:00 〜 11:00
+                                            </p>
+                                        </div>
+                                        <svg width="16" height="16" fill="none" stroke="var(--text-muted)" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink: 0; margin-top: 4px;"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                                    </div>
+                                </div>
+
+                                <div class="card" style="padding: 0; overflow: hidden; margin-bottom: 12px;">
+                                    <div style="padding: 16px; display: flex; gap: 14px; align-items: flex-start;">
+                                        <div style="width: 44px; height: 44px; background: #FFF3E0; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                                            <svg width="20" height="20" fill="none" stroke="#E67E22" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+                                        </div>
+                                        <div style="flex: 1; min-width: 0;">
+                                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                                                <span style="font-weight: 700; font-size: 14px;">DEFレストラン本店</span>
+                                                <span class="tag tag-orange" style="font-size: 11px;">駆除作業</span>
+                                            </div>
+                                            <p style="font-size: 12px; color: var(--text-secondary); margin: 0;">DEFフーズ株式会社</p>
+                                            <p style="font-size: 12px; color: var(--text-muted); margin: 4px 0 0;">
+                                                <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="display: inline; vertical-align: middle;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                                                13:00 〜 15:00
+                                            </p>
+                                        </div>
+                                        <svg width="16" height="16" fill="none" stroke="var(--text-muted)" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink: 0; margin-top: 4px;"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                                    </div>
+                                </div>
+
+                                <div class="card" style="padding: 0; overflow: hidden; margin-bottom: 12px;">
+                                    <div style="padding: 16px; display: flex; gap: 14px; align-items: flex-start;">
+                                        <div style="width: 44px; height: 44px; background: #EBF5FB; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                                            <svg width="20" height="20" fill="none" stroke="#2980B9" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+                                        </div>
+                                        <div style="flex: 1; min-width: 0;">
+                                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                                                <span style="font-weight: 700; font-size: 14px;">GHIホテル新宿</span>
+                                                <span class="tag tag-blue" style="font-size: 11px;">調査</span>
+                                            </div>
+                                            <p style="font-size: 12px; color: var(--text-secondary); margin: 0;">GHIホスピタリティ株式会社</p>
+                                            <p style="font-size: 12px; color: var(--text-muted); margin: 4px 0 0;">
+                                                <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="display: inline; vertical-align: middle;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                                                16:00 〜 17:30
+                                            </p>
+                                        </div>
+                                        <svg width="16" height="16" fill="none" stroke="var(--text-muted)" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink: 0; margin-top: 4px;"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Bottom Navigation -->
+                            <div class="bottom-nav">
+                                <div class="nav-item active">
+                                    <svg viewBox="0 0 24 24" fill="var(--primary)" stroke="none"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+                                    <div>ホーム</div>
+                                </div>
+                                <div class="nav-item">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><line x1="9" y1="22" x2="9" y2="12"></line><line x1="15" y1="22" x2="15" y2="12"></line></svg>
+                                    <div>顧客</div>
+                                </div>
+                                <div class="nav-item">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                                    <div>カレンダー</div>
+                                </div>
+                                <div class="nav-item">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
+                                    <div>在庫</div>
+                                </div>
+                                <div class="nav-item">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                                    <div>請求</div>
+                                </div>
+                                <div class="nav-item">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+                                    <div>メニュー</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ========== 3. CUSTOMERS ========== -->
+                    <div id="screen-customers" class="screen">
+                        <div style="min-height: 844px; background: var(--bg); padding-bottom: 80px;">
+                            <!-- Top Bar -->
+                            <div style="background: white; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 5; box-shadow: 0 1px 4px rgba(0,0,0,0.04);">
+                                <h2 style="font-size: 18px; font-weight: 700; margin: 0;">顧客管理</h2>
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <span style="font-size: 13px; color: var(--text-secondary);">12社</span>
+                                    <span style="font-size: 13px; color: var(--text-muted);">・</span>
+                                    <span style="font-size: 13px; color: var(--text-secondary);">28現場</span>
+                                </div>
+                            </div>
+
+                            <div style="padding: 16px;">
+                                <!-- Search Bar -->
+                                <div style="position: relative; margin-bottom: 16px;">
+                                    <svg width="18" height="18" fill="none" stroke="var(--text-muted)" stroke-width="2" viewBox="0 0 24 24" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%);"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                                    <input class="input-modern" style="padding-left: 42px; background: white;" placeholder="企業名・現場名で検索" type="text">
+                                </div>
+
+                                <!-- Add Button -->
+                                <div style="margin-bottom: 16px;">
+                                    <button style="width: 100%; padding: 14px; background: white; border: 2px dashed var(--primary); border-radius: var(--radius); color: var(--primary); font-weight: 700; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                                        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                        新規法人を追加
+                                    </button>
+                                </div>
+
+                                <!-- Corporation Cards -->
+                                <div style="display: flex; flex-direction: column; gap: 12px;">
+                                    <div class="card" style="padding: 0; overflow: hidden; cursor: pointer;">
+                                        <div style="padding: 16px 20px;">
+                                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                                                <h3 style="font-size: 15px; font-weight: 700; margin: 0;">ABC商事株式会社</h3>
+                                                <span style="background: var(--primary-light); color: var(--primary-dark); padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600;">3現場</span>
+                                            </div>
+                                            <p style="font-size: 13px; color: var(--text-secondary); margin: 0 0 4px;">
+                                                <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="display: inline; vertical-align: middle;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                                                東京都千代田区丸の内1-1-1
+                                            </p>
+                                            <p style="font-size: 12px; color: var(--text-muted); margin: 0;">担当: 山田太郎 ・ 03-1234-5678</p>
+                                        </div>
+                                        <div style="background: var(--primary-light); padding: 8px 20px; display: flex; gap: 12px;">
+                                            <span style="font-size: 12px; color: var(--primary-dark);">ABC商業ビル</span>
+                                            <span style="font-size: 12px; color: var(--primary-dark);">ABC倉庫</span>
+                                            <span style="font-size: 12px; color: var(--primary-dark);">ABC工場</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="card" style="padding: 0; overflow: hidden; cursor: pointer;">
+                                        <div style="padding: 16px 20px;">
+                                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                                                <h3 style="font-size: 15px; font-weight: 700; margin: 0;">DEFフーズ株式会社</h3>
+                                                <span style="background: var(--primary-light); color: var(--primary-dark); padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600;">5現場</span>
+                                            </div>
+                                            <p style="font-size: 13px; color: var(--text-secondary); margin: 0 0 4px;">
+                                                <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="display: inline; vertical-align: middle;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                                                東京都新宿区西新宿2-8-1
+                                            </p>
+                                            <p style="font-size: 12px; color: var(--text-muted); margin: 0;">担当: 鈴木一郎 ・ 03-9876-5432</p>
+                                        </div>
+                                        <div style="background: var(--primary-light); padding: 8px 20px; display: flex; gap: 12px;">
+                                            <span style="font-size: 12px; color: var(--primary-dark);">DEFレストラン本店</span>
+                                            <span style="font-size: 12px; color: var(--primary-dark);">DEFカフェ渋谷</span>
+                                            <span style="font-size: 12px; color: var(--text-muted);">+3</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="card" style="padding: 0; overflow: hidden; cursor: pointer;">
+                                        <div style="padding: 16px 20px;">
+                                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                                                <h3 style="font-size: 15px; font-weight: 700; margin: 0;">GHIホスピタリティ株式会社</h3>
+                                                <span style="background: var(--primary-light); color: var(--primary-dark); padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600;">2現場</span>
+                                            </div>
+                                            <p style="font-size: 13px; color: var(--text-secondary); margin: 0 0 4px;">
+                                                <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="display: inline; vertical-align: middle;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                                                東京都港区六本木6-10-1
+                                            </p>
+                                            <p style="font-size: 12px; color: var(--text-muted); margin: 0;">担当: 佐藤花子 ・ 03-5555-1234</p>
+                                        </div>
+                                        <div style="background: var(--primary-light); padding: 8px 20px; display: flex; gap: 12px;">
+                                            <span style="font-size: 12px; color: var(--primary-dark);">GHIホテル新宿</span>
+                                            <span style="font-size: 12px; color: var(--primary-dark);">GHIホテル池袋</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="card" style="padding: 0; overflow: hidden; cursor: pointer;">
+                                        <div style="padding: 16px 20px;">
+                                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                                                <h3 style="font-size: 15px; font-weight: 700; margin: 0;">JKLプロパティ株式会社</h3>
+                                                <span style="background: var(--primary-light); color: var(--primary-dark); padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600;">4現場</span>
+                                            </div>
+                                            <p style="font-size: 13px; color: var(--text-secondary); margin: 0 0 4px;">
+                                                <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="display: inline; vertical-align: middle;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                                                大阪府大阪市北区梅田3-3-10
+                                            </p>
+                                            <p style="font-size: 12px; color: var(--text-muted); margin: 0;">担当: 高橋健一 ・ 06-1111-2222</p>
+                                        </div>
+                                        <div style="background: var(--primary-light); padding: 8px 20px; display: flex; gap: 12px;">
+                                            <span style="font-size: 12px; color: var(--primary-dark);">JKLマンション梅田</span>
+                                            <span style="font-size: 12px; color: var(--text-muted);">+3</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Bottom Navigation -->
+                            <div class="bottom-nav">
+                                <div class="nav-item">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+                                    <div>ホーム</div>
+                                </div>
+                                <div class="nav-item active">
+                                    <svg viewBox="0 0 24 24" fill="var(--primary)" stroke="none"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><rect x="9" y="12" width="6" height="10" fill="white"/></svg>
+                                    <div>顧客</div>
+                                </div>
+                                <div class="nav-item">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                                    <div>カレンダー</div>
+                                </div>
+                                <div class="nav-item">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
+                                    <div>在庫</div>
+                                </div>
+                                <div class="nav-item">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                                    <div>請求</div>
+                                </div>
+                                <div class="nav-item">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+                                    <div>メニュー</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ========== 4. SITE DETAIL ========== -->
+                    <div id="screen-site-detail" class="screen">
+                        <div style="min-height: 844px; background: var(--bg); padding-bottom: 80px;">
+                            <!-- Header -->
+                            <div style="background: white; padding: 12px 20px; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 5; box-shadow: 0 1px 4px rgba(0,0,0,0.04);">
+                                <svg width="22" height="22" fill="none" stroke="var(--text-primary)" stroke-width="2.5" viewBox="0 0 24 24" style="cursor: pointer;"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                                <div>
+                                    <h2 style="font-size: 17px; font-weight: 700; margin: 0;">ABC商業ビル</h2>
+                                    <p style="font-size: 12px; color: var(--text-muted); margin: 0;">ABC商事株式会社</p>
+                                </div>
+                            </div>
+
+                            <div style="padding: 16px;">
+                                <!-- Keybox Card -->
+                                <div class="keybox-card" style="margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between;">
+                                    <div>
+                                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                                            <svg width="18" height="18" fill="none" stroke="var(--primary)" stroke-width="2" viewBox="0 0 24 24"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path></svg>
+                                            <span style="font-weight: 700; font-size: 14px; color: var(--primary-dark);">キーボックス</span>
+                                        </div>
+                                        <p style="font-size: 13px; color: var(--text-secondary); margin: 0;">暗証番号: ••••</p>
+                                    </div>
+                                    <button style="background: var(--primary); color: white; border: none; padding: 8px 16px; border-radius: 20px; font-size: 13px; font-weight: 600; cursor: pointer;">
+                                        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="display: inline; vertical-align: middle;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                                        表示
+                                    </button>
+                                </div>
+
+                                <!-- Address -->
+                                <div class="card" style="margin-bottom: 16px;">
+                                    <div style="display: flex; align-items: flex-start; gap: 12px;">
+                                        <div style="width: 36px; height: 36px; background: #EBF5FB; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                                            <svg width="18" height="18" fill="none" stroke="#2980B9" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                                        </div>
+                                        <div>
+                                            <p style="font-size: 14px; margin: 0 0 2px; font-weight: 600;">東京都千代田区丸の内1-1-1</p>
+                                            <p style="font-size: 12px; color: var(--primary); margin: 0; cursor: pointer;">Google Mapで開く &rsaquo;</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Tabs -->
+                                <div class="tab-bar" style="margin-bottom: 16px; background: white; border-radius: var(--radius) var(--radius) 0 0;">
+                                    <div class="tab-item active">基本情報</div>
+                                    <div class="tab-item">年間計画</div>
+                                    <div class="tab-item">作業履歴</div>
+                                    <div class="tab-item">写真</div>
+                                    <div class="tab-item">書類</div>
+                                </div>
+
+                                <!-- Tags Section -->
+                                <div class="card" style="margin-bottom: 12px;">
+                                    <div style="margin-bottom: 16px;">
+                                        <p style="font-size: 12px; font-weight: 600; color: var(--text-muted); margin: 0 0 8px; text-transform: uppercase; letter-spacing: 0.5px;">対象害虫</p>
+                                        <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                                            <span class="tag tag-red">ゴキブリ</span>
+                                            <span class="tag tag-red">ネズミ</span>
+                                            <span class="tag tag-red">ハエ</span>
+                                        </div>
+                                    </div>
+                                    <div style="margin-bottom: 16px;">
+                                        <p style="font-size: 12px; font-weight: 600; color: var(--text-muted); margin: 0 0 8px; text-transform: uppercase; letter-spacing: 0.5px;">作業内容</p>
+                                        <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                                            <span class="tag tag-blue">定期点検</span>
+                                            <span class="tag tag-blue">駆除作業</span>
+                                        </div>
+                                    </div>
+                                    <div style="margin-bottom: 16px;">
+                                        <p style="font-size: 12px; font-weight: 600; color: var(--text-muted); margin: 0 0 8px; text-transform: uppercase; letter-spacing: 0.5px;">作業箇所</p>
+                                        <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                                            <span class="tag tag-purple">厨房</span>
+                                            <span class="tag tag-purple">食品庫</span>
+                                            <span class="tag tag-purple">客室</span>
+                                            <span class="tag tag-purple">共用部</span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <p style="font-size: 12px; font-weight: 600; color: var(--text-muted); margin: 0 0 8px; text-transform: uppercase; letter-spacing: 0.5px;">請求月</p>
+                                        <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                                            <span class="tag tag-orange">3月</span>
+                                            <span class="tag tag-orange">6月</span>
+                                            <span class="tag tag-orange">9月</span>
+                                            <span class="tag tag-orange">12月</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Memo -->
+                                <div class="card" style="background: #FFFDE7; border: 1px solid #FFF9C4;">
+                                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                                        <svg width="16" height="16" fill="none" stroke="#F9A825" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                        <span style="font-size: 13px; font-weight: 600; color: #F57F17;">メモ</span>
+                                    </div>
+                                    <p style="font-size: 13px; color: #5D4037; margin: 0; line-height: 1.6;">正面入口のキーボックスは3Fの管理室前にあります。作業前に必ず管理人に声をかけてください。</p>
+                                </div>
+                            </div>
+
+                            <!-- Bottom Navigation -->
+                            <div class="bottom-nav">
+                                <div class="nav-item">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+                                    <div>ホーム</div>
+                                </div>
+                                <div class="nav-item active">
+                                    <svg viewBox="0 0 24 24" fill="var(--primary)" stroke="none"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><rect x="9" y="12" width="6" height="10" fill="white"/></svg>
+                                    <div>顧客</div>
+                                </div>
+                                <div class="nav-item">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                                    <div>カレンダー</div>
+                                </div>
+                                <div class="nav-item">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
+                                    <div>在庫</div>
+                                </div>
+                                <div class="nav-item">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                                    <div>請求</div>
+                                </div>
+                                <div class="nav-item">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+                                    <div>メニュー</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ========== 5. INVENTORY ========== -->
+                    <div id="screen-inventory" class="screen">
+                        <div style="min-height: 844px; background: var(--bg); padding-bottom: 80px;">
+                            <!-- Header -->
+                            <div style="background: white; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 5; box-shadow: 0 1px 4px rgba(0,0,0,0.04);">
+                                <h2 style="font-size: 18px; font-weight: 700; margin: 0;">在庫管理</h2>
+                                <button style="background: var(--primary); color: white; border: none; padding: 8px 16px; border-radius: 20px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                                    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                    入出庫
+                                </button>
+                            </div>
+
+                            <div style="padding: 16px;">
+                                <!-- Sub Tabs -->
+                                <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+                                    <button style="flex: 1; padding: 10px; background: var(--primary); color: white; border: none; border-radius: var(--radius-xs); font-weight: 700; font-size: 13px; cursor: pointer;">在庫</button>
+                                    <button style="flex: 1; padding: 10px; background: white; color: var(--text-secondary); border: 1px solid var(--border); border-radius: var(--radius-xs); font-weight: 600; font-size: 13px; cursor: pointer;">移動</button>
+                                    <button style="flex: 1; padding: 10px; background: white; color: var(--text-secondary); border: 1px solid var(--border); border-radius: var(--radius-xs); font-weight: 600; font-size: 13px; cursor: pointer;">履歴</button>
+                                </div>
+
+                                <!-- Filters -->
+                                <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+                                    <select style="flex: 1; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: var(--radius-xs); font-size: 13px; background: white; color: var(--text-primary); appearance: none; background-image: url('data:image/svg+xml;utf8,<svg fill=\"%23636E72\" viewBox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M7 10l5 5 5-5z\"/></svg>'); background-repeat: no-repeat; background-position: right 8px center; background-size: 18px;">
+                                        <option>本社倉庫</option>
+                                    </select>
+                                    <select style="flex: 1; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: var(--radius-xs); font-size: 13px; background: white; color: var(--text-primary); appearance: none; background-image: url('data:image/svg+xml;utf8,<svg fill=\"%23636E72\" viewBox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M7 10l5 5 5-5z\"/></svg>'); background-repeat: no-repeat; background-position: right 8px center; background-size: 18px;">
+                                        <option>全カテゴリ</option>
+                                    </select>
+                                </div>
+
+                                <!-- Inventory Cards -->
+                                <div style="display: flex; flex-direction: column; gap: 10px;">
+                                    <div class="card" style="padding: 16px;">
+                                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                                            <div>
+                                                <h4 style="font-size: 14px; font-weight: 700; margin: 0;">ゴキブリ駆除剤A</h4>
+                                                <p style="font-size: 12px; color: var(--text-muted); margin: 2px 0 0;">薬剤 ・ 単位: 本</p>
+                                            </div>
+                                            <div style="text-align: right;">
+                                                <p style="font-size: 28px; font-weight: 800; color: var(--primary); margin: 0; line-height: 1;">45</p>
+                                                <p style="font-size: 11px; color: var(--text-muted); margin: 0;">在庫数</p>
+                                            </div>
+                                        </div>
+                                        <div style="background: var(--primary-light); border-radius: 8px; height: 6px; overflow: hidden;">
+                                            <div style="background: var(--primary); height: 100%; width: 75%; border-radius: 8px;"></div>
+                                        </div>
+                                    </div>
+
+                                    <div class="card" style="padding: 16px;">
+                                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                                            <div>
+                                                <h4 style="font-size: 14px; font-weight: 700; margin: 0;">ネズミ捕獲器B</h4>
+                                                <p style="font-size: 12px; color: var(--text-muted); margin: 2px 0 0;">機材 ・ 単位: 個</p>
+                                            </div>
+                                            <div style="text-align: right;">
+                                                <p style="font-size: 28px; font-weight: 800; color: var(--primary); margin: 0; line-height: 1;">22</p>
+                                                <p style="font-size: 11px; color: var(--text-muted); margin: 0;">在庫数</p>
+                                            </div>
+                                        </div>
+                                        <div style="background: var(--primary-light); border-radius: 8px; height: 6px; overflow: hidden;">
+                                            <div style="background: var(--primary); height: 100%; width: 55%; border-radius: 8px;"></div>
+                                        </div>
+                                    </div>
+
+                                    <div class="card" style="padding: 16px; border: 2px solid #FFEEF0;">
+                                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                                            <div>
+                                                <div style="display: flex; align-items: center; gap: 6px;">
+                                                    <h4 style="font-size: 14px; font-weight: 700; margin: 0;">防虫スプレーC</h4>
+                                                    <span style="background: #FFEEF0; color: #E74C3C; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700;">低在庫</span>
+                                                </div>
+                                                <p style="font-size: 12px; color: var(--text-muted); margin: 2px 0 0;">薬剤 ・ 単位: 缶</p>
+                                            </div>
+                                            <div style="text-align: right;">
+                                                <p style="font-size: 28px; font-weight: 800; color: #E74C3C; margin: 0; line-height: 1;">3</p>
+                                                <p style="font-size: 11px; color: var(--text-muted); margin: 0;">在庫数</p>
+                                            </div>
+                                        </div>
+                                        <div style="background: #FFEEF0; border-radius: 8px; height: 6px; overflow: hidden;">
+                                            <div style="background: #E74C3C; height: 100%; width: 10%; border-radius: 8px;"></div>
+                                        </div>
+                                    </div>
+
+                                    <div class="card" style="padding: 16px;">
+                                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                                            <div>
+                                                <h4 style="font-size: 14px; font-weight: 700; margin: 0;">粘着シートD</h4>
+                                                <p style="font-size: 12px; color: var(--text-muted); margin: 2px 0 0;">消耗品 ・ 単位: 枚</p>
+                                            </div>
+                                            <div style="text-align: right;">
+                                                <p style="font-size: 28px; font-weight: 800; color: var(--primary); margin: 0; line-height: 1;">120</p>
+                                                <p style="font-size: 11px; color: var(--text-muted); margin: 0;">在庫数</p>
+                                            </div>
+                                        </div>
+                                        <div style="background: var(--primary-light); border-radius: 8px; height: 6px; overflow: hidden;">
+                                            <div style="background: var(--primary); height: 100%; width: 90%; border-radius: 8px;"></div>
+                                        </div>
+                                    </div>
+
+                                    <div class="card" style="padding: 16px;">
+                                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                                            <div>
+                                                <h4 style="font-size: 14px; font-weight: 700; margin: 0;">ベイトステーションE</h4>
+                                                <p style="font-size: 12px; color: var(--text-muted); margin: 2px 0 0;">機材 ・ 単位: 台</p>
+                                            </div>
+                                            <div style="text-align: right;">
+                                                <p style="font-size: 28px; font-weight: 800; color: var(--primary); margin: 0; line-height: 1;">18</p>
+                                                <p style="font-size: 11px; color: var(--text-muted); margin: 0;">在庫数</p>
+                                            </div>
+                                        </div>
+                                        <div style="background: var(--primary-light); border-radius: 8px; height: 6px; overflow: hidden;">
+                                            <div style="background: var(--primary); height: 100%; width: 45%; border-radius: 8px;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Bottom Navigation -->
+                            <div class="bottom-nav">
+                                <div class="nav-item">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+                                    <div>ホーム</div>
+                                </div>
+                                <div class="nav-item">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><line x1="9" y1="22" x2="9" y2="12"></line><line x1="15" y1="22" x2="15" y2="12"></line></svg>
+                                    <div>顧客</div>
+                                </div>
+                                <div class="nav-item">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                                    <div>カレンダー</div>
+                                </div>
+                                <div class="nav-item active">
+                                    <svg viewBox="0 0 24 24" fill="var(--primary)" stroke="none"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
+                                    <div>在庫</div>
+                                </div>
+                                <div class="nav-item">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                                    <div>請求</div>
+                                </div>
+                                <div class="nav-item">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+                                    <div>メニュー</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showScreen(name) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.screen-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('screen-' + name).classList.add('active');
+            event.target.classList.add('active');
+            // Scroll phone content to top
+            document.querySelector('.phone-content').scrollTop = 0;
+        }
+    </script>
+</body>
+</html>

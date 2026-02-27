@@ -3701,7 +3701,7 @@ function App() {
         </div>
 
         {activeTab === 'stock' && (
-          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+          <div className="bg-white border border-gray-200 rounded-xl">
             {selectedBranch ? (
               // 単一営業所表示
               <div className="overflow-x-auto">
@@ -3770,7 +3770,9 @@ function App() {
                       const isLow = total <= (productData.min_stock || 0) && (productData.min_stock || 0) > 0;
                       return (
                         <tr key={productData.product_id} className={`border-b hover:bg-gray-50 ${isLow ? 'bg-red-50' : ''}`}>
-                          <td className={`px-2 py-1 font-medium text-xs sticky left-0 z-10 ${isLow ? 'bg-red-50' : 'bg-white'}`} style={{display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden'}} title={productName}>{productName}</td>
+                          <td className={`px-2 py-1 font-medium text-xs sticky left-0 z-10 ${isLow ? 'bg-red-50' : 'bg-white'}`} style={{boxShadow: '2px 0 4px rgba(0,0,0,0.06)', maxWidth: '96px', wordBreak: 'break-all'}} title={productName}>
+                            <div style={{display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden'}}>{productName}</div>
+                          </td>
                           {/* 倉庫列 */}
                           {(() => {
                             const warehouseBranch = branches.find(b => b.code === 'WAREHOUSE' || b.name === '倉庫');

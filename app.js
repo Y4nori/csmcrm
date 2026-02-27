@@ -1420,6 +1420,8 @@ function App() {
     const [localNewProduct, setLocalNewProduct] = useState('');
     const [inventoryProducts, setInventoryProducts] = useState([]);
     const [loadingProducts, setLoadingProducts] = useState(false);
+    const [editingProductId, setEditingProductId] = useState(null);
+    const [editingProductName, setEditingProductName] = useState('');
 
     useEffect(() => {
       if (settingsTab === 'users' && users.length === 0) {
@@ -1463,6 +1465,33 @@ function App() {
       } catch (err) {
         console.error(err);
         alert('削除に失敗しました: ' + err.message);
+      }
+    };
+
+    const startEditProduct = (product) => {
+      setEditingProductId(product.id);
+      setEditingProductName(product.name);
+    };
+
+    const cancelEditProduct = () => {
+      setEditingProductId(null);
+      setEditingProductName('');
+    };
+
+    const saveEditProduct = async (id) => {
+      const trimmed = editingProductName.trim();
+      if (!trimmed) {
+        alert('商品名を入力してください');
+        return;
+      }
+      try {
+        await api.updateInventoryProduct(id, { name: trimmed });
+        setEditingProductId(null);
+        setEditingProductName('');
+        await loadInventoryProducts();
+      } catch (err) {
+        console.error(err);
+        alert('更新に失敗しました: ' + err.message);
       }
     };
 
@@ -1641,10 +1670,22 @@ function App() {
                   <div className="space-y-1 mb-3 max-h-64 overflow-y-auto">
                     {inventoryProducts.map((p, index) => (
                       <div key={`product-${p.id}`} className="bg-amber-50 text-amber-700 text-sm px-3 py-2 rounded border border-amber-200 flex items-center justify-between">
-                        <span className="flex items-center gap-2">
-                          <span className="text-amber-400 text-xs w-6">{index + 1}.</span>
-                          {p.name}
-                        </span>
+                        {editingProductId === p.id ? (
+                          <form className="flex items-center gap-2 flex-1 mr-2" onSubmit={(e) => { e.preventDefault(); saveEditProduct(p.id); }}>
+                            <span className="text-amber-400 text-xs w-6">{index + 1}.</span>
+                            <input type="text" value={editingProductName} onChange={e => setEditingProductName(e.target.value)}
+                              className="flex-1 border border-amber-300 rounded px-2 py-1 text-sm bg-white text-gray-800 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                              autoFocus />
+                            <button type="submit" className="text-green-600 hover:text-green-700 text-xs font-bold px-1">保存</button>
+                            <button type="button" onClick={cancelEditProduct} className="text-gray-400 hover:text-gray-600 text-xs px-1">取消</button>
+                          </form>
+                        ) : (
+                          <span className="flex items-center gap-2 cursor-pointer hover:underline" onClick={() => startEditProduct(p)}>
+                            <span className="text-amber-400 text-xs w-6">{index + 1}.</span>
+                            {p.name}
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-400"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                          </span>
+                        )}
                         <div className="flex items-center gap-1">
                           <button onClick={() => moveProduct(index, -1)} disabled={index === 0}
                             className={`px-2 py-1 rounded text-xs ${index === 0 ? 'text-gray-300' : 'text-amber-600 hover:bg-amber-100'}`}>▲</button>
@@ -3670,9 +3711,6 @@ function App() {
                       <th className="text-left px-4 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => toggleSort('name')}>
                         製品名 {sortKey === 'name' && (sortOrder === 'asc' ? '▲' : '▼')}
                       </th>
-                      <th className="text-left px-4 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => toggleSort('category')}>
-                        資材 {sortKey === 'category' && (sortOrder === 'asc' ? '▲' : '▼')}
-                      </th>
                       <th className="text-center px-4 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => toggleSort('quantity')}>
                         在庫数 {sortKey === 'quantity' && (sortOrder === 'asc' ? '▲' : '▼')}
                       </th>
@@ -3692,7 +3730,6 @@ function App() {
                         }}
                         className="border-b hover:bg-blue-50 cursor-pointer">
                         <td className="px-4 py-3 font-medium">{item.product_name}</td>
-                        <td className="px-4 py-3 text-gray-500">{item.category_name}</td>
                         <td className={`px-4 py-3 text-center font-bold ${item.quantity <= item.min_stock && item.min_stock > 0 ? 'text-red-600' : 'text-gray-800'}`}>
                           {item.quantity}
                           {item.quantity <= item.min_stock && item.min_stock > 0 && (
@@ -3708,21 +3745,21 @@ function App() {
               </div>
             ) : (
               // 全営業所クロス表示
-              <div className="overflow-x-auto relative">
+              <div className="overflow-x-auto overflow-y-auto relative" style={{maxHeight: '70vh'}}>
                 <table className="w-full text-sm table-fixed">
-                  <thead>
+                  <thead className="sticky top-0 z-20">
                     <tr className="bg-gray-50 border-b">
-                      <th className="text-left px-2 py-3 font-medium text-gray-600 w-24 cursor-pointer hover:bg-gray-100 sticky left-0 z-10 bg-gray-50" style={{boxShadow: '2px 0 4px rgba(0,0,0,0.06)'}} onClick={() => toggleSort('name')}>
+                      <th className="text-left px-2 py-3 font-medium text-gray-600 w-24 cursor-pointer hover:bg-gray-100 sticky left-0 z-30 bg-gray-50" style={{boxShadow: '2px 0 4px rgba(0,0,0,0.06)'}} onClick={() => toggleSort('name')}>
                         製品名 {sortKey === 'name' && (sortOrder === 'asc' ? '▲' : '▼')}
                       </th>
                       <th className="text-center px-1 py-3 font-medium text-blue-600 bg-blue-50 w-12">倉庫</th>
                       {branches.filter(b => b.code !== 'WAREHOUSE' && b.name !== '倉庫').map(b => (
-                        <th key={b.id} className="text-center px-1 py-3 font-medium text-gray-600 w-12">{b.name.replace('営業', '').replace('所', '')}</th>
+                        <th key={b.id} className="text-center px-1 py-3 font-medium text-gray-600 bg-gray-50 w-12">{b.name.replace('営業', '').replace('所', '')}</th>
                       ))}
                       <th className="text-center px-2 py-3 font-medium text-gray-600 bg-green-50 w-14 cursor-pointer hover:bg-green-100" onClick={() => toggleSort('total')}>
                         合計 {sortKey === 'total' && (sortOrder === 'asc' ? '▲' : '▼')}
                       </th>
-                      <th className="text-center px-2 py-3 font-medium text-gray-600 w-14 cursor-pointer hover:bg-gray-100" onClick={() => toggleSort('alert')}>
+                      <th className="text-center px-2 py-3 font-medium text-gray-600 bg-gray-50 w-14 cursor-pointer hover:bg-gray-100" onClick={() => toggleSort('alert')}>
                         閾値 {sortKey === 'alert' && (sortOrder === 'asc' ? '▲' : '▼')}
                       </th>
                     </tr>

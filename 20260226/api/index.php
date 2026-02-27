@@ -2443,6 +2443,7 @@ switch ($request) {
         if ($method === 'POST') {
             $productId = (int)($input['productId'] ?? 0);
             $alertThreshold = isset($input['alertThreshold']) ? (int)$input['alertThreshold'] : null;
+            $name = isset($input['name']) ? trim($input['name']) : null;
 
             if ($productId <= 0) {
                 error('製品IDを指定してください');
@@ -2452,6 +2453,13 @@ switch ($request) {
                 $db->query(
                     "UPDATE inventory_products SET alert_threshold = ? WHERE id = ?",
                     [$alertThreshold, $productId]
+                );
+            }
+
+            if ($name !== null && $name !== '') {
+                $db->query(
+                    "UPDATE inventory_products SET name = ? WHERE id = ?",
+                    [$name, $productId]
                 );
             }
 

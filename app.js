@@ -3946,6 +3946,34 @@ function App() {
                     {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </select>
                 </div>
+                {transferForm.productId && (transferForm.fromBranchId || transferForm.toBranchId) && (() => {
+                  const fromItem = transferForm.fromBranchId ? stock.find(s => s.branch_id.toString() === transferForm.fromBranchId && s.product_id.toString() === transferForm.productId) : null;
+                  const toItem = transferForm.toBranchId ? stock.find(s => s.branch_id.toString() === transferForm.toBranchId && s.product_id.toString() === transferForm.productId) : null;
+                  const fromQty = fromItem ? fromItem.quantity : 0;
+                  const toQty = toItem ? toItem.quantity : 0;
+                  const fromName = branches.find(b => b.id.toString() === transferForm.fromBranchId)?.name || '';
+                  const toName = branches.find(b => b.id.toString() === transferForm.toBranchId)?.name || '';
+                  return (
+                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+                      <div className="text-xs text-purple-600 font-medium mb-2">現在の在庫</div>
+                      <div className="flex items-center justify-between gap-2">
+                        {transferForm.fromBranchId && (
+                          <div className="flex-1 bg-white rounded px-3 py-2 text-center border border-purple-100">
+                            <div className="text-xs text-gray-500">{fromName}</div>
+                            <div className="text-lg font-bold text-purple-800">{fromQty}</div>
+                          </div>
+                        )}
+                        <div className="text-purple-400 text-lg">→</div>
+                        {transferForm.toBranchId && (
+                          <div className="flex-1 bg-white rounded px-3 py-2 text-center border border-purple-100">
+                            <div className="text-xs text-gray-500">{toName}</div>
+                            <div className="text-lg font-bold text-purple-800">{toQty}</div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">数量</label>
                   <input type="number" min="1" value={transferForm.quantity}

@@ -3871,6 +3871,21 @@ function App() {
                     {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </select>
                 </div>
+                {stockForm.branchId && stockForm.productId && (() => {
+                  const currentItem = stock.find(s => s.branch_id.toString() === stockForm.branchId && s.product_id.toString() === stockForm.productId);
+                  const currentQty = currentItem ? currentItem.quantity : 0;
+                  const branchName = branches.find(b => b.id.toString() === stockForm.branchId)?.name || '';
+                  const productName = products.find(p => p.id.toString() === stockForm.productId)?.name || '';
+                  return (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                      <div className="text-xs text-blue-600 font-medium mb-1">現在の在庫</div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-blue-700">{branchName} - {productName}</span>
+                        <span className="text-lg font-bold text-blue-800">{currentQty}</span>
+                      </div>
+                    </div>
+                  );
+                })()}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">数量</label>
                   <input type="number" min="1" value={stockForm.quantity}

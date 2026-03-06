@@ -2289,6 +2289,7 @@ function App() {
                   <label className="text-xs text-gray-500">現場名</label>
                   <input type="text" value={detail.siteName} onChange={(e) => handleSiteNameChange(i, e.target.value)}
                     onFocus={() => setActiveDetailIndex(i)}
+                    onBlur={() => setTimeout(() => { setActiveDetailIndex(null); setSiteSuggestions([]); }, 200)}
                     className="w-full border border-gray-300 rounded px-2 py-1 text-sm" placeholder="現場名を入力..." />
                   {activeDetailIndex === i && siteSuggestions.length > 0 && (
                     <div className="absolute z-10 w-full bg-white border border-gray-300 rounded-lg mt-1 max-h-40 overflow-y-auto shadow-lg">

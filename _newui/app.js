@@ -531,7 +531,7 @@ function App() {
         {/* ロゴエリア */}
         <div className="text-center mb-12">
           <div style={{ width: '80px', height: '80px', background: 'white', borderRadius: '20px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 32px rgba(0,0,0,0.12)', marginBottom: '20px' }}>
-            <span style={{ fontSize: '32px', fontWeight: 800, color: '#00B894' }}>CS</span>
+            <span style={{ fontSize: '28px', fontWeight: 800, color: '#00B894' }}>CSM</span>
           </div>
           <h1 className="text-white text-2xl font-bold" style={{ margin: 0 }}>CSM業務管理</h1>
           <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: '14px', marginTop: '6px' }}>害虫駆除・施設管理システム</p>
@@ -613,7 +613,7 @@ function App() {
             <div className="bg-white cursor-pointer" style={{ borderRadius: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', padding: '16px' }} onClick={() => navigate('/invoices')}>
               <div className="flex items-center gap-2.5 mb-2">
                 <div style={{ width: '36px', height: '36px', background: '#FFEEF0', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Icons.Calculator />
+                  <svg width="18" height="18" fill="none" stroke="#E74C3C" strokeWidth="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
                 </div>
               </div>
               <p style={{ fontSize: '12px', color: '#B2BEC3', margin: 0 }}>未送信請求</p>
@@ -624,7 +624,7 @@ function App() {
             <div className="bg-white cursor-pointer" style={{ borderRadius: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', padding: '16px' }} onClick={() => navigate('/invoices')}>
               <div className="flex items-center gap-2.5 mb-2">
                 <div style={{ width: '36px', height: '36px', background: '#FFF3E0', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Icons.DollarSign />
+                  <svg width="18" height="18" fill="none" stroke="#E67E22" strokeWidth="2" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
                 </div>
               </div>
               <p style={{ fontSize: '12px', color: '#B2BEC3', margin: 0 }}>未入金</p>
@@ -634,7 +634,7 @@ function App() {
           <div className="bg-white" style={{ borderRadius: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', padding: '16px' }}>
             <div className="flex items-center gap-2.5 mb-2">
               <div style={{ width: '36px', height: '36px', background: '#E8F8F5', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Icons.CheckCircle />
+                <svg width="18" height="18" fill="none" stroke="#00B894" strokeWidth="2" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
               </div>
             </div>
             <p style={{ fontSize: '12px', color: '#B2BEC3', margin: 0 }}>今日の作業</p>
@@ -643,7 +643,7 @@ function App() {
           <div className="bg-white" style={{ borderRadius: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', padding: '16px' }}>
             <div className="flex items-center gap-2.5 mb-2">
               <div style={{ width: '36px', height: '36px', background: '#EBF5FB', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Icons.Package />
+                <svg width="18" height="18" fill="none" stroke="#2980B9" strokeWidth="2" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
               </div>
             </div>
             <p style={{ fontSize: '12px', color: '#B2BEC3', margin: 0 }}>在庫アラート</p>
@@ -789,32 +789,35 @@ function App() {
   // 法人一覧 (簡略版 - 実際にはもっと長い)
   const CorporationList = () => {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mt-3">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' }}>
           {filteredCorporations.map((corp) => {
-            const billingColor = getBillingColor(corp.billingCycle);
+            const sites = corp.sites || [];
             return (
               <div key={corp.id} onClick={() => navigate(`/corporations/${corp.id}`)}
-                className="bg-white cursor-pointer hover:shadow-md transition-all" style={{ borderRadius: '16px', padding: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-                <div className="flex justify-between items-start">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2.5">
-                      <div style={{ width: '40px', height: '40px', background: '#E8F8F5', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <Icons.Building />
-                      </div>
-                      <div style={{ minWidth: 0 }}>
-                        <h3 style={{ fontWeight: 700, fontSize: '15px', color: '#2D3436', margin: 0 }} className="truncate">{corp.name}</h3>
-                        {corp.address && (
-                          <p style={{ fontSize: '12px', color: '#636E72', margin: '2px 0 0' }} className="truncate">{corp.address}</p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 mt-3">
-                      <span style={{ fontSize: '13px', fontWeight: 600, color: '#00B894' }}>{(corp.sites || []).length}現場</span>
-                      {(userRole === 'admin' || userRole === 'master') && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '20px', background: '#FFF3E0', color: '#E67E22' }}>{corp.billingCycle}</span>}
-                    </div>
+                className="bg-white cursor-pointer" style={{ borderRadius: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
+                <div style={{ padding: '16px 20px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0, color: '#2D3436' }}>{corp.name}</h3>
+                    <span style={{ background: '#E8F8F5', color: '#00997B', padding: '3px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 600 }}>{sites.length}現場</span>
                   </div>
-                  <svg width="16" height="16" fill="none" stroke="#B2BEC3" strokeWidth="2" viewBox="0 0 24 24" style={{ flexShrink: 0, marginTop: '12px' }}><polyline points="9 18 15 12 9 6"></polyline></svg>
+                  {corp.address && (
+                    <p style={{ fontSize: '13px', color: '#636E72', margin: '0 0 4px' }}>
+                      <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" style={{ display: 'inline', verticalAlign: 'middle' }}><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                      {' '}{corp.address}
+                    </p>
+                  )}
+                  <p style={{ fontSize: '12px', color: '#B2BEC3', margin: 0 }}>
+                    {corp.contactPerson ? `担当: ${corp.contactPerson}` : ''}{corp.contactPerson && corp.contact ? ' ・ ' : ''}{corp.contact || ''}
+                  </p>
                 </div>
+                {sites.length > 0 && (
+                  <div style={{ background: '#E8F8F5', padding: '8px 20px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                    {sites.slice(0, 3).map((s, i) => (
+                      <span key={i} style={{ fontSize: '12px', color: '#00997B' }}>{s.name}</span>
+                    ))}
+                    {sites.length > 3 && <span style={{ fontSize: '12px', color: '#B2BEC3' }}>+{sites.length - 3}</span>}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -4884,17 +4887,23 @@ function App() {
 
   return (
     <div className="min-h-screen" style={{ background: '#F5F6FA' }}>
-      <header className="bg-white px-4 py-3 sticky top-0 z-40" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+      <header className="bg-white sticky top-0 z-40" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)', padding: '12px 20px' }}>
         <div className="flex justify-between items-center max-w-5xl mx-auto">
-          <div className="flex items-center gap-2.5">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div style={{ width: '36px', height: '36px', background: '#00B894', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ color: 'white', fontWeight: 800, fontSize: '14px' }}>CS</span>
+              <span style={{ color: 'white', fontWeight: 800, fontSize: '12px' }}>CSM</span>
             </div>
             <span style={{ fontWeight: 700, fontSize: '17px', color: '#2D3436' }}>CSM業務管理</span>
           </div>
-          <div className="flex items-center gap-3">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <span style={{ color: '#636E72', fontSize: '13px' }}>{currentUser?.name}</span>
-            <button onClick={handleLogout} className="text-gray-400 hover:text-gray-600"><Icons.LogOut /></button>
+            <div style={{ position: 'relative', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+              <svg width="22" height="22" fill="none" stroke="#636E72" strokeWidth="2" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+              {generateNotifications.length > 0 && (
+                <div style={{ position: 'absolute', top: '6px', right: '8px', width: '8px', height: '8px', background: '#E74C3C', borderRadius: '50%', border: '2px solid white' }}></div>
+              )}
+            </div>
+            <button onClick={handleLogout} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#B2BEC3', padding: '4px' }}><Icons.LogOut /></button>
           </div>
         </div>
       </header>
@@ -4903,20 +4912,26 @@ function App() {
         {currentView === 'dashboard' && <Dashboard />}
         {currentView === 'corporations' && (
           <>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center mb-4">
-                <div>
-                  <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#2D3436', margin: 0 }}>顧客一覧</h2>
-                  <p style={{ fontSize: '13px', color: '#636E72', margin: '2px 0 0' }}>{corporations.length}社 / {totalSites}現場</p>
-                </div>
-                <button onClick={() => { setModalType('corp'); setEditingItem(null); setShowModal(true); }}
-                  className="flex items-center gap-1 text-white px-4 py-2 text-sm font-medium" style={{ background: 'linear-gradient(135deg, #00B894, #00D2A0)', borderRadius: '12px', border: 'none' }}>
-                  <Icons.Plus /> 法人追加
-                </button>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: '#2D3436' }}>顧客管理</h2>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '13px', color: '#636E72' }}>{corporations.length}社</span>
+                <span style={{ fontSize: '13px', color: '#B2BEC3' }}>・</span>
+                <span style={{ fontSize: '13px', color: '#636E72' }}>{totalSites}現場</span>
               </div>
-              <input type="text" placeholder="法人名・現場名で検索..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-                style={{ width: '100%', padding: '14px 16px', border: '1.5px solid #E9ECEF', borderRadius: '12px', fontSize: '14px', background: '#FAFBFC', outline: 'none' }} autoComplete="off" />
             </div>
+            {/* 検索バー */}
+            <div style={{ position: 'relative', marginBottom: '16px' }}>
+              <svg width="18" height="18" fill="none" stroke="#B2BEC3" strokeWidth="2" viewBox="0 0 24 24" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)' }}><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+              <input type="text" placeholder="企業名・現場名で検索" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+                style={{ width: '100%', padding: '14px 16px 14px 42px', border: '1.5px solid #E9ECEF', borderRadius: '12px', fontSize: '16px', background: 'white', outline: 'none' }} autoComplete="off" />
+            </div>
+            {/* 法人追加ボタン（破線スタイル） */}
+            <button onClick={() => { setModalType('corp'); setEditingItem(null); setShowModal(true); }}
+              style={{ width: '100%', padding: '14px', background: 'white', border: '2px dashed #00B894', borderRadius: '16px', color: '#00B894', fontWeight: 700, fontSize: '14px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '4px' }}>
+              <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              新規法人を追加
+            </button>
             <CorporationList />
           </>
         )}
@@ -4937,40 +4952,57 @@ function App() {
 
       <nav className="fixed bottom-0 left-0 right-0 bg-white z-20" style={{ borderTop: '1px solid #E9ECEF', padding: '8px 0 24px' }}>
         <div className="max-w-5xl mx-auto flex">
-          <button onClick={() => navigate('/')} className="flex-1 text-center" style={{ color: currentView === 'dashboard' ? '#00B894' : '#B2BEC3', fontSize: '10px' }}>
-            <div className="flex justify-center mb-0.5"><Icons.Home /></div><div>ホーム</div>
-          </button>
-          <button onClick={() => navigate('/corporations')} className="flex-1 text-center"
-            style={{ color: ['corporations', 'sites', 'site'].includes(currentView) ? '#00B894' : '#B2BEC3', fontSize: '10px' }}>
-            <div className="flex justify-center mb-0.5"><Icons.Building /></div><div>顧客</div>
-          </button>
-          <button onClick={() => navigate('/calendar')} className="flex-1 text-center" style={{ color: currentView === 'calendar' ? '#00B894' : '#B2BEC3', fontSize: '10px' }}>
-            <div className="flex justify-center mb-0.5"><Icons.Calendar /></div><div>カレンダー</div>
-          </button>
-          <button onClick={() => navigate('/inventory')} className="flex-1 text-center" style={{ color: currentView === 'inventory' ? '#00B894' : '#B2BEC3', fontSize: '10px' }}>
-            <div className="flex justify-center mb-0.5"><Icons.Package /></div><div>在庫</div>
-          </button>
-          {userRole === 'admin' || userRole === 'master' ? (
-            <>
-              <button onClick={() => navigate('/invoices')} className="flex-1 text-center" style={{ color: currentView === 'invoices' ? '#00B894' : '#B2BEC3', fontSize: '10px' }}>
-                <div className="flex justify-center mb-0.5"><Icons.Calculator /></div><div>請求</div>
+          {(() => {
+            const isActive = (views) => Array.isArray(views) ? views.includes(currentView) : currentView === views;
+            const NavItem = ({ onClick, active, label, strokeIcon, fillIcon }) => (
+              <button onClick={onClick} style={{ flex: 1, textAlign: 'center', color: active ? '#00B894' : '#B2BEC3', fontSize: '10px', background: 'none', border: 'none', cursor: 'pointer', padding: '0' }}>
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '2px' }}>
+                  {active ? fillIcon : strokeIcon}
+                </div>
+                <div>{label}</div>
               </button>
-              <button onClick={() => navigate('/menu')} className="flex-1 text-center"
-                style={{ color: ['menu', 'settings', 'adminDailyReports', 'adminTimecards'].includes(currentView) ? '#00B894' : '#B2BEC3', fontSize: '10px' }}>
-                <div className="flex justify-center mb-0.5"><Icons.Menu /></div><div>メニュー</div>
-              </button>
-            </>
-          ) : (
-            <>
-              <button onClick={() => navigate('/daily-reports')} className="flex-1 text-center"
-                style={{ color: ['dailyReports', 'dailyReportForm'].includes(currentView) ? '#00B894' : '#B2BEC3', fontSize: '10px' }}>
-                <div className="flex justify-center mb-0.5"><Icons.ClipboardList /></div><div>日報</div>
-              </button>
-              <button onClick={() => navigate('/timecard')} className="flex-1 text-center" style={{ color: currentView === 'timecard' ? '#00B894' : '#B2BEC3', fontSize: '10px' }}>
-                <div className="flex justify-center mb-0.5"><Icons.Clock /></div><div>打刻</div>
-              </button>
-            </>
-          )}
+            );
+            const homeActive = isActive('dashboard');
+            const custActive = isActive(['corporations', 'sites', 'site']);
+            const calActive = isActive('calendar');
+            const invActive = isActive('inventory');
+            const isAdmin = userRole === 'admin' || userRole === 'master';
+            return (
+              <>
+                <NavItem onClick={() => navigate('/')} active={homeActive} label="ホーム"
+                  strokeIcon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>}
+                  fillIcon={<svg width="24" height="24" viewBox="0 0 24 24" fill="#00B894" stroke="none"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>} />
+                <NavItem onClick={() => navigate('/corporations')} active={custActive} label="顧客"
+                  strokeIcon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><line x1="9" y1="22" x2="9" y2="12"></line><line x1="15" y1="22" x2="15" y2="12"></line></svg>}
+                  fillIcon={<svg width="24" height="24" viewBox="0 0 24 24" fill="#00B894" stroke="none"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><rect x="9" y="12" width="6" height="10" fill="white"/></svg>} />
+                <NavItem onClick={() => navigate('/calendar')} active={calActive} label="カレンダー"
+                  strokeIcon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>}
+                  fillIcon={<svg width="24" height="24" viewBox="0 0 24 24" fill="#00B894" stroke="none"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><rect x="3" y="4" width="18" height="6" rx="2" fill="#00B894"></rect><line x1="16" y1="2" x2="16" y2="6" stroke="white" strokeWidth="2"></line><line x1="8" y1="2" x2="8" y2="6" stroke="white" strokeWidth="2"></line></svg>} />
+                <NavItem onClick={() => navigate('/inventory')} active={invActive} label="在庫"
+                  strokeIcon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>}
+                  fillIcon={<svg width="24" height="24" viewBox="0 0 24 24" fill="#00B894" stroke="none"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>} />
+                {isAdmin ? (
+                  <>
+                    <NavItem onClick={() => navigate('/invoices')} active={isActive('invoices')} label="請求"
+                      strokeIcon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>}
+                      fillIcon={<svg width="24" height="24" viewBox="0 0 24 24" fill="#00B894" stroke="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path></svg>} />
+                    <NavItem onClick={() => navigate('/menu')} active={isActive(['menu', 'settings', 'adminDailyReports', 'adminTimecards', 'adminAuditLogs'])} label="メニュー"
+                      strokeIcon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>}
+                      fillIcon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#00B894" strokeWidth="2.5"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>} />
+                  </>
+                ) : (
+                  <>
+                    <NavItem onClick={() => navigate('/daily-reports')} active={isActive(['dailyReports', 'dailyReportForm'])} label="日報"
+                      strokeIcon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>}
+                      fillIcon={<svg width="24" height="24" viewBox="0 0 24 24" fill="#00B894" stroke="none"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1" fill="#00B894"></rect></svg>} />
+                    <NavItem onClick={() => navigate('/timecard')} active={isActive('timecard')} label="打刻"
+                      strokeIcon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>}
+                      fillIcon={<svg width="24" height="24" viewBox="0 0 24 24" fill="#00B894" stroke="none"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14" fill="none" stroke="white" strokeWidth="2"></polyline></svg>} />
+                  </>
+                )}
+              </>
+            );
+          })()}
         </div>
       </nav>
 

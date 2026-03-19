@@ -597,9 +597,7 @@ function App() {
     return (
       <div className="space-y-4">
         {/* グリーティングカード */}
-        <div style={{ background: 'linear-gradient(135deg, #00B894, #00D2A0)', borderRadius: '16px', padding: '24px', color: 'white', position: 'relative', overflow: 'hidden' }}>
-          <div style={{ position: 'absolute', right: '-20px', top: '-20px', width: '120px', height: '120px', background: 'rgba(255,255,255,0.1)', borderRadius: '50%' }}></div>
-          <div style={{ position: 'absolute', right: '30px', bottom: '-30px', width: '80px', height: '80px', background: 'rgba(255,255,255,0.08)', borderRadius: '50%' }}></div>
+        <div className="greeting-card">
           <p style={{ fontSize: '14px', opacity: 0.9, margin: '0 0 4px' }}>おはようございます</p>
           <h2 style={{ fontSize: '22px', fontWeight: 700, margin: '0 0 8px' }}>{currentUser?.name}さん</h2>
           <p style={{ fontSize: '13px', opacity: 0.85, margin: 0 }}>
@@ -1031,50 +1029,69 @@ function App() {
 
         {activeTab === 'info' && (
           <div className="space-y-4">
+            {/* アドレスカード（モックアップ準拠） */}
             {selectedSite?.address && (
-              <div className="flex items-center gap-2" style={{ color: '#2D3436' }}>
-                <Icons.MapPin style={{ color: '#B2BEC3' }} /><span className="flex-1">{selectedSite.address}</span>
-                <a href={getGoogleMapUrl(selectedSite.address)} target="_blank" className="p-1" style={{ color: '#00B894' }}><Icons.Map /></a>
+              <div className="address-card">
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                  <div className="address-icon-box">
+                    <svg width="18" height="18" fill="none" stroke="#2980B9" strokeWidth="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                  </div>
+                  <div>
+                    <p style={{ fontSize: '14px', margin: '0 0 2px', fontWeight: 600, color: '#2D3436' }}>{selectedSite.address}</p>
+                    <a href={getGoogleMapUrl(selectedSite.address)} target="_blank" style={{ fontSize: '12px', color: '#00B894', textDecoration: 'none', cursor: 'pointer' }}>Google Mapで開く ›</a>
+                  </div>
+                </div>
               </div>
             )}
-            <div>
-              <p style={{ fontSize: '12px', color: '#B2BEC3', margin: '0 0 6px' }}>対象害虫</p>
-              <div className="flex flex-wrap gap-1.5">
-                {(selectedSite?.pests || []).map((p, i) => <span key={i} style={{ background: '#FFF0E0', color: '#D35400', fontSize: '13px', padding: '4px 12px', borderRadius: '20px', fontWeight: 500 }}>{p}</span>)}
+
+            {/* タグセクション（モックアップ準拠） */}
+            <div className="card-modern">
+              <div style={{ marginBottom: '16px' }}>
+                <p style={{ fontSize: '12px', fontWeight: 600, color: '#B2BEC3', margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>対象害虫</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {(selectedSite?.pests || []).map((p, i) => <span key={i} className="tag tag-red">{p}</span>)}
+                  {(selectedSite?.pests || []).length === 0 && <span style={{ fontSize: '13px', color: '#B2BEC3' }}>未登録</span>}
+                </div>
+              </div>
+              <div style={{ marginBottom: '16px' }}>
+                <p style={{ fontSize: '12px', fontWeight: 600, color: '#B2BEC3', margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>作業内容</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {(selectedSite?.workTypes || []).map((t, i) => <span key={i} className="tag tag-blue">{t}</span>)}
+                  {(selectedSite?.workTypes || []).length === 0 && <span style={{ fontSize: '13px', color: '#B2BEC3' }}>未登録</span>}
+                </div>
+              </div>
+              <div style={{ marginBottom: '16px' }}>
+                <p style={{ fontSize: '12px', fontWeight: 600, color: '#B2BEC3', margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>作業箇所</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {(selectedSite?.workAreas || []).length > 0 ? (
+                    selectedSite.workAreas.map((a, i) => <span key={i} className="tag tag-purple">{a}</span>)
+                  ) : (
+                    <span style={{ fontSize: '13px', color: '#B2BEC3' }}>未登録</span>
+                  )}
+                </div>
+              </div>
+              <div>
+                <p style={{ fontSize: '12px', fontWeight: 600, color: '#B2BEC3', margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>請求月</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {(selectedSite?.billingMonths || []).length > 0 ? (
+                    selectedSite.billingMonths.sort((a, b) => a - b).map((m, i) => <span key={i} className="tag tag-orange">{m}月</span>)
+                  ) : (
+                    <span style={{ fontSize: '13px', color: '#B2BEC3' }}>法人設定に準拠</span>
+                  )}
+                </div>
               </div>
             </div>
-            <div>
-              <p style={{ fontSize: '12px', color: '#B2BEC3', margin: '0 0 6px' }}>作業内容</p>
-              <div className="flex flex-wrap gap-1.5">
-                {(selectedSite?.workTypes || []).map((t, i) => <span key={i} style={{ background: '#E8F8F5', color: '#00B894', fontSize: '13px', padding: '4px 12px', borderRadius: '20px', fontWeight: 500 }}>{t}</span>)}
-              </div>
-            </div>
-            <div>
-              <p style={{ fontSize: '12px', color: '#B2BEC3', margin: '0 0 6px' }}>作業箇所</p>
-              <div className="flex flex-wrap gap-1.5">
-                {(selectedSite?.workAreas || []).length > 0 ? (
-                  selectedSite.workAreas.map((a, i) => <span key={i} style={{ background: '#E0F2FE', color: '#0891B2', fontSize: '13px', padding: '4px 12px', borderRadius: '20px', fontWeight: 500 }}>{a}</span>)
-                ) : (
-                  <span style={{ fontSize: '13px', color: '#B2BEC3' }}>未登録</span>
-                )}
-              </div>
-            </div>
+
+            {/* メモカード（モックアップ準拠） */}
             {selectedSite?.memo && (
-              <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '12px', padding: '12px' }}>
-                <p style={{ fontSize: '12px', color: '#B2BEC3', margin: '0 0 6px' }}>メモ</p>
-                <p style={{ color: '#2D3436', whiteSpace: 'pre-wrap', margin: 0 }}>{selectedSite.memo}</p>
+              <div className="memo-card">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                  <svg width="16" height="16" fill="none" stroke="#F9A825" strokeWidth="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                  <span style={{ fontSize: '13px', fontWeight: 600, color: '#F57F17' }}>メモ</span>
+                </div>
+                <p style={{ fontSize: '13px', color: '#5D4037', margin: 0, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{selectedSite.memo}</p>
               </div>
             )}
-            <div>
-              <p style={{ fontSize: '12px', color: '#B2BEC3', margin: '0 0 6px' }}>請求月</p>
-              <div className="flex flex-wrap gap-1.5">
-                {(selectedSite?.billingMonths || []).length > 0 ? (
-                  selectedSite.billingMonths.sort((a, b) => a - b).map((m, i) => <span key={i} style={{ background: '#FFFBEB', color: '#D97706', fontSize: '13px', padding: '4px 12px', borderRadius: '20px', fontWeight: 500 }}>{m}月</span>)
-                ) : (
-                  <span style={{ fontSize: '13px', color: '#B2BEC3' }}>法人設定に準拠</span>
-                )}
-              </div>
-            </div>
           </div>
         )}
 
@@ -1086,9 +1103,9 @@ function App() {
                 <Icons.Edit /> 年間計画を編集
               </button>
             )}
-            <div className="bg-white overflow-x-auto" style={{ borderRadius: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-              <table className="w-full text-sm">
-                <thead><tr style={{ background: '#FAFBFC' }}>{months.map(m => <th key={m} className="px-2 py-2 text-center min-w-[50px]" style={{ color: '#636E72', fontWeight: 600 }}>{m}月</th>)}</tr></thead>
+            <div className="card-modern" style={{ padding: 0, overflow: 'auto' }}>
+              <table className="table-modern w-full">
+                <thead><tr>{months.map(m => <th key={m} className="px-2 py-2 text-center min-w-[50px]">{m}月</th>)}</tr></thead>
                 <tbody><tr>
                   {months.map(m => {
                     const plan = selectedSite?.yearlyPlan?.[m];
@@ -3840,39 +3857,27 @@ function App() {
 
     return (
       <div className="space-y-4">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#2D3436', margin: 0 }}>在庫管理</h2>
-            <p style={{ fontSize: '13px', color: '#636E72', margin: '2px 0 0' }}>{branches.length}営業所 / {products.length}製品</p>
-          </div>
-          <div className="flex gap-2">
-            <button onClick={() => { setStockModalType('in'); setShowStockModal(true); }}
-              className="flex items-center gap-1 text-white px-3 py-2 text-sm" style={{ background: '#00B894', borderRadius: '10px', border: 'none' }}>
-              <Icons.Plus /> 入庫
-            </button>
-            <button onClick={() => { setStockModalType('out'); setShowStockModal(true); }}
-              className="flex items-center gap-1 text-white px-3 py-2 text-sm" style={{ background: '#E74C3C', borderRadius: '10px', border: 'none' }}>
-              <Icons.Download /> 出庫
-            </button>
-            <button onClick={() => setShowTransferModal(true)}
-              className="flex items-center gap-1 text-white px-3 py-2 text-sm" style={{ background: '#8E44AD', borderRadius: '10px', border: 'none' }}>
-              <Icons.ChevronRight /> 移動
-            </button>
-          </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+          <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: '#2D3436' }}>在庫管理</h2>
+          <button onClick={() => { setStockModalType('in'); setShowStockModal(true); }}
+            style={{ background: '#00B894', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '20px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            入出庫
+          </button>
         </div>
 
-        {/* タブ */}
-        <div className="flex gap-1" style={{ borderBottom: '2px solid #E9ECEF' }}>
+        {/* サブタブ */}
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
           {[
-            { key: 'stock', label: '在庫一覧' },
-            { key: 'history', label: '入出庫履歴' }
+            { key: 'stock', label: '在庫' },
+            { key: 'history', label: '履歴' }
           ].map(tab => (
             <button key={tab.key} onClick={() => setActiveTab(tab.key)}
               style={{
-                padding: '10px 16px', fontSize: '13px', fontWeight: 600, background: 'none', border: 'none',
-                color: activeTab === tab.key ? '#00B894' : '#B2BEC3',
-                borderBottom: `2px solid ${activeTab === tab.key ? '#00B894' : 'transparent'}`,
-                marginBottom: '-2px'
+                flex: 1, padding: '10px', border: activeTab === tab.key ? 'none' : '1px solid #E9ECEF',
+                borderRadius: '8px', fontWeight: 700, fontSize: '13px', cursor: 'pointer',
+                background: activeTab === tab.key ? '#00B894' : 'white',
+                color: activeTab === tab.key ? 'white' : '#636E72'
               }}>
               {tab.label}
             </button>
@@ -3880,66 +3885,56 @@ function App() {
         </div>
 
         {/* フィルター */}
-        <div className="flex gap-3 flex-wrap">
+        <div style={{ display: 'flex', gap: '8px' }}>
           <select value={selectedBranch} onChange={(e) => setSelectedBranch(e.target.value)}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm">
+            className="select-modern" style={{ flex: 1 }}>
             <option value="">全営業所</option>
             {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
           </select>
           <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm">
-            <option value="">全資材</option>
+            className="select-modern" style={{ flex: 1 }}>
+            <option value="">全カテゴリ</option>
             {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-          <select value={selectedProduct} onChange={(e) => setSelectedProduct(e.target.value)}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm">
-            <option value="">全商品</option>
-            {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
         </div>
 
         {activeTab === 'stock' && (
-          <div className="bg-white border border-gray-200 rounded-xl">
+          <div>
             {selectedBranch ? (
-              // 単一営業所表示
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-gray-50 border-b">
-                      <th className="text-left px-4 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => toggleSort('name')}>
-                        製品名 {sortKey === 'name' && (sortOrder === 'asc' ? '▲' : '▼')}
-                      </th>
-                      <th className="text-center px-4 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => toggleSort('quantity')}>
-                        在庫数 {sortKey === 'quantity' && (sortOrder === 'asc' ? '▲' : '▼')}
-                      </th>
-                      <th className="text-center px-4 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => toggleSort('alert')}>
-                        アラート {sortKey === 'alert' && (sortOrder === 'asc' ? '▲' : '▼')}
-                      </th>
-                      <th className="text-center px-4 py-3 font-medium text-gray-600">単位</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sortedStock.map(item => (
-                      <tr key={`${item.branch_id}-${item.product_id}`}
-                        onClick={() => {
-                          setStockForm({ branchId: item.branch_id.toString(), productId: item.product_id.toString(), quantity: '', note: '', alertThreshold: (item.min_stock || 0).toString() });
-                          setStockModalType('adjust');
-                          setShowStockModal(true);
-                        }}
-                        className="border-b hover:bg-blue-50 cursor-pointer">
-                        <td className="px-4 py-3 font-medium">{item.product_name}</td>
-                        <td className={`px-4 py-3 text-center font-bold ${item.quantity <= item.min_stock && item.min_stock > 0 ? 'text-red-600' : 'text-gray-800'}`}>
-                          {item.quantity}
-                          {item.quantity <= item.min_stock && item.min_stock > 0 && (
-                            <span className="ml-1 text-xs bg-red-100 text-red-600 px-1 rounded">不足</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-center text-gray-500">{item.min_stock || 0}</td>
-                        <td className="px-4 py-3 text-center text-gray-500">{item.unit}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              // 単一営業所表示（カード形式+プログレスバー）
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {sortedStock.map(item => {
+                  const isLow = item.quantity <= item.min_stock && item.min_stock > 0;
+                  const maxQty = Math.max(item.min_stock * 3, item.quantity, 100);
+                  const pct = Math.min((item.quantity / maxQty) * 100, 100);
+                  return (
+                    <div key={`${item.branch_id}-${item.product_id}`}
+                      onClick={() => {
+                        setStockForm({ branchId: item.branch_id.toString(), productId: item.product_id.toString(), quantity: '', note: '', alertThreshold: (item.min_stock || 0).toString() });
+                        setStockModalType('adjust');
+                        setShowStockModal(true);
+                      }}
+                      className="card-modern card-clickable cursor-pointer"
+                      style={isLow ? { border: '2px solid #FFEEF0' } : {}}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <h4 style={{ fontSize: '14px', fontWeight: 700, margin: 0 }}>{item.product_name}</h4>
+                            {isLow && <span className="stock-alert-badge">低在庫</span>}
+                          </div>
+                          <p style={{ fontSize: '12px', color: '#B2BEC3', margin: '2px 0 0' }}>{item.category_name || '資材'} ・ 単位: {item.unit}</p>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <p style={{ fontSize: '28px', fontWeight: 800, color: isLow ? '#E74C3C' : '#00B894', margin: 0, lineHeight: 1 }}>{item.quantity}</p>
+                          <p style={{ fontSize: '11px', color: '#B2BEC3', margin: 0 }}>在庫数</p>
+                        </div>
+                      </div>
+                      <div className="progress-bar">
+                        <div className={`progress-bar-fill${isLow ? '-danger' : ''}`} style={{ width: `${pct}%` }}></div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               // 全営業所クロス表示

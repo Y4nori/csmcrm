@@ -1,4 +1,5 @@
 <IfModule mod_headers.c>
+    Header set X-Robots-Tag "noindex, nofollow, noarchive"
     <FilesMatch "\.(html|htm)$">
         Header set Cache-Control "no-cache, must-revalidate"
     </FilesMatch>
@@ -7,3 +8,10 @@
     </FilesMatch>
 </IfModule>
 FileETag MTime Size
+
+# _archive, _design ディレクトリへの外部アクセスを拒否
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^_archive/ - [F,L]
+    RewriteRule ^_design/ - [F,L]
+</IfModule>

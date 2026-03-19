@@ -1321,6 +1321,9 @@ function App() {
   const LogsTab = () => {
     const [logsType, setLogsType] = useState('login');
     const [loginLogs, setLoginLogs] = useState([]);
+    const [blockedIps, setBlockedIps] = useState([]);
+    const [loginStats, setLoginStats] = useState(null);
+    const [statusFilter, setStatusFilter] = useState('');
     const [keyboxLogs, setKeyboxLogs] = useState([]);
     const [loading, setLoading] = useState(false);
 
@@ -1330,7 +1333,14 @@ function App() {
         try {
           if (logsType === 'login') {
             const data = await api.getLoginLogs();
-            setLoginLogs(data);
+            // 新API形式に対応（後方互換）
+            if (data && data.logs) {
+              setLoginLogs(data.logs);
+              setBlockedIps(data.blocked_ips || []);
+              setLoginStats(data.stats_24h || null);
+            } else {
+              setLoginLogs(Array.isArray(data) ? data : []);
+            }
           } else {
             const data = await api.getKeyboxLogs();
             setKeyboxLogs(data);
@@ -1343,10 +1353,29 @@ function App() {
       loadLogs();
     }, [logsType]);
 
+    const handleUnblock = async (ip) => {
+      if (!confirm(`IP: ${ip} のブロックを解除しますか？`)) return;
+      try {
+        await api.call('login-unblock', 'POST', { ip });
+        const data = await api.getLoginLogs();
+        if (data && data.logs) {
+          setLoginLogs(data.logs);
+          setBlockedIps(data.blocked_ips || []);
+          setLoginStats(data.stats_24h || null);
+        }
+      } catch (e) {
+        alert('エラー: ' + e.message);
+      }
+    };
+
     const formatDate = (dateStr) => {
       const d = new Date(dateStr);
       return `${d.getMonth()+1}/${d.getDate()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
     };
+
+    const filteredLogs = statusFilter
+      ? loginLogs.filter(log => log.status === statusFilter)
+      : loginLogs;
 
     return (
       <div className="space-y-4">
@@ -1366,21 +1395,97 @@ function App() {
         {loading ? (
           <div className="text-center py-8 text-gray-500">読み込み中...</div>
         ) : logsType === 'login' ? (
-          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-            <div className="divide-y divide-gray-100">
-              {loginLogs.length === 0 ? (
-                <div className="p-4 text-center text-gray-500">ログイン履歴がありません</div>
-              ) : loginLogs.map(log => (
-                <div key={log.id} className="p-3 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600 font-bold text-sm">
-                      {log.user_name?.charAt(0) || '?'}
-                    </div>
-                    <span className="font-medium">{log.user_name}</span>
-                  </div>
-                  <span className="text-gray-500 text-sm">{formatDate(log.login_at)}</span>
+          <div className="space-y-4">
+            {/* 24時間統計 */}
+            {loginStats && (
+              <div className="grid grid-cols-4 gap-2">
+                <div className="bg-white border rounded-lg p-3 text-center">
+                  <div className="text-lg font-bold text-gray-800">{loginStats.total || 0}</div>
+                  <div className="text-xs text-gray-500">24h合計</div>
                 </div>
-              ))}
+                <div className="bg-white border rounded-lg p-3 text-center">
+                  <div className="text-lg font-bold text-green-600">{loginStats.success_count || 0}</div>
+                  <div className="text-xs text-gray-500">成功</div>
+                </div>
+                <div className="bg-white border rounded-lg p-3 text-center">
+                  <div className="text-lg font-bold text-red-600">{loginStats.fail_count || 0}</div>
+                  <div className="text-xs text-gray-500">失敗</div>
+                </div>
+                <div className="bg-white border rounded-lg p-3 text-center">
+                  <div className="text-lg font-bold text-blue-600">{loginStats.unique_ips || 0}</div>
+                  <div className="text-xs text-gray-500">IP数</div>
+                </div>
+              </div>
+            )}
+
+            {/* ブロック中IP一覧 */}
+            {blockedIps.length > 0 && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                <h4 className="font-bold text-red-700 text-sm mb-2">ブロック中のIP ({blockedIps.length}件)</h4>
+                {blockedIps.map((item, i) => (
+                  <div key={i} className="flex items-center justify-between py-1">
+                    <div>
+                      <span className="font-mono text-sm text-red-800">{item.ip_address}</span>
+                      <span className="text-xs text-red-500 ml-2">{item.attempt_count}回失敗 / 解除: {formatDate(item.blocked_until)}</span>
+                    </div>
+                    <button onClick={() => handleUnblock(item.ip_address)}
+                      className="text-xs bg-white border border-red-300 text-red-600 px-2 py-1 rounded">解除</button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* フィルター */}
+            <div className="flex gap-2">
+              <button onClick={() => setStatusFilter('')}
+                className={`px-3 py-1 rounded text-xs font-medium ${!statusFilter ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-600'}`}>
+                全て
+              </button>
+              <button onClick={() => setStatusFilter('success')}
+                className={`px-3 py-1 rounded text-xs font-medium ${statusFilter === 'success' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
+                成功
+              </button>
+              <button onClick={() => setStatusFilter('failed')}
+                className={`px-3 py-1 rounded text-xs font-medium ${statusFilter === 'failed' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
+                失敗
+              </button>
+            </div>
+
+            {/* ログ一覧 */}
+            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+              <div className="divide-y divide-gray-100 max-h-96 overflow-y-auto">
+                {filteredLogs.length === 0 ? (
+                  <div className="p-4 text-center text-gray-500">ログイン履歴がありません</div>
+                ) : filteredLogs.map(log => (
+                  <div key={log.id} className={`p-3 ${log.status === 'failed' ? 'bg-red-50' : ''}`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
+                          log.status === 'failed' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'
+                        }`}>
+                          {log.status === 'failed' ? '!' : (log.user_name?.charAt(0) || '?')}
+                        </div>
+                        <div>
+                          <span className="font-medium text-sm">{log.user_name || log.username_attempted || '不明'}</span>
+                          {log.status === 'failed' && (
+                            <span className="ml-2 text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded">
+                              {log.fail_reason === 'user_not_found' ? 'ユーザー不明' : log.fail_reason === 'wrong_password' ? 'パスワード誤り' : log.fail_reason === 'rate_limited' ? 'ブロック中' : '失敗'}
+                            </span>
+                          )}
+                          {log.status === 'success' && (
+                            <span className="ml-2 text-xs bg-green-100 text-green-600 px-1.5 py-0.5 rounded">成功</span>
+                          )}
+                        </div>
+                      </div>
+                      <span className="text-gray-500 text-sm">{formatDate(log.login_at)}</span>
+                    </div>
+                    <div className="mt-1 ml-11 flex gap-3 text-xs text-gray-400">
+                      {log.ip_address && <span className="font-mono">IP: {log.ip_address}</span>}
+                      {log.user_agent && <span className="truncate max-w-xs" title={log.user_agent}>UA: {log.user_agent.substring(0, 50)}{log.user_agent.length > 50 ? '...' : ''}</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         ) : (

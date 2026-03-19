@@ -91,6 +91,46 @@ foreach ($tcMigrations as $sql) {
     try { $db->query($sql); } catch (Exception $e) {}
 }
 
+// ログインログテーブル拡張（IP・成功/失敗・ユーザーエージェント）
+$db->query("CREATE TABLE IF NOT EXISTS login_logs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NULL,
+    user_name VARCHAR(100),
+    username_attempted VARCHAR(100),
+    ip_address VARCHAR(45),
+    user_agent VARCHAR(500),
+    status ENUM('success', 'failed') DEFAULT 'success',
+    fail_reason VARCHAR(100) NULL,
+    login_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_ip (ip_address),
+    INDEX idx_login_at (login_at),
+    INDEX idx_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+// login_logsに不足カラムがあれば追加
+$loginLogMigrations = [
+    "ALTER TABLE login_logs ADD COLUMN ip_address VARCHAR(45) NULL",
+    "ALTER TABLE login_logs ADD COLUMN user_agent VARCHAR(500) NULL",
+    "ALTER TABLE login_logs ADD COLUMN status ENUM('success', 'failed') DEFAULT 'success'",
+    "ALTER TABLE login_logs ADD COLUMN fail_reason VARCHAR(100) NULL",
+    "ALTER TABLE login_logs ADD COLUMN username_attempted VARCHAR(100) NULL",
+    "ALTER TABLE login_logs ADD INDEX idx_ip (ip_address)",
+    "ALTER TABLE login_logs ADD INDEX idx_status (status)",
+];
+foreach ($loginLogMigrations as $sql) {
+    try { $db->query($sql); } catch (Exception $e) {}
+}
+
+// レートリミットテーブル（ブルートフォース対策）
+$db->query("CREATE TABLE IF NOT EXISTS login_rate_limit (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    ip_address VARCHAR(45) NOT NULL,
+    attempt_count INT DEFAULT 0,
+    first_attempt_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    blocked_until TIMESTAMP NULL,
+    INDEX idx_ip (ip_address)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
 // 倉庫支店を自動追加（存在しない場合のみ）
 $warehouseExists = $db->fetch("SELECT id FROM inventory_branches WHERE name = '倉庫' OR code = 'WAREHOUSE'");
 if (!$warehouseExists) {
@@ -235,20 +275,75 @@ switch ($request) {
     // ========== 認証 ==========
     case 'login':
         if ($method !== 'POST') error('Method not allowed', 405);
-        
+
         $username = $input['username'] ?? '';
         $password = $input['password'] ?? '';
-        
+        $clientIp = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+        // X-Forwarded-For の場合、最初のIPを取得
+        if (strpos($clientIp, ',') !== false) {
+            $clientIp = trim(explode(',', $clientIp)[0]);
+        }
+        $userAgent = substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 500);
+
+        // レートリミットチェック（同一IPから5回失敗で15分ブロック）
+        $rateLimit = $db->fetch(
+            "SELECT * FROM login_rate_limit WHERE ip_address = ?",
+            [$clientIp]
+        );
+        if ($rateLimit && $rateLimit['blocked_until'] && strtotime($rateLimit['blocked_until']) > time()) {
+            $remainMin = ceil((strtotime($rateLimit['blocked_until']) - time()) / 60);
+            // ブロック中のアクセスもログに記録
+            $db->insert(
+                "INSERT INTO login_logs (user_id, user_name, username_attempted, ip_address, user_agent, status, fail_reason) VALUES (?, ?, ?, ?, ?, 'failed', ?)",
+                [null, null, $username, $clientIp, $userAgent, 'rate_limited']
+            );
+            error("ログイン試行回数が上限を超えました。{$remainMin}分後に再試行してください。", 429);
+        }
+
         if (empty($username) || empty($password)) {
             error('Username and password required');
         }
-        
+
         $user = $db->fetch("SELECT * FROM users WHERE username = ?", [$username]);
-        
+
         if (!$user || !password_verify($password, $user['password'])) {
+            // 失敗をログに記録
+            $failReason = !$user ? 'user_not_found' : 'wrong_password';
+            $db->insert(
+                "INSERT INTO login_logs (user_id, user_name, username_attempted, ip_address, user_agent, status, fail_reason) VALUES (?, ?, ?, ?, ?, 'failed', ?)",
+                [$user['id'] ?? null, $user['name'] ?? null, $username, $clientIp, $userAgent, $failReason]
+            );
+
+            // レートリミットカウント更新
+            if ($rateLimit) {
+                $newCount = $rateLimit['attempt_count'] + 1;
+                $blockedUntil = null;
+                // 5回失敗で15分ブロック
+                if ($newCount >= 5) {
+                    $blockedUntil = date('Y-m-d H:i:s', time() + 900);
+                }
+                $db->query(
+                    "UPDATE login_rate_limit SET attempt_count = ?, blocked_until = ? WHERE id = ?",
+                    [$newCount, $blockedUntil, $rateLimit['id']]
+                );
+            } else {
+                $db->insert(
+                    "INSERT INTO login_rate_limit (ip_address, attempt_count) VALUES (?, 1)",
+                    [$clientIp]
+                );
+            }
+
             error('Invalid credentials', 401);
         }
-        
+
+        // ログイン成功 → レートリミットリセット
+        if ($rateLimit) {
+            $db->query(
+                "DELETE FROM login_rate_limit WHERE ip_address = ?",
+                [$clientIp]
+            );
+        }
+
         // セッション固定化対策
         session_regenerate_id(true);
 
@@ -257,10 +352,10 @@ switch ($request) {
         $_SESSION['name'] = $user['name'];
         $_SESSION['role'] = $user['role'];
 
-        // ログイン履歴を記録
+        // ログイン成功履歴を記録（IP含む）
         $db->insert(
-            "INSERT INTO login_logs (user_id, user_name) VALUES (?, ?)",
-            [$user['id'], $user['name']]
+            "INSERT INTO login_logs (user_id, user_name, username_attempted, ip_address, user_agent, status) VALUES (?, ?, ?, ?, ?, 'success')",
+            [$user['id'], $user['name'], $username, $clientIp, $userAgent]
         );
 
         respond([
@@ -1173,10 +1268,50 @@ switch ($request) {
     case 'login-logs':
         checkAdmin();
 
-        $logs = $db->fetchAll(
-            "SELECT * FROM login_logs ORDER BY login_at DESC LIMIT 100"
+        $limit = intval($_GET['limit'] ?? 200);
+        $limit = min($limit, 1000);
+        $statusFilter = $_GET['status'] ?? '';
+
+        $sql = "SELECT * FROM login_logs";
+        $params = [];
+        if ($statusFilter === 'success' || $statusFilter === 'failed') {
+            $sql .= " WHERE status = ?";
+            $params[] = $statusFilter;
+        }
+        $sql .= " ORDER BY login_at DESC LIMIT ?";
+        $params[] = $limit;
+
+        $logs = $db->fetchAll($sql, $params);
+
+        // 現在ブロック中のIP一覧も取得
+        $blockedIps = $db->fetchAll(
+            "SELECT ip_address, attempt_count, blocked_until FROM login_rate_limit WHERE blocked_until > NOW()"
         );
-        respond($logs);
+
+        // 直近24時間の統計
+        $stats = $db->fetch(
+            "SELECT
+                COUNT(*) as total,
+                SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as success_count,
+                SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as fail_count,
+                COUNT(DISTINCT ip_address) as unique_ips
+             FROM login_logs WHERE login_at > DATE_SUB(NOW(), INTERVAL 24 HOUR)"
+        );
+
+        respond([
+            'logs' => $logs,
+            'blocked_ips' => $blockedIps,
+            'stats_24h' => $stats
+        ]);
+        break;
+
+    case 'login-unblock':
+        checkAdmin();
+        if ($method !== 'POST') error('Method not allowed', 405);
+        $ip = $input['ip'] ?? '';
+        if (empty($ip)) error('IP address required');
+        $db->query("DELETE FROM login_rate_limit WHERE ip_address = ?", [$ip]);
+        respond(['message' => "IP {$ip} のブロックを解除しました"]);
         break;
 
     // ========== CSVエクスポート ==========

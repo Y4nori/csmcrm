@@ -525,26 +525,35 @@ function App() {
   // ログイン画面
   if (!isLoggedIn) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-sm">
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-white" style={{ backgroundColor: '#5bbd56' }}><Icons.Lock /></div>
-            <h1 className="text-2xl font-bold text-gray-800">CSM業務管理</h1>
-            <p className="text-gray-500 text-sm mt-2">ログインしてください</p>
+      <div className="min-h-screen flex flex-col justify-center" style={{ background: 'linear-gradient(160deg, #00B894 0%, #00D2A0 40%, #E8F8F5 100%)', padding: '32px' }}>
+        {/* ロゴエリア */}
+        <div className="text-center mb-12">
+          <div style={{ width: '80px', height: '80px', background: 'white', borderRadius: '20px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 32px rgba(0,0,0,0.12)', marginBottom: '20px' }}>
+            <span style={{ fontSize: '32px', fontWeight: 800, color: '#00B894' }}>CS</span>
           </div>
-          <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); handleLogin(); }}>
+          <h1 className="text-white text-2xl font-bold" style={{ margin: 0 }}>CSM業務管理</h1>
+          <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: '14px', marginTop: '6px' }}>害虫駆除・施設管理システム</p>
+        </div>
+
+        {/* ログインカード */}
+        <div className="bg-white w-full max-w-sm mx-auto" style={{ borderRadius: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', padding: '32px 24px' }}>
+          <form className="space-y-5" onSubmit={(e) => { e.preventDefault(); handleLogin(); }}>
             <div>
-              <label className="text-gray-600 text-sm font-medium">ユーザー名</label>
+              <label style={{ fontSize: '13px', fontWeight: 600, color: '#636E72', display: 'block', marginBottom: '6px' }}>ユーザー名</label>
               <input type="text" value={loginForm.username} onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })}
-                className="w-full bg-white border border-gray-300 rounded-lg px-4 py-3 mt-1" placeholder="ユーザー名を入力" autoComplete="username" />
+                className="w-full" style={{ padding: '14px 16px', border: '1.5px solid #E9ECEF', borderRadius: '12px', fontSize: '16px', background: '#FAFBFC', outline: 'none' }}
+                placeholder="ユーザー名を入力" autoComplete="username" />
             </div>
             <div>
-              <label className="text-gray-600 text-sm font-medium">パスワード</label>
+              <label style={{ fontSize: '13px', fontWeight: 600, color: '#636E72', display: 'block', marginBottom: '6px' }}>パスワード</label>
               <input type="password" value={loginForm.password} onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                className="w-full bg-white border border-gray-300 rounded-lg px-4 py-3 mt-1" placeholder="パスワードを入力" autoComplete="current-password" />
+                className="w-full" style={{ padding: '14px 16px', border: '1.5px solid #E9ECEF', borderRadius: '12px', fontSize: '16px', background: '#FAFBFC', outline: 'none' }}
+                placeholder="パスワードを入力" autoComplete="current-password" />
             </div>
             {loginError && <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-2"><span className="text-red-500"><Icons.AlertCircle /></span><p className="text-red-600 text-sm">{loginError}</p></div>}
-            <button type="submit" className="w-full text-white py-3 rounded-lg font-medium" style={{ backgroundColor: '#5bbd56' }}>ログイン</button>
+            <button type="submit" className="w-full text-white font-bold" style={{ padding: '16px', background: 'linear-gradient(135deg, #00B894, #00D2A0)', border: 'none', borderRadius: '12px', fontSize: '16px', cursor: 'pointer', boxShadow: '0 4px 16px rgba(0, 184, 148, 0.3)' }}>
+              ログイン
+            </button>
           </form>
         </div>
       </div>
@@ -585,22 +594,72 @@ function App() {
 
     return (
       <div className="space-y-4">
-        <div className="mb-4">
-          <h2 className="text-xl font-bold text-gray-800">ダッシュボード</h2>
-          <p className="text-gray-500 text-sm">{today.getMonth() + 1}月{today.getDate()}日（{dayNames[today.getDay()]}）</p>
+        {/* グリーティングカード */}
+        <div style={{ background: 'linear-gradient(135deg, #00B894, #00D2A0)', borderRadius: '16px', padding: '24px', color: 'white', position: 'relative', overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', right: '-20px', top: '-20px', width: '120px', height: '120px', background: 'rgba(255,255,255,0.1)', borderRadius: '50%' }}></div>
+          <div style={{ position: 'absolute', right: '30px', bottom: '-30px', width: '80px', height: '80px', background: 'rgba(255,255,255,0.08)', borderRadius: '50%' }}></div>
+          <p style={{ fontSize: '14px', opacity: 0.9, margin: '0 0 4px' }}>おはようございます</p>
+          <h2 style={{ fontSize: '22px', fontWeight: 700, margin: '0 0 8px' }}>{currentUser?.name}さん</h2>
+          <p style={{ fontSize: '13px', opacity: 0.85, margin: 0 }}>
+            {today.getMonth() + 1}月{today.getDate()}日（{dayNames[today.getDay()]}）・ 今日の予定 <strong style={{ fontSize: '20px', verticalAlign: 'middle' }}>{todayWorks.length}</strong> 件
+          </p>
         </div>
 
+        {/* サマリーカード 2x2 グリッド */}
+        <div className="grid grid-cols-2 gap-3">
+          {(userRole === 'admin' || userRole === 'master') && (
+            <div className="bg-white cursor-pointer" style={{ borderRadius: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', padding: '16px' }} onClick={() => navigate('/invoices')}>
+              <div className="flex items-center gap-2.5 mb-2">
+                <div style={{ width: '36px', height: '36px', background: '#FFEEF0', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Icons.Calculator />
+                </div>
+              </div>
+              <p style={{ fontSize: '12px', color: '#B2BEC3', margin: 0 }}>未送信請求</p>
+              <p style={{ fontSize: '28px', fontWeight: 800, color: '#E74C3C', margin: '2px 0 0' }}>{unsentCount}</p>
+            </div>
+          )}
+          {(userRole === 'admin' || userRole === 'master') && (
+            <div className="bg-white cursor-pointer" style={{ borderRadius: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', padding: '16px' }} onClick={() => navigate('/invoices')}>
+              <div className="flex items-center gap-2.5 mb-2">
+                <div style={{ width: '36px', height: '36px', background: '#FFF3E0', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Icons.DollarSign />
+                </div>
+              </div>
+              <p style={{ fontSize: '12px', color: '#B2BEC3', margin: 0 }}>未入金</p>
+              <p style={{ fontSize: '28px', fontWeight: 800, color: '#E67E22', margin: '2px 0 0' }}>{unpaidCount}</p>
+            </div>
+          )}
+          <div className="bg-white" style={{ borderRadius: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', padding: '16px' }}>
+            <div className="flex items-center gap-2.5 mb-2">
+              <div style={{ width: '36px', height: '36px', background: '#E8F8F5', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Icons.CheckCircle />
+              </div>
+            </div>
+            <p style={{ fontSize: '12px', color: '#B2BEC3', margin: 0 }}>今日の作業</p>
+            <p style={{ fontSize: '28px', fontWeight: 800, color: '#00B894', margin: '2px 0 0' }}>{todayWorks.length}</p>
+          </div>
+          <div className="bg-white" style={{ borderRadius: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', padding: '16px' }}>
+            <div className="flex items-center gap-2.5 mb-2">
+              <div style={{ width: '36px', height: '36px', background: '#EBF5FB', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Icons.Package />
+              </div>
+            </div>
+            <p style={{ fontSize: '12px', color: '#B2BEC3', margin: 0 }}>在庫アラート</p>
+            <p style={{ fontSize: '28px', fontWeight: 800, color: '#2980B9', margin: '2px 0 0' }}>{generateNotifications.filter(n => n.type === 'inventory').length}</p>
+          </div>
+        </div>
+
+        {/* 通知 */}
         {(() => {
-          // スタッフは請求・入金関連の通知を非表示
-          const filteredNotifications = userRole === 'admin'
+          const filteredNotifications = (userRole === 'admin' || userRole === 'master')
             ? generateNotifications
             : generateNotifications.filter(n => n.type !== 'invoice' && n.type !== 'payment');
           return filteredNotifications.length > 0 && (
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+            <div className="bg-amber-50 border border-amber-200" style={{ borderRadius: '16px', padding: '16px' }}>
               <h3 className="font-bold text-amber-700 flex items-center gap-2 mb-3"><Icons.Bell /> 通知 ({filteredNotifications.length})</h3>
               <div className="space-y-2 max-h-40 overflow-y-auto">
                 {filteredNotifications.slice(0, 5).map(n => (
-                  <div key={n.id} className={`text-sm p-2 rounded ${n.priority === 'high' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+                  <div key={n.id} className={`text-sm p-2 rounded-lg ${n.priority === 'high' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
                     <span className="font-medium">{n.title}:</span> {n.message}
                   </div>
                 ))}
@@ -609,8 +668,9 @@ function App() {
           );
         })()}
 
-        {userRole === 'admin' && pendingTimecardRequests.length > 0 && (
-          <div className="bg-orange-50 border-2 border-orange-300 rounded-xl p-4" style={{boxShadow: '0 0 8px rgba(249,115,22,0.2)'}}>
+        {/* タイムカード修正申請 */}
+        {(userRole === 'admin' || userRole === 'master') && pendingTimecardRequests.length > 0 && (
+          <div className="bg-orange-50 border-2 border-orange-300" style={{ borderRadius: '16px', padding: '16px', boxShadow: '0 0 8px rgba(249,115,22,0.2)' }}>
             <h3 className="font-bold text-orange-700 flex items-center gap-2 mb-3">
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
               タイムカード修正申請 ({pendingTimecardRequests.length}件)
@@ -636,44 +696,67 @@ function App() {
           </div>
         )}
 
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-          <div className="flex border-b border-gray-200">
+        {/* 作業予定セクション */}
+        <div className="flex items-center justify-between" style={{ marginBottom: '12px' }}>
+          <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0 }}>作業予定</h3>
+        </div>
+
+        <div className="bg-white" style={{ borderRadius: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
+          <div className="flex" style={{ borderBottom: '2px solid #E9ECEF' }}>
             {[
               { key: 'today', label: `今日 (${todayWorks.length})` },
               { key: 'week', label: `今週 (${thisWeekWorks.length})` },
               { key: 'month', label: `今月 (${thisMonthWorks.length})` }
             ].map(tab => (
               <button key={tab.key} onClick={() => setWorkTab(tab.key)}
-                className={`flex-1 py-3 text-center text-sm font-medium ${workTab === tab.key ? 'text-white' : 'text-gray-500 bg-gray-50'}`}
-                style={workTab === tab.key ? { backgroundColor: '#5bbd56' } : {}}>
+                className="flex-1 text-center" style={{
+                  padding: '12px 8px', fontSize: '13px', fontWeight: 600,
+                  color: workTab === tab.key ? '#00B894' : '#B2BEC3',
+                  borderBottom: workTab === tab.key ? '2px solid #00B894' : '2px solid transparent',
+                  marginBottom: '-2px', background: 'none', border: 'none',
+                  borderBottomWidth: '2px', borderBottomStyle: 'solid',
+                  borderBottomColor: workTab === tab.key ? '#00B894' : 'transparent'
+                }}>
                 {tab.label}
               </button>
             ))}
           </div>
           <div className="p-4 max-h-80 overflow-y-auto">
             {displayWorks.length === 0 ? (
-              <p className="text-gray-400 text-center py-8">予定はありません</p>
+              <p style={{ color: '#B2BEC3', textAlign: 'center', padding: '32px 0' }}>予定はありません</p>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {displayWorks.map((work, i) => {
                   const isToday = work.scheduledDate.toDateString() === today.toDateString();
                   const dateStr = workTab === 'today' ? '' : `${work.scheduledDate.getMonth() + 1}/${work.scheduledDate.getDate()}(${dayNames[work.scheduledDate.getDay()]})`;
+                  const workColors = ['#E8F8F5', '#FFF3E0', '#EBF5FB', '#F4ECF7'];
+                  const workTextColors = ['#00B894', '#E67E22', '#2980B9', '#8E44AD'];
+                  const colorIdx = i % workColors.length;
                   return (
-                    <div key={i} onClick={() => {
-                      navigate(`/sites/${work.id}`);
-                    }} className={`flex items-center justify-between p-3 rounded-lg cursor-pointer hover:bg-gray-100 ${isToday && workTab !== 'today' ? 'bg-green-50 border border-green-200' : 'bg-gray-50'}`}>
-                      <div className="flex-1 min-w-0">
+                    <div key={i} onClick={() => { navigate(`/sites/${work.id}`); }}
+                      style={{ padding: '16px', display: 'flex', gap: '14px', alignItems: 'flex-start', cursor: 'pointer', borderRadius: '12px' }}
+                      className="hover:bg-gray-50">
+                      <div style={{ width: '44px', height: '44px', background: workColors[colorIdx], borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <Icons.Home />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
                         {workTab !== 'today' && (
-                          <div className="flex items-center gap-2">
-                            <span className={`text-xs font-bold px-2 py-0.5 rounded ${isToday ? 'text-white' : 'bg-gray-200 text-gray-600'}`} style={isToday ? { backgroundColor: '#5bbd56' } : {}}>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '20px', background: isToday ? '#00B894' : '#E9ECEF', color: isToday ? 'white' : '#636E72' }}>
                               {dateStr}
                             </span>
-                            {isToday && <span className="text-xs font-bold" style={{ color: '#5bbd56' }}>本日</span>}
+                            {isToday && <span style={{ fontSize: '11px', fontWeight: 700, color: '#00B894' }}>本日</span>}
                           </div>
                         )}
-                        <p className="font-medium text-gray-800 truncate mt-1">{work.corpName}</p>
-                        <p className="text-gray-500 text-sm truncate">{work.name} - {work.workType}</p>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span style={{ fontWeight: 700, fontSize: '14px', color: '#2D3436' }}>{work.name}</span>
+                          <span style={{ display: 'inline-block', padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 500, background: workColors[colorIdx], color: workTextColors[colorIdx] }}>
+                            {work.workType}
+                          </span>
+                        </div>
+                        <p style={{ fontSize: '12px', color: '#636E72', margin: 0 }}>{work.corpName}</p>
                       </div>
+                      <svg width="16" height="16" fill="none" stroke="#B2BEC3" strokeWidth="2" viewBox="0 0 24 24" style={{ flexShrink: 0, marginTop: '4px' }}><polyline points="9 18 15 12 9 6"></polyline></svg>
                     </div>
                   );
                 })}
@@ -682,21 +765,9 @@ function App() {
           </div>
         </div>
 
-        {userRole === 'admin' && (
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-white border border-gray-200 rounded-xl p-4 cursor-pointer" onClick={() => navigate('/invoices')}>
-              <p className="text-gray-500 text-sm">請求未送付</p>
-              <p className={`text-2xl font-bold ${unsentCount > 0 ? 'text-red-500' : 'text-gray-400'}`}>{unsentCount}件</p>
-            </div>
-            <div className="bg-white border border-gray-200 rounded-xl p-4 cursor-pointer" onClick={() => navigate('/invoices')}>
-              <p className="text-gray-500 text-sm">入金待ち</p>
-              <p className={`text-2xl font-bold ${unpaidCount > 0 ? 'text-amber-500' : 'text-gray-400'}`}>{unpaidCount}件</p>
-            </div>
-          </div>
-        )}
-
-        {userRole === 'admin' && contractAlerts.length > 0 && (
-          <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
+        {/* 契約更新アラート */}
+        {(userRole === 'admin' || userRole === 'master') && contractAlerts.length > 0 && (
+          <div className="bg-orange-50 border border-orange-200" style={{ borderRadius: '16px', padding: '16px' }}>
             <h3 className="font-bold text-orange-700 flex items-center gap-2 mb-2"><Icons.FileContract /> 契約更新アラート</h3>
             {contractAlerts.map(a => (
               <div key={a.id} className="text-sm text-orange-600 py-1">{a.message}</div>
@@ -721,28 +792,26 @@ function App() {
             const billingColor = getBillingColor(corp.billingCycle);
             return (
               <div key={corp.id} onClick={() => navigate(`/corporations/${corp.id}`)}
-                className="bg-white border border-gray-200 rounded-xl p-4 cursor-pointer hover:shadow-md transition-all hover:border-green-400">
+                className="bg-white cursor-pointer hover:shadow-md transition-all" style={{ borderRadius: '16px', padding: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
                 <div className="flex justify-between items-start">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-gray-400"><Icons.Building /></span>
-                      <h3 className="font-bold text-gray-800 text-lg truncate">{corp.name}</h3>
-                    </div>
-                    {corp.address && (
-                      <div className="flex items-center gap-1 text-gray-500 text-sm mt-1">
-                        <Icons.MapPin /><span className="truncate">{corp.address}</span>
+                    <div className="flex items-center gap-2.5">
+                      <div style={{ width: '40px', height: '40px', background: '#E8F8F5', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <Icons.Building />
                       </div>
-                    )}
-                    <div className="flex flex-wrap items-center gap-2 mt-2 text-sm text-gray-500">
-                      {corp.contactPerson && <span className="flex items-center gap-1"><Icons.User />{corp.contactPerson}</span>}
-                      {corp.contact && <span className="flex items-center gap-1"><Icons.Phone />{corp.contact}</span>}
+                      <div style={{ minWidth: 0 }}>
+                        <h3 style={{ fontWeight: 700, fontSize: '15px', color: '#2D3436', margin: 0 }} className="truncate">{corp.name}</h3>
+                        {corp.address && (
+                          <p style={{ fontSize: '12px', color: '#636E72', margin: '2px 0 0' }} className="truncate">{corp.address}</p>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 mt-2">
-                      <span className="text-sm font-medium" style={{ color: '#5bbd56' }}>{(corp.sites || []).length}現場</span>
-                      {userRole === 'admin' && <span className={`text-xs px-2 py-0.5 rounded border ${billingColor.bg} ${billingColor.text} ${billingColor.border}`}>{corp.billingCycle}</span>}
+                    <div className="flex items-center gap-2 mt-3">
+                      <span style={{ fontSize: '13px', fontWeight: 600, color: '#00B894' }}>{(corp.sites || []).length}現場</span>
+                      {(userRole === 'admin' || userRole === 'master') && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '20px', background: '#FFF3E0', color: '#E67E22' }}>{corp.billingCycle}</span>}
                     </div>
                   </div>
-                  <div className="text-gray-300"><Icons.ChevronRight /></div>
+                  <svg width="16" height="16" fill="none" stroke="#B2BEC3" strokeWidth="2" viewBox="0 0 24 24" style={{ flexShrink: 0, marginTop: '12px' }}><polyline points="9 18 15 12 9 6"></polyline></svg>
                 </div>
               </div>
             );
@@ -785,13 +854,13 @@ function App() {
     return (
       <div className="space-y-3">
         <div className="flex items-center gap-3 mb-4">
-          <button onClick={() => navigate('/corporations')} className="text-gray-400 hover:text-gray-600"><Icons.ChevronLeft /></button>
+          <button onClick={() => navigate('/corporations')} style={{ color: '#B2BEC3' }}><Icons.ChevronLeft /></button>
           <div className="flex-1">
-            <h2 className="text-xl font-bold text-gray-800 break-words">{selectedCorp?.name}</h2>
-            <p className="text-gray-500 text-sm">{(selectedCorp?.sites || []).length}現場</p>
+            <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#2D3436', margin: 0 }} className="break-words">{selectedCorp?.name}</h2>
+            <p style={{ fontSize: '13px', color: '#636E72', margin: '2px 0 0' }}>{(selectedCorp?.sites || []).length}現場</p>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => { setModalType('corp'); setEditingItem(selectedCorp); setShowModal(true); }} className="text-gray-400 hover:text-gray-600">
+            <button onClick={() => { setModalType('corp'); setEditingItem(selectedCorp); setShowModal(true); }} style={{ color: '#636E72' }}>
               <Icons.Edit />
             </button>
             <button onClick={() => setShowDeleteConfirm(true)} className="text-red-400 hover:text-red-600">
@@ -800,20 +869,20 @@ function App() {
           </div>
         </div>
 
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
+        <div className="bg-white" style={{ borderRadius: '16px', padding: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
             {selectedCorp?.address && (
               <div className="flex items-center gap-2">
-                <Icons.MapPin className="text-gray-400" /><span className="flex-1">{selectedCorp.address}</span>
-                <a href={getGoogleMapUrl(selectedCorp.address)} target="_blank" rel="noopener noreferrer" className="p-1" style={{ color: '#5bbd56' }}><Icons.Map /></a>
+                <Icons.MapPin style={{ color: '#B2BEC3' }} /><span className="flex-1" style={{ color: '#2D3436' }}>{selectedCorp.address}</span>
+                <a href={getGoogleMapUrl(selectedCorp.address)} target="_blank" rel="noopener noreferrer" className="p-1" style={{ color: '#00B894' }}><Icons.Map /></a>
               </div>
             )}
-            {selectedCorp?.contact && <div className="flex items-center gap-2"><Icons.Phone className="text-gray-400" /><span>{selectedCorp.contact}</span></div>}
-            {selectedCorp?.contactPerson && <div className="flex items-center gap-2"><Icons.User className="text-gray-400" /><span>担当: {selectedCorp.contactPerson}</span></div>}
-            {selectedCorp?.memo && <div className="col-span-full flex items-start gap-2"><Icons.FileText className="text-gray-400 mt-0.5" /><span className="text-gray-600 whitespace-pre-wrap">{selectedCorp.memo}</span></div>}
+            {selectedCorp?.contact && <div className="flex items-center gap-2"><Icons.Phone style={{ color: '#B2BEC3' }} /><span style={{ color: '#2D3436' }}>{selectedCorp.contact}</span></div>}
+            {selectedCorp?.contactPerson && <div className="flex items-center gap-2"><Icons.User style={{ color: '#B2BEC3' }} /><span style={{ color: '#2D3436' }}>担当: {selectedCorp.contactPerson}</span></div>}
+            {selectedCorp?.memo && <div className="col-span-full flex items-start gap-2"><Icons.FileText style={{ color: '#B2BEC3', marginTop: '2px' }} /><span style={{ color: '#636E72', whiteSpace: 'pre-wrap' }}>{selectedCorp.memo}</span></div>}
           </div>
-          {userRole === 'admin' && (
-            <div className="mt-3 pt-3 border-t border-gray-200 grid grid-cols-2 md:grid-cols-4 gap-2 text-xs text-gray-500">
+          {(userRole === 'admin' || userRole === 'master') && (
+            <div className="mt-3 pt-3 grid grid-cols-2 md:grid-cols-4 gap-2 text-xs" style={{ borderTop: '1px solid #E9ECEF', color: '#636E72' }}>
               <div>請求: {selectedCorp?.billingCycle} / {selectedCorp?.billingDay}日</div>
               {selectedCorp?.billingMonth && <div>請求月: {selectedCorp.billingMonth}</div>}
               {selectedCorp?.contractAmount > 0 && <div>契約金額: ¥{selectedCorp.contractAmount?.toLocaleString()}</div>}
@@ -822,17 +891,17 @@ function App() {
           )}
         </div>
 
-        {userRole === 'admin' && (
+        {(userRole === 'admin' || userRole === 'master') && (
           <button onClick={() => { setModalType('contactLog'); setShowModal(true); }}
-            className="w-full flex items-center justify-center gap-2 bg-white border border-gray-200 rounded-lg p-3 text-gray-600 hover:bg-gray-50">
+            className="w-full flex items-center justify-center gap-2 bg-white" style={{ border: '1.5px solid #E9ECEF', borderRadius: '12px', padding: '12px', color: '#636E72' }}>
             <Icons.MessageCircle /> 連絡履歴 ({(selectedCorp?.contactLogs || []).length})
           </button>
         )}
 
         <div className="flex justify-between items-center mb-2 mt-4">
-          <h3 className="text-gray-600 font-medium flex items-center gap-2"><Icons.Store /> 現場一覧</h3>
+          <h3 style={{ fontWeight: 600, color: '#2D3436', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}><Icons.Store /> 現場一覧</h3>
           <button onClick={() => { setModalType('site'); setEditingItem(null); setShowModal(true); }}
-            className="flex items-center gap-1 text-white px-3 py-1.5 rounded-lg text-sm" style={{ backgroundColor: '#5bbd56' }}>
+            className="flex items-center gap-1 text-white px-3 py-1.5 text-sm" style={{ background: 'linear-gradient(135deg, #00B894, #00D2A0)', borderRadius: '10px', border: 'none' }}>
             <Icons.Plus /> 現場追加
           </button>
         </div>
@@ -840,11 +909,16 @@ function App() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {(selectedCorp?.sites || []).map((site) => (
             <div key={site.id} onClick={() => navigate(`/sites/${site.id}`)}
-              className="bg-white border border-gray-200 rounded-xl p-4 cursor-pointer hover:border-green-400">
+              className="bg-white cursor-pointer" style={{ borderRadius: '16px', padding: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
               <div className="flex justify-between items-center gap-2">
-                <h3 className="font-bold text-gray-800 min-w-0 break-words">{site.name}</h3>
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div style={{ width: '36px', height: '36px', background: '#E8F8F5', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Icons.Store />
+                  </div>
+                  <h3 style={{ fontWeight: 600, color: '#2D3436', margin: 0 }} className="min-w-0 break-words">{site.name}</h3>
+                </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  {userRole === 'admin' && (
+                  {(userRole === 'admin' || userRole === 'master') && (
                     <button
                       onClick={(e) => { e.stopPropagation(); setDeletingSite(site); setShowSiteDeleteConfirm(true); }}
                       className="text-red-400 hover:text-red-600"
@@ -852,7 +926,7 @@ function App() {
                       <Icons.Trash />
                     </button>
                   )}
-                  <Icons.ChevronRight />
+                  <svg width="16" height="16" fill="none" stroke="#B2BEC3" strokeWidth="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"></polyline></svg>
                 </div>
               </div>
             </div>
@@ -895,21 +969,24 @@ function App() {
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-3 mb-4">
-          <button onClick={() => { setShowKeybox(false); navigate(`/corporations/${selectedCorp?.id}`); }} className="text-gray-400"><Icons.ChevronLeft /></button>
+          <button onClick={() => { setShowKeybox(false); navigate(`/corporations/${selectedCorp?.id}`); }} style={{ color: '#B2BEC3' }}><Icons.ChevronLeft /></button>
           <div className="flex-1">
-            <p className="text-gray-500 text-sm truncate">{selectedCorp?.name}</p>
-            <h2 className="text-xl font-bold text-gray-800 break-words">{selectedSite?.name}</h2>
+            <p style={{ fontSize: '12px', color: '#636E72', margin: 0 }} className="truncate">{selectedCorp?.name}</p>
+            <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#2D3436', margin: '2px 0 0' }} className="break-words">{selectedSite?.name}</h2>
           </div>
-          <button onClick={() => { setModalType('site'); setEditingItem(selectedSite); setShowModal(true); }} className="text-gray-400"><Icons.Edit /></button>
+          <button onClick={() => { setModalType('site'); setEditingItem(selectedSite); setShowModal(true); }} style={{ color: '#636E72' }}><Icons.Edit /></button>
         </div>
 
         <div
-          className={`border-2 rounded-2xl p-5 cursor-pointer transition-all ${selectedSite?.keybox ? '' : 'bg-gray-50 border-gray-200'}`}
-          style={selectedSite?.keybox ? { backgroundColor: 'rgba(91, 189, 86, 0.1)', borderColor: '#5bbd56' } : {}}
+          className="cursor-pointer transition-all"
+          style={{
+            borderRadius: '16px', padding: '20px',
+            background: selectedSite?.keybox ? '#E8F8F5' : '#FAFBFC',
+            border: selectedSite?.keybox ? '2px solid #00B894' : '2px solid #E9ECEF'
+          }}
           onClick={async () => {
             if (selectedSite?.keybox && !showKeybox) {
               setShowKeybox(true);
-              // キーボックス閲覧ログを記録
               try {
                 await api.call('keybox-log', 'POST', { siteId: selectedSite.id, siteName: selectedSite.name });
               } catch (e) {
@@ -918,25 +995,30 @@ function App() {
             }
           }}>
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-full flex items-center justify-center text-white" style={{ backgroundColor: selectedSite?.keybox ? '#5bbd56' : '#9ca3af' }}><Icons.Key /></div>
+            <div style={{ width: '56px', height: '56px', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', background: selectedSite?.keybox ? '#00B894' : '#B2BEC3' }}><Icons.Key /></div>
             <div>
-              <p className="text-sm" style={{ color: selectedSite?.keybox ? '#5bbd56' : '#9ca3af' }}>キーボックス暗証番号</p>
+              <p style={{ fontSize: '13px', color: selectedSite?.keybox ? '#00B894' : '#B2BEC3', margin: 0 }}>キーボックス暗証番号</p>
               {selectedSite?.keybox ? (
                 showKeybox ? (
-                  <><p className={`font-black ${selectedSite.keybox.length > 4 ? 'text-3xl tracking-[0.15em]' : 'text-4xl tracking-[0.3em]'}`} style={{ color: '#5bbd56' }}>{selectedSite.keybox}</p>
-                  {selectedSite?.keyboxLocation && <p className="text-gray-600 text-sm">{selectedSite.keyboxLocation}</p>}</>
+                  <><p className={`font-black ${selectedSite.keybox.length > 4 ? 'text-3xl tracking-[0.15em]' : 'text-4xl tracking-[0.3em]'}`} style={{ color: '#00B894', margin: '4px 0 0' }}>{selectedSite.keybox}</p>
+                  {selectedSite?.keyboxLocation && <p style={{ color: '#636E72', fontSize: '13px', margin: '4px 0 0' }}>{selectedSite.keyboxLocation}</p>}</>
                 ) : (
-                  <p className="font-medium text-lg" style={{ color: '#5bbd56' }}>タップして表示 <Icons.Eye className="inline w-5 h-5" /></p>
+                  <p style={{ fontWeight: 600, fontSize: '16px', color: '#00B894', margin: '4px 0 0' }}>タップして表示 <Icons.Eye className="inline w-5 h-5" /></p>
                 )
-              ) : <p className="text-gray-400">未登録</p>}
+              ) : <p style={{ color: '#B2BEC3', margin: '4px 0 0' }}>未登録</p>}
             </div>
           </div>
         </div>
 
-        <div className="flex gap-2 border-b border-gray-200 overflow-x-auto">
+        <div className="flex gap-1 overflow-x-auto" style={{ borderBottom: '2px solid #E9ECEF' }}>
           {[{ key: 'info', label: '基本情報' }, { key: 'plan', label: '年間計画' }, { key: 'logs', label: '作業履歴' }, { key: 'photos', label: '写真' }, { key: 'docs', label: '書類' }].map(tab => (
             <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-              className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px whitespace-nowrap ${activeTab === tab.key ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500'}`}>
+              style={{
+                padding: '10px 16px', fontSize: '13px', fontWeight: 600, whiteSpace: 'nowrap', background: 'none', border: 'none',
+                color: activeTab === tab.key ? '#00B894' : '#B2BEC3',
+                borderBottom: `2px solid ${activeTab === tab.key ? '#00B894' : 'transparent'}`,
+                marginBottom: '-2px'
+              }}>
               {tab.label}
             </button>
           ))}
@@ -945,46 +1027,46 @@ function App() {
         {activeTab === 'info' && (
           <div className="space-y-4">
             {selectedSite?.address && (
-              <div className="flex items-center gap-2 text-gray-600">
-                <Icons.MapPin /><span className="flex-1">{selectedSite.address}</span>
-                <a href={getGoogleMapUrl(selectedSite.address)} target="_blank" className="p-1" style={{ color: '#5bbd56' }}><Icons.Map /></a>
+              <div className="flex items-center gap-2" style={{ color: '#2D3436' }}>
+                <Icons.MapPin style={{ color: '#B2BEC3' }} /><span className="flex-1">{selectedSite.address}</span>
+                <a href={getGoogleMapUrl(selectedSite.address)} target="_blank" className="p-1" style={{ color: '#00B894' }}><Icons.Map /></a>
               </div>
             )}
             <div>
-              <p className="text-gray-400 text-sm mb-1">対象害虫</p>
-              <div className="flex flex-wrap gap-1">
-                {(selectedSite?.pests || []).map((p, i) => <span key={i} className="bg-red-50 text-red-600 text-sm px-2 py-1 rounded border border-red-200">{p}</span>)}
+              <p style={{ fontSize: '12px', color: '#B2BEC3', margin: '0 0 6px' }}>対象害虫</p>
+              <div className="flex flex-wrap gap-1.5">
+                {(selectedSite?.pests || []).map((p, i) => <span key={i} style={{ background: '#FFF0E0', color: '#D35400', fontSize: '13px', padding: '4px 12px', borderRadius: '20px', fontWeight: 500 }}>{p}</span>)}
               </div>
             </div>
             <div>
-              <p className="text-gray-400 text-sm mb-1">作業内容</p>
-              <div className="flex flex-wrap gap-1">
-                {(selectedSite?.workTypes || []).map((t, i) => <span key={i} className="bg-blue-50 text-blue-600 text-sm px-2 py-1 rounded border border-blue-200">{t}</span>)}
+              <p style={{ fontSize: '12px', color: '#B2BEC3', margin: '0 0 6px' }}>作業内容</p>
+              <div className="flex flex-wrap gap-1.5">
+                {(selectedSite?.workTypes || []).map((t, i) => <span key={i} style={{ background: '#E8F8F5', color: '#00B894', fontSize: '13px', padding: '4px 12px', borderRadius: '20px', fontWeight: 500 }}>{t}</span>)}
               </div>
             </div>
             <div>
-              <p className="text-gray-400 text-sm mb-1">作業箇所</p>
-              <div className="flex flex-wrap gap-1">
+              <p style={{ fontSize: '12px', color: '#B2BEC3', margin: '0 0 6px' }}>作業箇所</p>
+              <div className="flex flex-wrap gap-1.5">
                 {(selectedSite?.workAreas || []).length > 0 ? (
-                  selectedSite.workAreas.map((a, i) => <span key={i} className="bg-purple-50 text-purple-600 text-sm px-2 py-1 rounded border border-purple-200">{a}</span>)
+                  selectedSite.workAreas.map((a, i) => <span key={i} style={{ background: '#E0F2FE', color: '#0891B2', fontSize: '13px', padding: '4px 12px', borderRadius: '20px', fontWeight: 500 }}>{a}</span>)
                 ) : (
-                  <span className="text-gray-400 text-sm">未登録</span>
+                  <span style={{ fontSize: '13px', color: '#B2BEC3' }}>未登録</span>
                 )}
               </div>
             </div>
             {selectedSite?.memo && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                <p className="text-gray-400 text-sm mb-1">メモ</p>
-                <p className="text-gray-700 whitespace-pre-wrap">{selectedSite.memo}</p>
+              <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '12px', padding: '12px' }}>
+                <p style={{ fontSize: '12px', color: '#B2BEC3', margin: '0 0 6px' }}>メモ</p>
+                <p style={{ color: '#2D3436', whiteSpace: 'pre-wrap', margin: 0 }}>{selectedSite.memo}</p>
               </div>
             )}
             <div>
-              <p className="text-gray-400 text-sm mb-1">請求月</p>
-              <div className="flex flex-wrap gap-1">
+              <p style={{ fontSize: '12px', color: '#B2BEC3', margin: '0 0 6px' }}>請求月</p>
+              <div className="flex flex-wrap gap-1.5">
                 {(selectedSite?.billingMonths || []).length > 0 ? (
-                  selectedSite.billingMonths.sort((a, b) => a - b).map((m, i) => <span key={i} className="bg-orange-50 text-orange-600 text-sm px-2 py-1 rounded border border-orange-200">{m}月</span>)
+                  selectedSite.billingMonths.sort((a, b) => a - b).map((m, i) => <span key={i} style={{ background: '#FFFBEB', color: '#D97706', fontSize: '13px', padding: '4px 12px', borderRadius: '20px', fontWeight: 500 }}>{m}月</span>)
                 ) : (
-                  <span className="text-gray-400 text-sm">法人設定に準拠</span>
+                  <span style={{ fontSize: '13px', color: '#B2BEC3' }}>法人設定に準拠</span>
                 )}
               </div>
             </div>
@@ -993,27 +1075,27 @@ function App() {
 
         {activeTab === 'plan' && (
           <div className="space-y-3">
-            {userRole === 'admin' && (
+            {(userRole === 'admin' || userRole === 'master') && (
               <button onClick={() => { setModalType('yearlyPlan'); setShowModal(true); }}
-                className="w-full flex items-center justify-center gap-2 text-white py-2 rounded-lg" style={{ backgroundColor: '#5bbd56' }}>
+                className="w-full flex items-center justify-center gap-2 text-white py-2" style={{ background: 'linear-gradient(135deg, #00B894, #00D2A0)', borderRadius: '12px', border: 'none', fontWeight: 600 }}>
                 <Icons.Edit /> 年間計画を編集
               </button>
             )}
-            <div className="bg-white border border-gray-200 rounded-xl overflow-x-auto">
+            <div className="bg-white overflow-x-auto" style={{ borderRadius: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
               <table className="w-full text-sm">
-                <thead><tr className="bg-gray-50">{months.map(m => <th key={m} className="px-2 py-2 text-center min-w-[50px]">{m}月</th>)}</tr></thead>
+                <thead><tr style={{ background: '#FAFBFC' }}>{months.map(m => <th key={m} className="px-2 py-2 text-center min-w-[50px]" style={{ color: '#636E72', fontWeight: 600 }}>{m}月</th>)}</tr></thead>
                 <tbody><tr>
                   {months.map(m => {
                     const plan = selectedSite?.yearlyPlan?.[m];
                     return (
-                      <td key={m} className="px-1 py-2 text-center border-t">
+                      <td key={m} className="px-1 py-2 text-center" style={{ borderTop: '1px solid #E9ECEF' }}>
                         {plan?.scheduled ? (
                           <div>
-                            <div className="w-7 h-7 mx-auto rounded-full flex items-center justify-center text-white text-xs font-bold" style={{ backgroundColor: '#5bbd56' }}>{plan.date}</div>
-                            <div className="text-xs mt-1 text-gray-500 truncate">{plan.workType}</div>
+                            <div className="w-7 h-7 mx-auto rounded-full flex items-center justify-center text-white text-xs font-bold" style={{ background: '#00B894' }}>{plan.date}</div>
+                            <div className="text-xs mt-1 truncate" style={{ color: '#636E72' }}>{plan.workType}</div>
                           </div>
                         ) : (
-                          <div className="w-7 h-7 mx-auto rounded-full border-2 border-dashed border-gray-200" />
+                          <div className="w-7 h-7 mx-auto rounded-full" style={{ border: '2px dashed #E9ECEF' }} />
                         )}
                       </td>
                   );
@@ -1027,18 +1109,18 @@ function App() {
         {activeTab === 'logs' && (
           <div className="space-y-3">
             <button onClick={() => { setModalType('workLog'); setEditingItem(null); setShowModal(true); }}
-              className="w-full flex items-center justify-center gap-2 bg-white border-2 border-dashed border-gray-300 rounded-lg p-3 text-gray-500 hover:border-green-400 hover:text-green-600">
+              className="w-full flex items-center justify-center gap-2 bg-white" style={{ border: '2px dashed #E9ECEF', borderRadius: '12px', padding: '12px', color: '#636E72' }}>
               <Icons.Plus /> 作業報告を追加
             </button>
             {(selectedSite?.workLogs || []).length === 0 ? (
-              <p className="text-center text-gray-400 py-8">作業履歴がありません</p>
+              <p className="text-center py-8" style={{ color: '#B2BEC3' }}>作業履歴がありません</p>
             ) : (
               <div className="space-y-3">
                 {[...(selectedSite?.workLogs || [])].sort((a, b) => new Date(b.date) - new Date(a.date)).map(log => (
                   <div key={log.id} className="bg-white border border-gray-200 rounded-xl p-4">
                     <div className="flex justify-between items-start mb-2">
                       <div>
-                        <span className="text-sm font-medium px-2 py-0.5 rounded" style={{ backgroundColor: '#5bbd56', color: 'white' }}>{formatDate(log.date)}</span>
+                        <span className="text-sm font-medium px-2 py-0.5 rounded" style={{ backgroundColor: '#00B894', color: 'white' }}>{formatDate(log.date)}</span>
                         <span className="ml-2 text-gray-600">{log.workType}</span>
                       </div>
                       <span className="text-gray-400 text-sm">{log.staff}</span>
@@ -1255,13 +1337,13 @@ function App() {
 
     return (
       <div className="space-y-4">
-        <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2"><Icons.Calculator /> 請求管理</h2>
+        <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#2D3436' }} className=" flex items-center gap-2"><Icons.Calculator /> 請求管理</h2>
 
         <div className="flex gap-2 overflow-x-auto pb-2">
           {[{ key: 'thisMonth', label: `今月 (${thisMonthBillingCorps.length})` }, { key: 'all', label: `全て (${corporations.length})` }, { key: '毎月', label: '毎月' }, { key: '半年', label: '半年' }, { key: '年間', label: '年間' }].map(f => (
             <button key={f.key} onClick={() => setFilter(f.key)}
               className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap ${filter === f.key ? 'text-white' : 'bg-gray-100 text-gray-600'}`}
-              style={filter === f.key ? { backgroundColor: '#5bbd56' } : {}}>
+              style={filter === f.key ? { backgroundColor: '#00B894' } : {}}>
               {f.label}
             </button>
           ))}
@@ -1382,12 +1464,12 @@ function App() {
         <div className="flex gap-2">
           <button onClick={() => setLogsType('login')}
             className={`px-4 py-2 rounded-lg text-sm font-medium ${logsType === 'login' ? 'text-white' : 'bg-gray-100 text-gray-600'}`}
-            style={logsType === 'login' ? { backgroundColor: '#5bbd56' } : {}}>
+            style={logsType === 'login' ? { backgroundColor: '#00B894' } : {}}>
             ログイン履歴
           </button>
           <button onClick={() => setLogsType('keybox')}
             className={`px-4 py-2 rounded-lg text-sm font-medium ${logsType === 'keybox' ? 'text-white' : 'bg-gray-100 text-gray-600'}`}
-            style={logsType === 'keybox' ? { backgroundColor: '#5bbd56' } : {}}>
+            style={logsType === 'keybox' ? { backgroundColor: '#00B894' } : {}}>
             キーボックス閲覧履歴
           </button>
         </div>
@@ -1678,7 +1760,7 @@ function App() {
 
     return (
       <div className="space-y-4">
-        <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2"><Icons.Settings /> 設定</h2>
+        <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#2D3436' }} className=" flex items-center gap-2"><Icons.Settings /> 設定</h2>
 
         <div className="flex gap-2 border-b border-gray-200 mb-4 overflow-x-auto">
           {[{ key: 'users', label: 'ユーザー' }, { key: 'master', label: 'マスタ' }, { key: 'import', label: 'インポート' }, { key: 'export', label: 'エクスポート' }, ...(currentUser?.role === 'admin' ? [{ key: 'logs', label: '履歴' }] : [])].map(tab => (
@@ -1696,7 +1778,7 @@ function App() {
               setUserForm({ name: '', username: '', password: '', role: 'staff' }); 
               setShowUserModal(true); 
             }}
-              className="w-full flex items-center justify-center gap-2 text-white py-2 rounded-lg" style={{ backgroundColor: '#5bbd56' }}>
+              className="w-full flex items-center justify-center gap-2 text-white py-2 rounded-lg" style={{ background: '#00B894' }}>
               <Icons.Plus /> ユーザー追加
             </button>
             {users.map(user => (
@@ -1733,7 +1815,7 @@ function App() {
               </div>
               <form onSubmit={(e) => { e.preventDefault(); addMaster('pest', localNewPest, setLocalNewPest); }} className="flex gap-2">
                 <input type="text" placeholder="新しい害虫を追加" value={localNewPest} onChange={e => setLocalNewPest(e.target.value)} className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm" />
-                <button type="submit" className="px-3 py-2 rounded-lg text-white text-sm" style={{ backgroundColor: '#5bbd56' }}>追加</button>
+                <button type="submit" className="px-3 py-2 rounded-lg text-white text-sm" style={{ background: '#00B894' }}>追加</button>
               </form>
             </div>
             <div className="bg-white border border-gray-200 rounded-xl p-4">
@@ -1748,7 +1830,7 @@ function App() {
               </div>
               <form onSubmit={(e) => { e.preventDefault(); addMaster('workType', localNewWork, setLocalNewWork); }} className="flex gap-2">
                 <input type="text" placeholder="新しい作業を追加" value={localNewWork} onChange={e => setLocalNewWork(e.target.value)} className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm" />
-                <button type="submit" className="px-3 py-2 rounded-lg text-white text-sm" style={{ backgroundColor: '#5bbd56' }}>追加</button>
+                <button type="submit" className="px-3 py-2 rounded-lg text-white text-sm" style={{ background: '#00B894' }}>追加</button>
               </form>
             </div>
             <div className="bg-white border border-gray-200 rounded-xl p-4">
@@ -1763,7 +1845,7 @@ function App() {
               </div>
               <form onSubmit={(e) => { e.preventDefault(); addMaster('workArea', localNewArea, setLocalNewArea); }} className="flex gap-2">
                 <input type="text" placeholder="新しい作業箇所を追加" value={localNewArea} onChange={e => setLocalNewArea(e.target.value)} className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm" />
-                <button type="submit" className="px-3 py-2 rounded-lg text-white text-sm" style={{ backgroundColor: '#5bbd56' }}>追加</button>
+                <button type="submit" className="px-3 py-2 rounded-lg text-white text-sm" style={{ background: '#00B894' }}>追加</button>
               </form>
             </div>
             <div className="bg-white border border-gray-200 rounded-xl p-4 md:col-span-3">
@@ -1803,7 +1885,7 @@ function App() {
                   </div>
                   <form onSubmit={addProduct} className="flex gap-2">
                     <input type="text" placeholder="新しい商品を追加" value={localNewProduct} onChange={e => setLocalNewProduct(e.target.value)} className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm" />
-                    <button type="submit" className="px-3 py-2 rounded-lg text-white text-sm" style={{ backgroundColor: '#5bbd56' }}>追加</button>
+                    <button type="submit" className="px-3 py-2 rounded-lg text-white text-sm" style={{ background: '#00B894' }}>追加</button>
                   </form>
                 </>
               )}
@@ -1954,7 +2036,7 @@ function App() {
                 </div>
                 <div className="flex gap-3 mt-6">
                   <button type="button" onClick={() => setShowUserModal(false)} className="flex-1 bg-gray-100 py-2 rounded-lg">キャンセル</button>
-                  <button type="submit" className="flex-1 text-white py-2 rounded-lg" style={{ backgroundColor: '#5bbd56' }}>保存</button>
+                  <button type="submit" className="flex-1 text-white py-2 rounded-lg" style={{ background: '#00B894' }}>保存</button>
                 </div>
               </form>
             </div>
@@ -1986,7 +2068,7 @@ function App() {
       <div className="space-y-4">
         <div className="flex justify-between items-center mb-4">
           <button onClick={prevMonth} className="p-2 hover:bg-gray-100 rounded-lg"><Icons.ChevronLeft /></button>
-          <h2 className="text-xl font-bold text-gray-800">{year}年{month + 1}月</h2>
+          <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#2D3436' }} className="">{year}年{month + 1}月</h2>
           <button onClick={nextMonth} className="p-2 hover:bg-gray-100 rounded-lg"><Icons.ChevronRight /></button>
         </div>
 
@@ -2027,7 +2109,7 @@ function App() {
                 navigate(`/sites/${work.id}`);
               }} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100">
                 <div>
-                  <span className="text-sm font-medium mr-2 px-2 py-0.5 rounded" style={{ backgroundColor: '#5bbd56', color: 'white' }}>{work.date}日</span>
+                  <span className="text-sm font-medium mr-2 px-2 py-0.5 rounded" style={{ backgroundColor: '#00B894', color: 'white' }}>{work.date}日</span>
                   <span className="text-gray-700">{work.corpName}</span>
                   <span className="text-gray-500 text-sm ml-2">{work.name}</span>
                 </div>
@@ -2074,9 +2156,9 @@ function App() {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-800">日報</h2>
+          <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#2D3436' }} className="">日報</h2>
           <button onClick={() => navigate('/daily-reports/new')}
-            className="flex items-center gap-1 text-white px-4 py-2 rounded-lg text-sm font-medium" style={{ backgroundColor: '#5bbd56' }}>
+            className="flex items-center gap-1 text-white px-4 py-2 rounded-lg text-sm font-medium" style={{ background: '#00B894' }}>
             <Icons.Plus /> 新規作成
           </button>
         </div>
@@ -2354,7 +2436,7 @@ function App() {
       <div className="space-y-4 pb-20">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate('/daily-reports')} className="text-gray-500"><Icons.ChevronLeft /></button>
-          <h2 className="text-xl font-bold text-gray-800">{isNew ? '日報作成' : '日報編集'}</h2>
+          <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#2D3436' }} className="">{isNew ? '日報作成' : '日報編集'}</h2>
         </div>
 
         <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-4">
@@ -2367,7 +2449,7 @@ function App() {
           <div>
             <div className="flex justify-between items-center mb-2">
               <label className="text-sm font-medium text-gray-700">作業明細</label>
-              <button onClick={addDetail} className="text-sm px-3 py-1 rounded" style={{ backgroundColor: '#5bbd56', color: 'white' }}>
+              <button onClick={addDetail} className="text-sm px-3 py-1 rounded" style={{ backgroundColor: '#00B894', color: 'white' }}>
                 <Icons.Plus className="inline w-4 h-4" /> 追加
               </button>
             </div>
@@ -2507,7 +2589,7 @@ function App() {
             {saving ? '保存中...' : '下書き保存'}
           </button>
           <button onClick={() => handleSave('submitted')} disabled={saving}
-            className="flex-1 text-white py-3 rounded-lg font-medium" style={{ backgroundColor: '#5bbd56' }}>
+            className="flex-1 text-white py-3 rounded-lg font-medium" style={{ background: '#00B894' }}>
             {saving ? '保存中...' : '提出'}
           </button>
         </div>
@@ -2626,29 +2708,29 @@ function App() {
 
     return (
       <div className="space-y-4">
-        <h2 className="text-xl font-bold text-gray-800">タイムカード</h2>
+        <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#2D3436' }} className="">タイムカード</h2>
 
-        <div className="bg-white border border-gray-200 rounded-xl p-6 text-center">
-          <p className="text-4xl font-bold text-gray-800 mb-2">
+        <div className="bg-white text-center" style={{ borderRadius: '16px', padding: '24px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+          <p style={{ fontSize: '36px', fontWeight: 800, color: '#2D3436', marginBottom: '8px' }}>
             {currentTime.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
           </p>
-          <p className="text-gray-500 mb-4">
+          <p style={{ color: '#636E72', marginBottom: '16px' }}>
             {currentTime.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}
           </p>
 
           <div className="flex gap-3 justify-center mb-4">
             {!todayCard?.clock_in ? (
               <button onClick={handleClockIn}
-                className="px-8 py-4 rounded-xl text-white text-lg font-bold" style={{ backgroundColor: '#5bbd56' }}>
+                className="text-white text-lg font-bold" style={{ padding: '16px 32px', borderRadius: '16px', background: 'linear-gradient(135deg, #00B894, #00D2A0)', border: 'none', boxShadow: '0 4px 16px rgba(0, 184, 148, 0.3)' }}>
                 出勤
               </button>
             ) : !todayCard?.clock_out ? (
               <button onClick={handleClockOut}
-                className="px-8 py-4 rounded-xl text-white text-lg font-bold bg-orange-500">
+                className="text-white text-lg font-bold" style={{ padding: '16px 32px', borderRadius: '16px', background: 'linear-gradient(135deg, #E67E22, #F39C12)', border: 'none', boxShadow: '0 4px 16px rgba(230, 126, 34, 0.3)' }}>
                 退勤
               </button>
             ) : (
-              <p className="text-green-600 font-medium">本日の打刻完了</p>
+              <p style={{ color: '#00B894', fontWeight: 600 }}>本日の打刻完了</p>
             )}
           </div>
 
@@ -2735,7 +2817,7 @@ function App() {
                     loadTodayCard();
                     loadMonthCards();
                   } catch (e) { alert(e.message); }
-                }} className="flex-1 text-white py-2 rounded-lg" style={{ backgroundColor: '#5bbd56' }}>保存</button>
+                }} className="flex-1 text-white py-2 rounded-lg" style={{ background: '#00B894' }}>保存</button>
               </div>
               <button onClick={async () => {
                 if (confirm('このタイムカードを削除しますか？')) {
@@ -2837,13 +2919,13 @@ function App() {
   const AdminMenuView = () => {
     return (
       <div className="space-y-4">
-        <h2 className="text-xl font-bold text-gray-800">メニュー</h2>
+        <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#2D3436' }} className="">メニュー</h2>
 
         <div className="space-y-3">
           <button onClick={() => navigate('/settings')}
             className="w-full bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-4 text-left hover:bg-gray-50">
             <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: 'rgba(91, 189, 86, 0.1)' }}>
-              <Icons.Settings style={{ color: '#5bbd56' }} />
+              <Icons.Settings style={{ color: '#00B894' }} />
             </div>
             <div>
               <p className="font-bold text-gray-800">設定</p>
@@ -2855,7 +2937,7 @@ function App() {
           <button onClick={() => navigate('/admin/daily-reports')}
             className="w-full bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-4 text-left hover:bg-gray-50">
             <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: 'rgba(91, 189, 86, 0.1)' }}>
-              <Icons.ClipboardList style={{ color: '#5bbd56' }} />
+              <Icons.ClipboardList style={{ color: '#00B894' }} />
             </div>
             <div>
               <p className="font-bold text-gray-800">日報管理</p>
@@ -2867,7 +2949,7 @@ function App() {
           <button onClick={() => navigate('/admin/timecards')}
             className="w-full bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-4 text-left hover:bg-gray-50">
             <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: 'rgba(91, 189, 86, 0.1)' }}>
-              <Icons.Clock style={{ color: '#5bbd56' }} />
+              <Icons.Clock style={{ color: '#00B894' }} />
             </div>
             <div>
               <p className="font-bold text-gray-800">タイムカード管理</p>
@@ -2880,7 +2962,7 @@ function App() {
             <button onClick={() => navigate('/admin/audit-logs')}
               className="w-full bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-4 text-left hover:bg-gray-50">
               <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: 'rgba(91, 189, 86, 0.1)' }}>
-                <Icons.FileText style={{ color: '#5bbd56' }} />
+                <Icons.FileText style={{ color: '#00B894' }} />
               </div>
               <div>
                 <p className="font-bold text-gray-800">操作履歴</p>
@@ -2949,7 +3031,7 @@ function App() {
       <div className="space-y-4">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate('/menu')} className="text-gray-500"><Icons.ChevronLeft /></button>
-          <h2 className="text-xl font-bold text-gray-800">日報管理</h2>
+          <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#2D3436' }} className="">日報管理</h2>
         </div>
 
         <div className="bg-white border border-gray-200 rounded-xl p-4 flex flex-wrap gap-3 items-center">
@@ -3040,7 +3122,7 @@ function App() {
               </div>
               <div className="flex gap-2 mt-4">
                 <button onClick={() => setEditingHours(null)} className="flex-1 bg-gray-200 py-2 rounded-lg">キャンセル</button>
-                <button onClick={handleSaveHours} className="flex-1 text-white py-2 rounded-lg" style={{ backgroundColor: '#5bbd56' }}>保存</button>
+                <button onClick={handleSaveHours} className="flex-1 text-white py-2 rounded-lg" style={{ background: '#00B894' }}>保存</button>
               </div>
             </div>
           </div>
@@ -3249,7 +3331,7 @@ function App() {
       <div className="space-y-4">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate('/menu')} className="text-gray-500"><Icons.ChevronLeft /></button>
-          <h2 className="text-xl font-bold text-gray-800">タイムカード管理</h2>
+          <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#2D3436' }} className="">タイムカード管理</h2>
         </div>
 
         {/* タブ */}
@@ -3467,7 +3549,7 @@ function App() {
       <div className="space-y-4">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate('/menu')} className="text-gray-500"><Icons.ChevronLeft /></button>
-          <h2 className="text-xl font-bold text-gray-800">操作履歴</h2>
+          <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#2D3436' }} className="">操作履歴</h2>
         </div>
 
         <div className="bg-white border border-gray-200 rounded-xl p-4 flex flex-wrap gap-3 items-center">
@@ -3755,33 +3837,38 @@ function App() {
       <div className="space-y-4">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-xl font-bold text-gray-800">在庫管理</h2>
-            <p className="text-gray-500 text-sm">{branches.length}営業所 / {products.length}製品</p>
+            <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#2D3436', margin: 0 }}>在庫管理</h2>
+            <p style={{ fontSize: '13px', color: '#636E72', margin: '2px 0 0' }}>{branches.length}営業所 / {products.length}製品</p>
           </div>
           <div className="flex gap-2">
             <button onClick={() => { setStockModalType('in'); setShowStockModal(true); }}
-              className="flex items-center gap-1 bg-green-500 text-white px-3 py-2 rounded-lg text-sm">
+              className="flex items-center gap-1 text-white px-3 py-2 text-sm" style={{ background: '#00B894', borderRadius: '10px', border: 'none' }}>
               <Icons.Plus /> 入庫
             </button>
             <button onClick={() => { setStockModalType('out'); setShowStockModal(true); }}
-              className="flex items-center gap-1 bg-red-500 text-white px-3 py-2 rounded-lg text-sm">
+              className="flex items-center gap-1 text-white px-3 py-2 text-sm" style={{ background: '#E74C3C', borderRadius: '10px', border: 'none' }}>
               <Icons.Download /> 出庫
             </button>
             <button onClick={() => setShowTransferModal(true)}
-              className="flex items-center gap-1 bg-purple-500 text-white px-3 py-2 rounded-lg text-sm">
+              className="flex items-center gap-1 text-white px-3 py-2 text-sm" style={{ background: '#8E44AD', borderRadius: '10px', border: 'none' }}>
               <Icons.ChevronRight /> 移動
             </button>
           </div>
         </div>
 
         {/* タブ */}
-        <div className="flex gap-2 border-b border-gray-200">
+        <div className="flex gap-1" style={{ borderBottom: '2px solid #E9ECEF' }}>
           {[
             { key: 'stock', label: '在庫一覧' },
             { key: 'history', label: '入出庫履歴' }
           ].map(tab => (
             <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-              className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${activeTab === tab.key ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500'}`}>
+              style={{
+                padding: '10px 16px', fontSize: '13px', fontWeight: 600, background: 'none', border: 'none',
+                color: activeTab === tab.key ? '#00B894' : '#B2BEC3',
+                borderBottom: `2px solid ${activeTab === tab.key ? '#00B894' : 'transparent'}`,
+                marginBottom: '-2px'
+              }}>
               {tab.label}
             </button>
           ))}
@@ -4300,7 +4387,7 @@ function App() {
                   <div className="flex justify-between items-center mb-2">
                     <p className="font-medium text-gray-700">現場情報</p>
                     <button type="button" onClick={() => setNewSites([...newSites, { name: '', address: '', keybox: '', keyboxLocation: '' }])}
-                      className="text-sm px-2 py-1 rounded text-white" style={{ backgroundColor: '#5bbd56' }}><Icons.Plus /> 追加</button>
+                      className="text-sm px-2 py-1 rounded text-white" style={{ background: '#00B894' }}><Icons.Plus /> 追加</button>
                   </div>
                   {newSites.map((site, i) => (
                     <div key={i} className="bg-gray-50 rounded-lg p-3 mb-2">
@@ -4319,7 +4406,7 @@ function App() {
               )}
               <div className="flex gap-3 mt-6">
                 <button type="button" onClick={() => setShowModal(false)} className="flex-1 bg-gray-100 py-2 rounded-lg" disabled={saving}>キャンセル</button>
-                <button type="submit" className="flex-1 text-white py-2 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#5bbd56' }} disabled={saving}>
+                <button type="submit" className="flex-1 text-white py-2 rounded-lg flex items-center justify-center" style={{ background: '#00B894' }} disabled={saving}>
                   {saving ? <Icons.Loader /> : '保存'}
                 </button>
               </div>
@@ -4368,7 +4455,7 @@ function App() {
                 <button type="button" onClick={() => { document.querySelector('[name="site-address"]').value = selectedCorp?.address || ''; }} className="text-xs px-2 border border-gray-300 rounded text-gray-500">コピー</button>
               </div>
               <div className="p-3 rounded-lg" style={{ backgroundColor: 'rgba(91, 189, 86, 0.1)' }}>
-                <p className="text-sm font-medium mb-2" style={{ color: '#5bbd56' }}>キーボックス</p>
+                <p className="text-sm font-medium mb-2" style={{ color: '#00B894' }}>キーボックス</p>
                 <div className="grid grid-cols-2 gap-2">
                   <input type="text" name="site-keybox" placeholder="暗証番号" defaultValue={editingItem?.keybox || ''} className="border border-gray-300 rounded-lg px-3 py-2" />
                   <input type="text" name="site-keyboxLocation" placeholder="場所" defaultValue={editingItem?.keyboxLocation || ''} className="border border-gray-300 rounded-lg px-3 py-2" />
@@ -4427,7 +4514,7 @@ function App() {
               )}
               <div className="flex gap-3 mt-6">
                 <button type="button" onClick={() => setShowModal(false)} className="flex-1 bg-gray-100 py-2 rounded-lg" disabled={saving}>キャンセル</button>
-                <button type="submit" className="flex-1 text-white py-2 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#5bbd56' }} disabled={saving}>
+                <button type="submit" className="flex-1 text-white py-2 rounded-lg flex items-center justify-center" style={{ background: '#00B894' }} disabled={saving}>
                   {saving ? <Icons.Loader /> : '保存'}
                 </button>
               </div>
@@ -4577,7 +4664,7 @@ function App() {
                   } finally {
                     setSaving(false);
                   }
-                }} className="flex-1 text-white py-2 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#5bbd56' }} disabled={saving}>
+                }} className="flex-1 text-white py-2 rounded-lg flex items-center justify-center" style={{ background: '#00B894' }} disabled={saving}>
                   {saving ? <Icons.Loader className="animate-spin" /> : `アップロード${formData.selectedPhotos?.length > 0 ? ` (${formData.selectedPhotos.length}枚)` : ''}`}
                 </button>
               </div>
@@ -4783,7 +4870,7 @@ function App() {
           {modalType !== 'corp' && modalType !== 'site' && modalType !== 'photo' && (
             <div className="flex gap-3 mt-6">
               <button type="button" onClick={() => setShowModal(false)} className="flex-1 bg-gray-100 py-2 rounded-lg" disabled={saving}>キャンセル</button>
-              <button type="button" onClick={handleSave} className="flex-1 text-white py-2 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#5bbd56' }} disabled={saving}>
+              <button type="button" onClick={handleSave} className="flex-1 text-white py-2 rounded-lg flex items-center justify-center" style={{ background: '#00B894' }} disabled={saving}>
                 {saving ? <Icons.Loader /> : '保存'}
               </button>
             </div>
@@ -4794,12 +4881,17 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200 px-4 py-3 sticky top-0 z-40 shadow-sm">
+    <div className="min-h-screen" style={{ background: '#F5F6FA' }}>
+      <header className="bg-white px-4 py-3 sticky top-0 z-40" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
         <div className="flex justify-between items-center max-w-5xl mx-auto">
-          <h1 className="font-bold text-lg" style={{ color: '#5bbd56' }}>CSM業務管理</h1>
+          <div className="flex items-center gap-2.5">
+            <div style={{ width: '36px', height: '36px', background: '#00B894', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ color: 'white', fontWeight: 800, fontSize: '14px' }}>CS</span>
+            </div>
+            <span style={{ fontWeight: 700, fontSize: '17px', color: '#2D3436' }}>CSM業務管理</span>
+          </div>
           <div className="flex items-center gap-3">
-            <span className="text-gray-600 text-sm">{currentUser?.name}</span>
+            <span style={{ color: '#636E72', fontSize: '13px' }}>{currentUser?.name}</span>
             <button onClick={handleLogout} className="text-gray-400 hover:text-gray-600"><Icons.LogOut /></button>
           </div>
         </div>
@@ -4812,16 +4904,16 @@ function App() {
             <div className="space-y-3">
               <div className="flex justify-between items-center mb-4">
                 <div>
-                  <h2 className="text-xl font-bold text-gray-800">顧客一覧</h2>
-                  <p className="text-gray-500 text-sm">{corporations.length}社 / {totalSites}現場</p>
+                  <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#2D3436', margin: 0 }}>顧客一覧</h2>
+                  <p style={{ fontSize: '13px', color: '#636E72', margin: '2px 0 0' }}>{corporations.length}社 / {totalSites}現場</p>
                 </div>
                 <button onClick={() => { setModalType('corp'); setEditingItem(null); setShowModal(true); }}
-                  className="flex items-center gap-1 text-white px-4 py-2 rounded-lg text-sm font-medium" style={{ backgroundColor: '#5bbd56' }}>
+                  className="flex items-center gap-1 text-white px-4 py-2 text-sm font-medium" style={{ background: 'linear-gradient(135deg, #00B894, #00D2A0)', borderRadius: '12px', border: 'none' }}>
                   <Icons.Plus /> 法人追加
                 </button>
               </div>
               <input type="text" placeholder="法人名・現場名で検索..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-white border border-gray-300 rounded-lg px-4 py-3 mb-4" autoComplete="off" />
+                style={{ width: '100%', padding: '14px 16px', border: '1.5px solid #E9ECEF', borderRadius: '12px', fontSize: '14px', background: '#FAFBFC', outline: 'none' }} autoComplete="off" />
             </div>
             <CorporationList />
           </>
@@ -4841,38 +4933,39 @@ function App() {
         {currentView === 'inventory' && <InventoryView />}
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-20">
+      <nav className="fixed bottom-0 left-0 right-0 bg-white z-20" style={{ borderTop: '1px solid #E9ECEF', padding: '8px 0 24px' }}>
         <div className="max-w-5xl mx-auto flex">
-          <button onClick={() => navigate('/')} className={`flex-1 py-3 text-center ${currentView === 'dashboard' ? '' : 'text-gray-400'}`} style={currentView === 'dashboard' ? { color: '#5bbd56' } : {}}>
-            <div className="flex justify-center mb-1"><Icons.Home /></div><p className="text-xs">ホーム</p>
+          <button onClick={() => navigate('/')} className="flex-1 text-center" style={{ color: currentView === 'dashboard' ? '#00B894' : '#B2BEC3', fontSize: '10px' }}>
+            <div className="flex justify-center mb-0.5"><Icons.Home /></div><div>ホーム</div>
           </button>
-          <button onClick={() => navigate('/corporations')}
-            className={`flex-1 py-3 text-center ${['corporations', 'sites', 'site'].includes(currentView) ? '' : 'text-gray-400'}`}
-            style={['corporations', 'sites', 'site'].includes(currentView) ? { color: '#5bbd56' } : {}}>
-            <div className="flex justify-center mb-1"><Icons.Building /></div><p className="text-xs">顧客</p>
+          <button onClick={() => navigate('/corporations')} className="flex-1 text-center"
+            style={{ color: ['corporations', 'sites', 'site'].includes(currentView) ? '#00B894' : '#B2BEC3', fontSize: '10px' }}>
+            <div className="flex justify-center mb-0.5"><Icons.Building /></div><div>顧客</div>
           </button>
-          <button onClick={() => navigate('/calendar')} className={`flex-1 py-3 text-center ${currentView === 'calendar' ? '' : 'text-gray-400'}`} style={currentView === 'calendar' ? { color: '#5bbd56' } : {}}>
-            <div className="flex justify-center mb-1"><Icons.Calendar /></div><p className="text-xs">カレンダー</p>
+          <button onClick={() => navigate('/calendar')} className="flex-1 text-center" style={{ color: currentView === 'calendar' ? '#00B894' : '#B2BEC3', fontSize: '10px' }}>
+            <div className="flex justify-center mb-0.5"><Icons.Calendar /></div><div>カレンダー</div>
           </button>
-          <button onClick={() => navigate('/inventory')} className={`flex-1 py-3 text-center ${currentView === 'inventory' ? '' : 'text-gray-400'}`} style={currentView === 'inventory' ? { color: '#5bbd56' } : {}}>
-            <div className="flex justify-center mb-1"><Icons.Package /></div><p className="text-xs">在庫</p>
+          <button onClick={() => navigate('/inventory')} className="flex-1 text-center" style={{ color: currentView === 'inventory' ? '#00B894' : '#B2BEC3', fontSize: '10px' }}>
+            <div className="flex justify-center mb-0.5"><Icons.Package /></div><div>在庫</div>
           </button>
-          {userRole === 'admin' ? (
+          {userRole === 'admin' || userRole === 'master' ? (
             <>
-              <button onClick={() => navigate('/invoices')} className={`flex-1 py-3 text-center ${currentView === 'invoices' ? '' : 'text-gray-400'}`} style={currentView === 'invoices' ? { color: '#5bbd56' } : {}}>
-                <div className="flex justify-center mb-1"><Icons.Calculator /></div><p className="text-xs">請求</p>
+              <button onClick={() => navigate('/invoices')} className="flex-1 text-center" style={{ color: currentView === 'invoices' ? '#00B894' : '#B2BEC3', fontSize: '10px' }}>
+                <div className="flex justify-center mb-0.5"><Icons.Calculator /></div><div>請求</div>
               </button>
-              <button onClick={() => navigate('/menu')} className={`flex-1 py-3 text-center ${['menu', 'settings', 'adminDailyReports', 'adminTimecards'].includes(currentView) ? '' : 'text-gray-400'}`} style={['menu', 'settings', 'adminDailyReports', 'adminTimecards'].includes(currentView) ? { color: '#5bbd56' } : {}}>
-                <div className="flex justify-center mb-1"><Icons.Menu /></div><p className="text-xs">メニュー</p>
+              <button onClick={() => navigate('/menu')} className="flex-1 text-center"
+                style={{ color: ['menu', 'settings', 'adminDailyReports', 'adminTimecards'].includes(currentView) ? '#00B894' : '#B2BEC3', fontSize: '10px' }}>
+                <div className="flex justify-center mb-0.5"><Icons.Menu /></div><div>メニュー</div>
               </button>
             </>
           ) : (
             <>
-              <button onClick={() => navigate('/daily-reports')} className={`flex-1 py-3 text-center ${['dailyReports', 'dailyReportForm'].includes(currentView) ? '' : 'text-gray-400'}`} style={['dailyReports', 'dailyReportForm'].includes(currentView) ? { color: '#5bbd56' } : {}}>
-                <div className="flex justify-center mb-1"><Icons.ClipboardList /></div><p className="text-xs">日報</p>
+              <button onClick={() => navigate('/daily-reports')} className="flex-1 text-center"
+                style={{ color: ['dailyReports', 'dailyReportForm'].includes(currentView) ? '#00B894' : '#B2BEC3', fontSize: '10px' }}>
+                <div className="flex justify-center mb-0.5"><Icons.ClipboardList /></div><div>日報</div>
               </button>
-              <button onClick={() => navigate('/timecard')} className={`flex-1 py-3 text-center ${currentView === 'timecard' ? '' : 'text-gray-400'}`} style={currentView === 'timecard' ? { color: '#5bbd56' } : {}}>
-                <div className="flex justify-center mb-1"><Icons.Clock /></div><p className="text-xs">打刻</p>
+              <button onClick={() => navigate('/timecard')} className="flex-1 text-center" style={{ color: currentView === 'timecard' ? '#00B894' : '#B2BEC3', fontSize: '10px' }}>
+                <div className="flex justify-center mb-0.5"><Icons.Clock /></div><div>打刻</div>
               </button>
             </>
           )}

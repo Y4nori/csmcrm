@@ -1,0 +1,37 @@
+/* ============================================
+   CSM業務管理 - 新UIデザイン スタイルシート
+   GCOO風モダンデザイン
+   ============================================ */
+
+:root {
+  --primary: #00B894;
+  --primary-light: #E8F8F5;
+  --primary-dark: #00997B;
+  --primary-gradient: linear-gradient(135deg, #00B894, #00D2A0);
+  --bg: #F5F6FA;
+  --card-bg: #FFFFFF;
+  --text-primary: #2D3436;
+  --text-secondary: #636E72;
+  --text-muted: #B2BEC3;
+  --border: #E9ECEF;
+  --shadow: 0 2px 12px rgba(0,0,0,0.06);
+  --shadow-lg: 0 4px 20px rgba(0,0,0,0.08);
+  --radius: 16px;
+  --radius-sm: 12px;
+  --radius-xs: 8px;
+
+  /* タグ色 パターンB */
+  --tag-pest-bg: #FFF0E0;
+  --tag-pest-text: #D35400;
+  --tag-work-bg: #E8F8F5;
+  --tag-work-text: #00B894;
+  --tag-area-bg: #E0F2FE;
+  --tag-area-text: #0891B2;
+  --tag-billing-bg: #FFFBEB;
+  --tag-billing-text: #D97706;
+}
+
+/* ボトムナビの余白確保 */
+body {
+  padding-bottom: 0;
+}

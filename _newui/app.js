@@ -855,76 +855,125 @@ function App() {
     };
 
     return (
-      <div className="space-y-3">
-        <div className="flex items-center gap-3 mb-4">
-          <button onClick={() => navigate('/corporations')} style={{ color: '#B2BEC3' }}><Icons.ChevronLeft /></button>
-          <div className="flex-1">
-            <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#2D3436', margin: 0 }} className="break-words">{selectedCorp?.name}</h2>
-            <p style={{ fontSize: '13px', color: '#636E72', margin: '2px 0 0' }}>{(selectedCorp?.sites || []).length}現場</p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        {/* ヘッダー */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <button onClick={() => navigate('/corporations')} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}>
+            <svg width="22" height="22" fill="none" stroke="#2D3436" strokeWidth="2.5" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg>
+          </button>
+          <div style={{ flex: 1 }}>
+            <h2 style={{ fontSize: '17px', fontWeight: 700, color: '#2D3436', margin: 0 }}>{selectedCorp?.name}</h2>
+            <p style={{ fontSize: '12px', color: '#B2BEC3', margin: 0 }}>{(selectedCorp?.sites || []).length}現場</p>
           </div>
-          <div className="flex items-center gap-2">
-            <button onClick={() => { setModalType('corp'); setEditingItem(selectedCorp); setShowModal(true); }} style={{ color: '#636E72' }}>
-              <Icons.Edit />
-            </button>
-            <button onClick={() => setShowDeleteConfirm(true)} className="text-red-400 hover:text-red-600">
-              <Icons.Trash />
-            </button>
-          </div>
+          <button onClick={() => { setModalType('corp'); setEditingItem(selectedCorp); setShowModal(true); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '6px', color: '#636E72' }}>
+            <Icons.Edit />
+          </button>
+          <button onClick={() => setShowDeleteConfirm(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '6px', color: '#E74C3C' }}>
+            <Icons.Trash />
+          </button>
         </div>
 
-        <div className="bg-white" style={{ borderRadius: '16px', padding: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-            {selectedCorp?.address && (
-              <div className="flex items-center gap-2">
-                <Icons.MapPin style={{ color: '#B2BEC3' }} /><span className="flex-1" style={{ color: '#2D3436' }}>{selectedCorp.address}</span>
-                <a href={getGoogleMapUrl(selectedCorp.address)} target="_blank" rel="noopener noreferrer" className="p-1" style={{ color: '#00B894' }}><Icons.Map /></a>
+        {/* 住所カード */}
+        {selectedCorp?.address && (
+          <div className="card-modern">
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+              <div className="address-icon-box">
+                <svg width="18" height="18" fill="none" stroke="#2980B9" strokeWidth="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
               </div>
-            )}
-            {selectedCorp?.contact && <div className="flex items-center gap-2"><Icons.Phone style={{ color: '#B2BEC3' }} /><span style={{ color: '#2D3436' }}>{selectedCorp.contact}</span></div>}
-            {selectedCorp?.contactPerson && <div className="flex items-center gap-2"><Icons.User style={{ color: '#B2BEC3' }} /><span style={{ color: '#2D3436' }}>担当: {selectedCorp.contactPerson}</span></div>}
-            {selectedCorp?.memo && <div className="col-span-full flex items-start gap-2"><Icons.FileText style={{ color: '#B2BEC3', marginTop: '2px' }} /><span style={{ color: '#636E72', whiteSpace: 'pre-wrap' }}>{selectedCorp.memo}</span></div>}
+              <div style={{ flex: 1 }}>
+                <p style={{ fontSize: '14px', margin: '0 0 2px', fontWeight: 600, color: '#2D3436' }}>{selectedCorp.address}</p>
+                <a href={getGoogleMapUrl(selectedCorp.address)} target="_blank" rel="noopener noreferrer" style={{ fontSize: '12px', color: '#00B894', textDecoration: 'none' }}>Google Mapで開く ›</a>
+              </div>
+            </div>
           </div>
+        )}
+
+        {/* 連絡先・基本情報カード */}
+        <div className="card-modern" style={{ padding: 0 }}>
+          {selectedCorp?.contact && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 20px', borderBottom: '1px solid #F0F0F0' }}>
+              <div style={{ width: '32px', height: '32px', background: '#E8F8F5', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Icons.Phone style={{ color: '#00B894' }} />
+              </div>
+              <div>
+                <p style={{ fontSize: '11px', color: '#B2BEC3', margin: 0 }}>電話番号</p>
+                <p style={{ fontSize: '15px', fontWeight: 600, color: '#2D3436', margin: 0 }}>{selectedCorp.contact}</p>
+              </div>
+            </div>
+          )}
+          {selectedCorp?.contactPerson && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 20px', borderBottom: '1px solid #F0F0F0' }}>
+              <div style={{ width: '32px', height: '32px', background: '#EBF5FB', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Icons.User style={{ color: '#2980B9' }} />
+              </div>
+              <div>
+                <p style={{ fontSize: '11px', color: '#B2BEC3', margin: 0 }}>担当者</p>
+                <p style={{ fontSize: '15px', fontWeight: 600, color: '#2D3436', margin: 0 }}>{selectedCorp.contactPerson}</p>
+              </div>
+            </div>
+          )}
           {(userRole === 'admin' || userRole === 'master') && (
-            <div className="mt-3 pt-3 grid grid-cols-2 md:grid-cols-4 gap-2 text-xs" style={{ borderTop: '1px solid #E9ECEF', color: '#636E72' }}>
-              <div>請求: {selectedCorp?.billingCycle} / {selectedCorp?.billingDay}日</div>
-              {selectedCorp?.billingMonth && <div>請求月: {selectedCorp.billingMonth}</div>}
-              {selectedCorp?.contractAmount > 0 && <div>契約金額: ¥{selectedCorp.contractAmount?.toLocaleString()}</div>}
-              {selectedCorp?.contractType && <div>契約種別: {selectedCorp.contractType}</div>}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 20px', borderBottom: selectedCorp?.memo ? '1px solid #F0F0F0' : 'none' }}>
+              <div style={{ width: '32px', height: '32px', background: '#FFF3E0', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Icons.Yen style={{ color: '#E67E22' }} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <p style={{ fontSize: '11px', color: '#B2BEC3', margin: 0 }}>請求情報</p>
+                <p style={{ fontSize: '14px', fontWeight: 600, color: '#2D3436', margin: 0 }}>
+                  {selectedCorp?.billingCycle} / {selectedCorp?.billingDay}日
+                  {selectedCorp?.billingMonth ? ` ・ 請求月: ${selectedCorp.billingMonth}` : ''}
+                </p>
+                <div style={{ display: 'flex', gap: '16px', marginTop: '4px' }}>
+                  {selectedCorp?.contractAmount > 0 && <span style={{ fontSize: '12px', color: '#636E72' }}>契約金額: ¥{selectedCorp.contractAmount?.toLocaleString()}</span>}
+                  {selectedCorp?.contractType && <span style={{ fontSize: '12px', color: '#636E72' }}>契約種別: {selectedCorp.contractType}</span>}
+                </div>
+              </div>
+            </div>
+          )}
+          {selectedCorp?.memo && (
+            <div style={{ padding: '14px 20px' }}>
+              <p style={{ fontSize: '11px', color: '#B2BEC3', margin: '0 0 4px' }}>メモ</p>
+              <p style={{ fontSize: '13px', color: '#636E72', margin: 0, whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{selectedCorp.memo}</p>
             </div>
           )}
         </div>
 
+        {/* 連絡履歴ボタン */}
         {(userRole === 'admin' || userRole === 'master') && (
           <button onClick={() => { setModalType('contactLog'); setShowModal(true); }}
-            className="w-full flex items-center justify-center gap-2 bg-white" style={{ border: '1.5px solid #E9ECEF', borderRadius: '12px', padding: '12px', color: '#636E72' }}>
+            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', background: 'white', border: '1.5px solid #E9ECEF', borderRadius: '12px', padding: '12px', color: '#636E72', fontSize: '14px', fontWeight: 500, cursor: 'pointer' }}>
             <Icons.MessageCircle /> 連絡履歴 ({(selectedCorp?.contactLogs || []).length})
           </button>
         )}
 
-        <div className="flex justify-between items-center mb-2 mt-4">
-          <h3 style={{ fontWeight: 600, color: '#2D3436', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}><Icons.Store /> 現場一覧</h3>
+        {/* 現場一覧ヘッダー */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '8px' }}>
+          <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#2D3436', margin: 0 }}>現場一覧</h3>
           <button onClick={() => { setModalType('site'); setEditingItem(null); setShowModal(true); }}
-            className="flex items-center gap-1 text-white px-3 py-1.5 text-sm" style={{ background: 'linear-gradient(135deg, #00B894, #00D2A0)', borderRadius: '10px', border: 'none' }}>
-            <Icons.Plus /> 現場追加
+            style={{ background: '#00B894', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '20px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            現場追加
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        {/* 現場カード */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {(selectedCorp?.sites || []).map((site) => (
             <div key={site.id} onClick={() => navigate(`/sites/${site.id}`)}
-              className="bg-white cursor-pointer" style={{ borderRadius: '16px', padding: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-              <div className="flex justify-between items-center gap-2">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div style={{ width: '36px', height: '36px', background: '#E8F8F5', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Icons.Store />
-                  </div>
-                  <h3 style={{ fontWeight: 600, color: '#2D3436', margin: 0 }} className="min-w-0 break-words">{site.name}</h3>
+              className="card-modern card-clickable" style={{ padding: 0, overflow: 'hidden', cursor: 'pointer' }}>
+              <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '14px' }}>
+                <div style={{ width: '44px', height: '44px', background: '#E8F8F5', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <svg width="20" height="20" fill="none" stroke="#00B894" strokeWidth="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <h4 style={{ fontSize: '15px', fontWeight: 700, color: '#2D3436', margin: 0 }}>{site.name}</h4>
+                  {site.address && <p style={{ fontSize: '12px', color: '#636E72', margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{site.address}</p>}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
                   {(userRole === 'admin' || userRole === 'master') && (
                     <button
                       onClick={(e) => { e.stopPropagation(); setDeletingSite(site); setShowSiteDeleteConfirm(true); }}
-                      className="text-red-400 hover:text-red-600"
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: '#E74C3C', opacity: 0.5 }}
                     >
                       <Icons.Trash />
                     </button>
@@ -971,13 +1020,16 @@ function App() {
 
     return (
       <div className="space-y-4">
-        <div className="flex items-center gap-3 mb-4">
-          <button onClick={() => { setShowKeybox(false); navigate(`/corporations/${selectedCorp?.id}`); }} style={{ color: '#B2BEC3' }}><Icons.ChevronLeft /></button>
-          <div className="flex-1">
-            <p style={{ fontSize: '12px', color: '#636E72', margin: 0 }} className="truncate">{selectedCorp?.name}</p>
-            <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#2D3436', margin: '2px 0 0' }} className="break-words">{selectedSite?.name}</h2>
+        {/* ヘッダー */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <button onClick={() => { setShowKeybox(false); navigate(`/corporations/${selectedCorp?.id}`); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}>
+            <svg width="22" height="22" fill="none" stroke="#2D3436" strokeWidth="2.5" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg>
+          </button>
+          <div style={{ flex: 1 }}>
+            <h2 style={{ fontSize: '17px', fontWeight: 700, color: '#2D3436', margin: 0 }}>{selectedSite?.name}</h2>
+            <p style={{ fontSize: '12px', color: '#B2BEC3', margin: 0 }}>{selectedCorp?.name}</p>
           </div>
-          <button onClick={() => { setModalType('site'); setEditingItem(selectedSite); setShowModal(true); }} style={{ color: '#636E72' }}><Icons.Edit /></button>
+          <button onClick={() => { setModalType('site'); setEditingItem(selectedSite); setShowModal(true); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '6px', color: '#636E72' }}><Icons.Edit /></button>
         </div>
 
         <div

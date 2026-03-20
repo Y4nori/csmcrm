@@ -544,7 +544,8 @@ switch ($request) {
                         'date' => $plan['day'],
                         'dateType' => $plan['date_type'] ?? 'absolute',
                         'datePattern' => $plan['date_pattern'] ?? null,
-                        'workType' => $plan['work_type']
+                        'workType' => $plan['work_type'],
+                        'completed' => !empty($plan['completed'])
                     ];
                 }
                 $workLogsBySite = [];
@@ -874,12 +875,15 @@ switch ($request) {
 
             $plans = $input['yearlyPlan'] ?? [];
 
-            // テーブルにdate_type, date_patternカラムがなければ追加
+            // テーブルにdate_type, date_pattern, completedカラムがなければ追加
             try {
                 $db->query("ALTER TABLE yearly_plans ADD COLUMN date_type VARCHAR(20) DEFAULT 'absolute'");
             } catch (Exception $e) {}
             try {
                 $db->query("ALTER TABLE yearly_plans ADD COLUMN date_pattern VARCHAR(50)");
+            } catch (Exception $e) {}
+            try {
+                $db->query("ALTER TABLE yearly_plans ADD COLUMN completed TINYINT DEFAULT 0");
             } catch (Exception $e) {}
 
             // 既存プランを削除して再作成
@@ -901,9 +905,10 @@ switch ($request) {
                         $datePattern = null;
                     }
 
+                    $completed = !empty($plan['completed']) ? 1 : 0;
                     $db->insert(
-                        "INSERT INTO yearly_plans (site_id, month, scheduled, day, work_type, date_type, date_pattern) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                        [$siteId, $month, 1, $actualDay, $plan['workType'] ?? '', $dateType, $datePattern]
+                        "INSERT INTO yearly_plans (site_id, month, scheduled, day, work_type, date_type, date_pattern, completed) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                        [$siteId, $month, 1, $actualDay, $plan['workType'] ?? '', $dateType, $datePattern, $completed]
                     );
                 }
             }
@@ -912,15 +917,36 @@ switch ($request) {
         }
         break;
 
+    // ========== 作業完了トグル ==========
+    case 'yearly-plan-complete':
+        checkAuth();
+        if ($method === 'PUT') {
+            $siteId = (int)($input['siteId'] ?? 0);
+            $month = (int)($input['month'] ?? 0);
+            $completed = !empty($input['completed']) ? 1 : 0;
+
+            // completedカラムがなければ追加
+            try {
+                $db->query("ALTER TABLE yearly_plans ADD COLUMN completed TINYINT DEFAULT 0");
+            } catch (Exception $e) {}
+
+            $db->update(
+                "UPDATE yearly_plans SET completed = ? WHERE site_id = ? AND month = ?",
+                [$completed, $siteId, $month]
+            );
+            respond(['message' => '更新しました']);
+        }
+        break;
+
     // ========== 作業履歴 ==========
     case 'work-logs':
         checkAuth();
-        
+
         if ($method === 'POST') {
             $siteId = $input['siteId'] ?? 0;
-            
+
             $id = $db->insert(
-                "INSERT INTO work_logs (site_id, work_date, work_type, condition_status, used_chemical, note, next_note, staff) 
+                "INSERT INTO work_logs (site_id, work_date, work_type, condition_status, used_chemical, note, next_note, staff)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 [
                     $siteId,
@@ -933,8 +959,34 @@ switch ($request) {
                     $_SESSION['name'] ?? ''
                 ]
             );
-            
+
             respond(['id' => $id, 'message' => 'Work log created']);
+        }
+        break;
+
+    case 'work-log':
+        checkAuth();
+        $id = (int)($_GET['id'] ?? 0);
+
+        if ($method === 'PUT') {
+            if ($id <= 0) error('IDを指定してください', 400);
+            $db->update(
+                "UPDATE work_logs SET work_date = ?, work_type = ?, condition_status = ?, used_chemical = ?, note = ?, next_note = ? WHERE id = ?",
+                [
+                    $input['date'] ?? date('Y-m-d'),
+                    $input['workType'] ?? '',
+                    $input['condition'] ?? '',
+                    $input['usedChemical'] ?? '',
+                    $input['note'] ?? '',
+                    $input['nextNote'] ?? '',
+                    $id
+                ]
+            );
+            respond(['message' => '作業ログを更新しました']);
+        } elseif ($method === 'DELETE') {
+            if ($id <= 0) error('IDを指定してください', 400);
+            $db->delete("DELETE FROM work_logs WHERE id = ?", [$id]);
+            respond(['message' => '作業ログを削除しました']);
         }
         break;
 
@@ -1819,9 +1871,17 @@ switch ($request) {
         } elseif ($method === 'DELETE') {
             // 管理者のみ削除可能
             checkAdmin();
-            $timecard = $db->fetch("SELECT user_id FROM timecards WHERE id = ?", [$id]);
+            $timecard = $db->fetch("SELECT user_id, work_date FROM timecards WHERE id = ?", [$id]);
             if (!$timecard) {
                 error('タイムカードが見つかりません', 404);
+            }
+
+            // 労働基準法: タイムカードは5年間保存義務
+            $workDate = new DateTime($timecard['work_date']);
+            $fiveYearsAgo = new DateTime();
+            $fiveYearsAgo->modify('-5 years');
+            if ($workDate > $fiveYearsAgo) {
+                error('労働基準法により、タイムカードは5年間保存が必要です。削除できません。', 403);
             }
 
             $db->delete("DELETE FROM timecards WHERE id = ?", [$id]);
@@ -2933,13 +2993,17 @@ switch ($request) {
                 $userId = (int)$_SESSION['user_id'];
             }
 
-            // 締め日計算（20日、土日の場合は前営業日）
+            // 締め日計算（20日、土日祝の場合は前営業日）
             $closingDate = new DateTime("$year-$month-20");
+            // 日本の祝日（簡易版）
+            $holidays = [];
+            // 土日の場合は前営業日に調整
             while (true) {
-                $dow = (int)$closingDate->format('w');
-                if ($dow === 0) {
+                $dow = (int)$closingDate->format('w'); // 0=日, 6=土
+                $dateStr = $closingDate->format('Y-m-d');
+                if ($dow === 0) { // 日曜
                     $closingDate->modify('-2 days');
-                } elseif ($dow === 6) {
+                } elseif ($dow === 6) { // 土曜
                     $closingDate->modify('-1 day');
                 } else {
                     break;
@@ -2947,6 +3011,9 @@ switch ($request) {
             }
 
             // 期間：前月21日〜当月20日（締め日）
+            $prevMonth = clone $closingDate;
+            $prevMonth->modify('-1 month');
+            // 開始日を前月21日に設定
             $startYear = $year;
             $startMonth = $month - 1;
             if ($startMonth <= 0) {
@@ -2960,7 +3027,7 @@ switch ($request) {
             $user = $db->fetch("SELECT name FROM users WHERE id = ?", [$userId]);
             $userName = $user ? $user['name'] : '不明';
 
-            // 出勤日数
+            // 出勤日数（期間内のタイムカード数）
             $attendanceData = $db->fetch(
                 "SELECT COUNT(*) as days FROM timecards WHERE user_id = ? AND work_date BETWEEN ? AND ? AND clock_in IS NOT NULL",
                 [$userId, $periodStart, $periodEnd]
@@ -2985,7 +3052,7 @@ switch ($request) {
             $constructionPoints = floatval($hoursData['total_construction'] ?? 0);
             $otherHours = floatval($hoursData['total_other'] ?? 0);
 
-            // 作業詳細
+            // 作業詳細（営業売上データとして利用）
             $details = $db->fetchAll(
                 "SELECT dr.report_date, drd.start_time, drd.end_time, drd.site_name,
                         drd.worker_count, drd.companions, dr.contact_notes
@@ -2996,7 +3063,7 @@ switch ($request) {
                 [$userId, $periodStart, $periodEnd]
             );
 
-            // 報告連絡事項
+            // 報告連絡事項（期間内の全contact_notes）
             $notes = $db->fetchAll(
                 "SELECT report_date, contact_notes, remarks FROM daily_reports
                  WHERE user_id = ? AND report_date BETWEEN ? AND ?

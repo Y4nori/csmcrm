@@ -88,8 +88,11 @@ const api = {
   deleteSite: (id) => api.call('site', 'DELETE', null, { id }),
   
   updateYearlyPlan: (siteId, yearlyPlan) => api.call('yearly-plan', 'PUT', { yearlyPlan }, { site_id: siteId }),
-  
+  toggleYearlyPlanComplete: (siteId, month, completed) => api.call('yearly-plan-complete', 'PUT', { siteId, month, completed }),
+
   createWorkLog: (data) => api.call('work-logs', 'POST', data),
+  updateWorkLog: (id, data) => api.call('work-log', 'PUT', data, { id }),
+  deleteWorkLog: (id) => api.call('work-log', 'DELETE', null, { id }),
   createPhoto: (data) => api.call('photos', 'POST', data),
   deletePhoto: (id) => api.call('photos', 'DELETE', null, { id }),
   createContactLog: (data) => api.call('contact-logs', 'POST', data),
@@ -291,6 +294,27 @@ function App() {
   const userRole = currentUser?.role || 'staff';
   const totalSites = corporations.reduce((sum, c) => sum + (c.sites?.length || 0), 0);
   const months = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+
+  // 次回予定作業を取得するヘルパー
+  const getNextScheduledWork = (site) => {
+    if (!site?.yearlyPlan) return null;
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1;
+    const currentYear = now.getFullYear();
+    // 当月以降で未完了の最初の予定を探す
+    for (let offset = 0; offset < 12; offset++) {
+      const m = ((currentMonth - 1 + offset) % 12) + 1;
+      const plan = site.yearlyPlan[m];
+      if (plan && plan.scheduled && !plan.completed) {
+        const day = plan.date || plan.day || 15;
+        const year = (m < currentMonth) ? currentYear + 1 : currentYear;
+        const dateObj = new Date(year, m - 1, day);
+        const isPast = dateObj < now && offset === 0;
+        return { month: m, day, date: dateObj, isPast, workType: plan.workType };
+      }
+    }
+    return null;
+  };
 
   // 初期化：認証チェック
   useEffect(() => {
@@ -785,19 +809,88 @@ function App() {
     (c.sites || []).some(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
-  // 法人一覧 (簡略版 - 実際にはもっと長い)
+  // 法人一覧
   const CorporationList = () => {
+    const [sortMode, setSortMode] = useState('name');
+    const [corpPage, setCorpPage] = useState(1);
+    const CORPS_PER_PAGE = 20;
+
+    // ソートロジック
+    const sortedCorporations = [...filteredCorporations].sort((a, b) => {
+      if (sortMode === 'name') return a.name.localeCompare(b.name, 'ja');
+      if (sortMode === 'siteCount') return (b.sites?.length || 0) - (a.sites?.length || 0);
+      if (sortMode === 'nextWork') {
+        const getEarliestNext = (corp) => {
+          let earliest = null;
+          (corp.sites || []).forEach(s => {
+            const nw = getNextScheduledWork(s);
+            if (nw && (!earliest || nw.date < earliest)) earliest = nw.date;
+          });
+          return earliest || new Date('2099-12-31');
+        };
+        return getEarliestNext(a) - getEarliestNext(b);
+      }
+      if (sortMode === 'lastWork') {
+        const getLatestWork = (corp) => {
+          let latest = null;
+          (corp.sites || []).forEach(s => {
+            (s.workLogs || []).forEach(w => {
+              const d = new Date(w.date);
+              if (!latest || d > latest) latest = d;
+            });
+          });
+          return latest || new Date('1970-01-01');
+        };
+        return getLatestWork(b) - getLatestWork(a);
+      }
+      return 0;
+    });
+
+    const totalPages = Math.ceil(sortedCorporations.length / CORPS_PER_PAGE);
+    const pagedCorporations = sortedCorporations.slice((corpPage - 1) * CORPS_PER_PAGE, corpPage * CORPS_PER_PAGE);
+
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' }}>
-          {filteredCorporations.map((corp) => {
+      <div>
+        {/* ソート選択 */}
+        <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', flexWrap: 'wrap' }}>
+          {[
+            { key: 'name', label: '名前順' },
+            { key: 'nextWork', label: '次回予定順' },
+            { key: 'lastWork', label: '最終作業順' },
+            { key: 'siteCount', label: '現場数順' }
+          ].map(s => (
+            <button key={s.key} onClick={() => { setSortMode(s.key); setCorpPage(1); }}
+              style={{ padding: '5px 12px', borderRadius: '20px', fontSize: '12px', border: 'none', cursor: 'pointer',
+                background: sortMode === s.key ? '#00B894' : '#F1F3F5', color: sortMode === s.key ? 'white' : '#636E72' }}>
+              {s.label}
+            </button>
+          ))}
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {pagedCorporations.map((corp) => {
             const sites = corp.sites || [];
+            // 直近の次回予定を取得
+            let earliestNext = null;
+            sites.forEach(s => {
+              const nw = getNextScheduledWork(s);
+              if (nw && (!earliestNext || nw.date < earliestNext.date)) earliestNext = nw;
+            });
             return (
               <div key={corp.id} onClick={() => navigate(`/corporations/${corp.id}`)}
                 className="bg-white cursor-pointer" style={{ borderRadius: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
                 <div style={{ padding: '16px 20px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                     <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0, color: '#2D3436' }}>{corp.name}</h3>
-                    <span style={{ background: '#E8F8F5', color: '#00997B', padding: '3px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 600 }}>{sites.length}現場</span>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                      {earliestNext && (
+                        <span style={{ background: earliestNext.isPast ? '#FEE2E2' : '#FFF3E0', color: earliestNext.isPast ? '#DC2626' : '#E67E22',
+                          padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 600 }}>
+                          {earliestNext.isPast ? '未完了' : `次回 ${earliestNext.month}/${earliestNext.day}`}
+                        </span>
+                      )}
+                      <span style={{ background: '#E8F8F5', color: '#00997B', padding: '3px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 600 }}>{sites.length}現場</span>
+                    </div>
                   </div>
                   {corp.address && (
                     <p style={{ fontSize: '13px', color: '#636E72', margin: '0 0 4px' }}>
@@ -821,6 +914,18 @@ function App() {
             );
           })}
         </div>
+
+        {/* ページネーション */}
+        {totalPages > 1 && (
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', marginTop: '16px' }}>
+            <button onClick={() => setCorpPage(p => Math.max(1, p - 1))} disabled={corpPage === 1}
+              style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid #E9ECEF', background: 'white', cursor: corpPage === 1 ? 'default' : 'pointer', opacity: corpPage === 1 ? 0.4 : 1 }}>←</button>
+            <span style={{ fontSize: '13px', color: '#636E72' }}>{corpPage} / {totalPages}</span>
+            <button onClick={() => setCorpPage(p => Math.min(totalPages, p + 1))} disabled={corpPage === totalPages}
+              style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid #E9ECEF', background: 'white', cursor: corpPage === totalPages ? 'default' : 'pointer', opacity: corpPage === totalPages ? 0.4 : 1 }}>→</button>
+          </div>
+        )}
+      </div>
     );
   };
 
@@ -967,7 +1072,15 @@ function App() {
                   <svg width="20" height="20" fill="none" stroke="#00B894" strokeWidth="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <h4 style={{ fontSize: '15px', fontWeight: 700, color: '#2D3436', margin: 0 }}>{site.name}</h4>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <h4 style={{ fontSize: '15px', fontWeight: 700, color: '#2D3436', margin: 0 }}>{site.name}</h4>
+                    {(() => { const nw = getNextScheduledWork(site); if (!nw) return null; return (
+                      <span style={{ background: nw.isPast ? '#FEE2E2' : '#EBF5FB', color: nw.isPast ? '#DC2626' : '#2980B9',
+                        padding: '1px 7px', borderRadius: '10px', fontSize: '10px', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                        {nw.isPast ? '未完了' : `次回${nw.month}/${nw.day}`}
+                      </span>
+                    ); })()}
+                  </div>
                   {site.address && <p style={{ fontSize: '12px', color: '#636E72', margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{site.address}</p>}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
@@ -1067,7 +1180,7 @@ function App() {
         </div>
 
         <div className="flex gap-1 overflow-x-auto" style={{ borderBottom: '2px solid #E9ECEF' }}>
-          {[{ key: 'info', label: '基本情報' }, { key: 'plan', label: '年間計画' }, { key: 'logs', label: '作業履歴' }, { key: 'photos', label: '写真' }, { key: 'docs', label: '書類' }].map(tab => (
+          {[{ key: 'info', label: '基本情報' }, { key: 'plan', label: '年間計画' }, { key: 'timeline', label: '履歴' }, { key: 'logs', label: '作業履歴' }, { key: 'photos', label: '写真' }, { key: 'docs', label: '書類' }].map(tab => (
             <button key={tab.key} onClick={() => setActiveTab(tab.key)}
               style={{
                 padding: '10px 16px', fontSize: '13px', fontWeight: 600, whiteSpace: 'nowrap', background: 'none', border: 'none',
@@ -1166,8 +1279,26 @@ function App() {
                       <td key={m} className="px-1 py-2 text-center" style={{ borderTop: '1px solid #E9ECEF' }}>
                         {plan?.scheduled ? (
                           <div>
-                            <div className="w-7 h-7 mx-auto rounded-full flex items-center justify-center text-white text-xs font-bold" style={{ background: '#00B894' }}>{plan.date}</div>
+                            <div className="w-7 h-7 mx-auto rounded-full flex items-center justify-center text-white text-xs font-bold"
+                              style={{ background: plan.completed ? '#27AE60' : '#00B894', opacity: plan.completed ? 0.7 : 1 }}>{plan.date}</div>
                             <div className="text-xs mt-1 truncate" style={{ color: '#636E72' }}>{plan.workType}</div>
+                            <button onClick={async (e) => {
+                              e.stopPropagation();
+                              const newVal = !plan.completed;
+                              await api.toggleYearlyPlanComplete(selectedSite.id, m, newVal);
+                              // ローカルステートも更新
+                              const updatedCorps = corporations.map(c => ({
+                                ...c, sites: (c.sites || []).map(s => s.id === selectedSite.id ? {
+                                  ...s, yearlyPlan: { ...s.yearlyPlan, [m]: { ...s.yearlyPlan[m], completed: newVal } }
+                                } : s)
+                              }));
+                              setCorporations(updatedCorps);
+                            }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', marginTop: '2px' }}>
+                              {plan.completed
+                                ? <svg width="16" height="16" viewBox="0 0 24 24" fill="#27AE60" stroke="none"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01" fill="none" stroke="white" strokeWidth="2"/></svg>
+                                : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#B2BEC3" strokeWidth="2"><circle cx="12" cy="12" r="10"/></svg>
+                              }
+                            </button>
                           </div>
                         ) : (
                           <div className="w-7 h-7 mx-auto rounded-full" style={{ border: '2px dashed #E9ECEF' }} />
@@ -1198,7 +1329,16 @@ function App() {
                         <span className="text-sm font-medium px-2 py-0.5 rounded" style={{ backgroundColor: '#00B894', color: 'white' }}>{formatDate(log.date)}</span>
                         <span className="ml-2 text-gray-600">{log.workType}</span>
                       </div>
-                      <span className="text-gray-400 text-sm">{log.staff}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-400 text-sm">{log.staff}</span>
+                        <button onClick={() => { setModalType('workLog'); setEditingItem(log); setShowModal(true); }}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: '#636E72' }}><Icons.Edit /></button>
+                        <button onClick={async () => {
+                          if (!confirm('この作業ログを削除しますか？')) return;
+                          await api.deleteWorkLog(log.id);
+                          loadData();
+                        }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: '#E74C3C', opacity: 0.6 }}><Icons.Trash /></button>
+                      </div>
                     </div>
                     <div className="space-y-1 text-sm">
                       <p><span className="text-gray-400">状況:</span> <span className={log.condition === '良好' ? 'text-green-600' : log.condition === '要注意' ? 'text-amber-600' : 'text-red-600'}>{log.condition}</span></p>
@@ -1212,6 +1352,61 @@ function App() {
             )}
           </div>
         )}
+
+        {activeTab === 'timeline' && (() => {
+          // 全履歴を統合してタイムラインに
+          const items = [];
+          (selectedSite?.workLogs || []).forEach(w => items.push({ type: 'work', date: w.date, data: w }));
+          (selectedSite?.contactLogs || selectedCorp?.contactLogs || []).forEach(c => items.push({ type: 'contact', date: c.date || c.contact_date, data: c }));
+          (selectedSite?.photos || []).forEach(p => items.push({ type: 'photo', date: p.date || p.photo_date, data: p }));
+          items.sort((a, b) => new Date(b.date) - new Date(a.date));
+          const [tlPage, setTlPage] = React.useState(1);
+          const TL_PER_PAGE = 20;
+          const pagedItems = items.slice(0, tlPage * TL_PER_PAGE);
+          return (
+            <div className="space-y-0" style={{ position: 'relative', paddingLeft: '24px' }}>
+              <div style={{ position: 'absolute', left: '8px', top: '0', bottom: '0', width: '2px', background: '#E9ECEF' }} />
+              {items.length === 0 && <p className="text-center py-8" style={{ color: '#B2BEC3' }}>履歴がありません</p>}
+              {pagedItems.map((item, i) => (
+                <div key={i} style={{ position: 'relative', paddingBottom: '16px' }}>
+                  <div style={{ position: 'absolute', left: '-20px', top: '4px', width: '12px', height: '12px', borderRadius: '50%',
+                    background: item.type === 'work' ? '#2980B9' : item.type === 'contact' ? '#27AE60' : '#8E44AD',
+                    border: '2px solid white', boxShadow: '0 0 0 2px #E9ECEF' }} />
+                  <div className="bg-white border border-gray-200 rounded-lg p-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span style={{ fontSize: '11px', fontWeight: 600, color: 'white', padding: '1px 8px', borderRadius: '10px',
+                        background: item.type === 'work' ? '#2980B9' : item.type === 'contact' ? '#27AE60' : '#8E44AD' }}>
+                        {item.type === 'work' ? '作業' : item.type === 'contact' ? '連絡' : '写真'}
+                      </span>
+                      <span className="text-xs text-gray-400">{formatDate(item.date)}</span>
+                    </div>
+                    {item.type === 'work' && (
+                      <div className="text-sm"><p className="text-gray-700">{item.data.workType}{item.data.condition ? ` - ${item.data.condition}` : ''}</p>
+                        {item.data.note && <p className="text-gray-500 text-xs mt-1">{item.data.note}</p>}</div>
+                    )}
+                    {item.type === 'contact' && (
+                      <div className="text-sm"><p className="text-gray-700">{item.data.content || item.data.notes}</p>
+                        {item.data.staff && <p className="text-gray-400 text-xs mt-1">担当: {item.data.staff}</p>}</div>
+                    )}
+                    {item.type === 'photo' && (
+                      <div className="flex items-center gap-2">
+                        <img src={item.data.url} alt="" style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '8px', cursor: 'pointer' }}
+                          onClick={() => { setLightboxPhoto(item.data); setLightboxIndex((selectedSite?.photos || []).indexOf(item.data)); }} />
+                        {item.data.note && <span className="text-sm text-gray-500">{item.data.note}</span>}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {pagedItems.length < items.length && (
+                <button onClick={() => setTlPage(p => p + 1)}
+                  style={{ width: '100%', padding: '10px', background: '#F8F9FA', border: '1px solid #E9ECEF', borderRadius: '8px', color: '#636E72', cursor: 'pointer', fontSize: '13px' }}>
+                  もっと見る ({items.length - pagedItems.length}件)
+                </button>
+              )}
+            </div>
+          );
+        })()}
 
         {activeTab === 'photos' && (
           <div className="space-y-3">
@@ -2252,14 +2447,21 @@ function App() {
             {reports.map(report => {
               const st = statusLabel(report.status);
               return (
-                <div key={report.id} onClick={() => setViewingReport(report)}
-                  className="bg-white border border-gray-200 rounded-xl p-4 cursor-pointer hover:bg-gray-50">
-                  <div className="flex justify-between items-start">
+                <div key={report.id} className="bg-white border border-gray-200 rounded-xl p-4 cursor-pointer hover:bg-gray-50">
+                  <div className="flex justify-between items-start" onClick={() => setViewingReport(report)}>
                     <div>
                       <p className="font-bold text-gray-800">{report.report_date}</p>
                       <p className="text-sm text-gray-500">{report.details?.length || 0}件の作業</p>
                     </div>
-                    <span className={`text-xs px-2 py-1 rounded ${st.color}`}>{st.label}</span>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs px-2 py-1 rounded ${st.color}`}>{st.label}</span>
+                    </div>
+                  </div>
+                  <div className="flex justify-end mt-2 pt-2 border-t border-gray-100">
+                    <button onClick={(e) => { e.stopPropagation(); navigate('/daily-reports/new', { state: { template: report } }); }}
+                      className="flex items-center gap-1 text-xs text-gray-400 hover:text-green-600" style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+                      <Icons.Copy /> コピーして新規作成
+                    </button>
                   </div>
                 </div>
               );
@@ -2396,6 +2598,23 @@ function App() {
       loadVehicles();
       if (!isNew) {
         loadReport();
+      } else if (location.state?.template) {
+        // テンプレートからコピー
+        const t = location.state.template;
+        setFormData(prev => ({
+          ...prev,
+          vehicle: t.vehicle || '',
+          contactNotes: '',
+          remarks: '',
+          details: t.details?.length > 0 ? t.details.map(d => ({
+            startTime: d.start_time?.slice(0, 5) || d.startTime || '',
+            endTime: d.end_time?.slice(0, 5) || d.endTime || '',
+            siteId: d.site_id || d.siteId || null,
+            siteName: d.site_name || d.siteName || '',
+            workerCount: d.worker_count || d.workerCount || 1,
+            companions: d.companions || ''
+          })) : prev.details
+        }));
       }
     }, [reportId]);
 
@@ -4570,7 +4789,11 @@ function App() {
             await api.createSite({ ...formData, corporationId: selectedCorp.id });
           }
         } else if (modalType === 'workLog') {
-          await api.createWorkLog({ ...formData, siteId: selectedSite.id });
+          if (editingItem?.id) {
+            await api.updateWorkLog(editingItem.id, formData);
+          } else {
+            await api.createWorkLog({ ...formData, siteId: selectedSite.id });
+          }
         } else if (modalType === 'contactLog') {
           await api.createContactLog({ ...formData, corporationId: selectedCorp.id });
         } else if (modalType === 'photo') {
@@ -4995,6 +5218,7 @@ function App() {
               <input type="date" name="photo-date" defaultValue={new Date().toISOString().split('T')[0]} className="w-full border border-gray-300 rounded-lg px-3 py-2" style={{ backgroundColor: '#ffffff', WebkitAppearance: 'none' }} />
               <input type="text" name="photo-note" placeholder="メモ（任意・全写真共通）" className="w-full border border-gray-300 rounded-lg px-3 py-2" />
               <div className="flex gap-3 mt-4">
+                {formData.uploadProgress && <p className="text-sm text-green-600 text-center font-medium">{formData.uploadProgress}</p>}
                 <button type="button" onClick={() => { setShowModal(false); setFormData({ ...formData, selectedPhotos: [] }); }} className="flex-1 bg-gray-100 py-2 rounded-lg">キャンセル</button>
                 <button type="button" onClick={async () => {
                   const photos = formData.selectedPhotos || [];
@@ -5003,11 +5227,12 @@ function App() {
                   try {
                     const photoDate = document.querySelector('[name="photo-date"]').value;
                     const photoNote = document.querySelector('[name="photo-note"]').value;
-                    // 順次アップロード
-                    for (const photo of photos) {
+                    // 順次アップロード（進捗表示）
+                    for (let pi = 0; pi < photos.length; pi++) {
+                      setFormData(prev => ({ ...prev, uploadProgress: `${pi + 1}/${photos.length}枚アップロード中...` }));
                       await api.createPhoto({
                         siteId: selectedSite.id,
-                        imageData: photo.imageData,
+                        imageData: photos[pi].imageData,
                         date: photoDate,
                         note: photoNote
                       });

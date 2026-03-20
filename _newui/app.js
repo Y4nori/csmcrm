@@ -290,6 +290,7 @@ function App() {
   const [editingUser, setEditingUser] = useState(null);
   const [userForm, setUserForm] = useState({ name: '', username: '', password: '', role: 'staff' });
   const [showKeybox, setShowKeybox] = useState(false); // キーボックス表示状態
+  const [showNotifPanel, setShowNotifPanel] = useState(false); // 通知パネル表示
 
   const userRole = currentUser?.role || 'staff';
   const totalSites = corporations.reduce((sum, c) => sum + (c.sites?.length || 0), 0);
@@ -5473,7 +5474,7 @@ function App() {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <span style={{ color: '#636E72', fontSize: '13px' }}>{currentUser?.name}</span>
-            <div style={{ position: 'relative', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+            <div onClick={() => setShowNotifPanel(!showNotifPanel)} style={{ position: 'relative', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
               <svg width="22" height="22" fill="none" stroke="#636E72" strokeWidth="2" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
               {generateNotifications.length > 0 && (
                 <div style={{ position: 'absolute', top: '6px', right: '8px', width: '8px', height: '8px', background: '#E74C3C', borderRadius: '50%', border: '2px solid white' }}></div>
@@ -5483,6 +5484,40 @@ function App() {
           </div>
         </div>
       </header>
+
+      {/* 通知パネル */}
+      {showNotifPanel && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 50 }} onClick={() => setShowNotifPanel(false)}>
+          <div onClick={(e) => e.stopPropagation()} style={{ position: 'absolute', top: '56px', right: '12px', width: '340px', maxWidth: 'calc(100vw - 24px)', maxHeight: '70vh', overflowY: 'auto', background: 'white', borderRadius: '16px', boxShadow: '0 8px 32px rgba(0,0,0,0.15)', padding: '16px', zIndex: 51 }}>
+            <div className="flex justify-between items-center mb-3">
+              <h3 style={{ fontWeight: 700, fontSize: '16px', color: '#2D3436', margin: 0 }}>通知</h3>
+              <button onClick={() => setShowNotifPanel(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#B2BEC3', fontSize: '18px' }}>✕</button>
+            </div>
+            {(() => {
+              const filteredNotifications = (userRole === 'admin' || userRole === 'master')
+                ? generateNotifications
+                : generateNotifications.filter(n => n.type !== 'invoice' && n.type !== 'payment');
+              return filteredNotifications.length > 0 ? (
+                <div className="space-y-2">
+                  {filteredNotifications.map(n => (
+                    <div key={n.id} onClick={() => { if (n.corpId) { navigate(`/corporations/${n.corpId}`); setShowNotifPanel(false); } }}
+                      className={`text-sm p-3 rounded-xl ${n.priority === 'high' ? 'bg-red-50 border border-red-200' : 'bg-amber-50 border border-amber-200'}`}
+                      style={{ cursor: n.corpId ? 'pointer' : 'default' }}>
+                      <div className={`font-semibold ${n.priority === 'high' ? 'text-red-700' : 'text-amber-700'}`}>{n.title}</div>
+                      <div className={`mt-1 ${n.priority === 'high' ? 'text-red-600' : 'text-amber-600'}`}>{n.message}</div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '24px 0', color: '#B2BEC3' }}>
+                  <Icons.Bell />
+                  <p style={{ marginTop: '8px', fontSize: '14px' }}>通知はありません</p>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      )}
 
       <main className="max-w-5xl mx-auto p-4 pb-24">
         {currentView === 'dashboard' && <Dashboard />}

@@ -3732,10 +3732,10 @@ function App() {
 
     const handlePrint = () => {
       setIsPrintView(true);
-      setTimeout(() => {
-        window.print();
-        setIsPrintView(false);
-      }, 300);
+    };
+
+    const executePrint = () => {
+      window.print();
     };
 
     const formatDate = (dateStr) => {
@@ -3839,8 +3839,13 @@ function App() {
             )}
           </div>
 
-          <div className="no-print" style={{ marginTop: '20px', textAlign: 'center' }}>
-            <button onClick={() => setIsPrintView(false)} style={{ padding: '10px 20px', background: '#666', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>戻る</button>
+          <div className="no-print" style={{ marginTop: '20px', display: 'flex', justifyContent: 'center', gap: '12px' }}>
+            <button onClick={() => setIsPrintView(false)} style={{ padding: '10px 24px', background: '#666', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '14px' }}>
+              ← 戻る
+            </button>
+            <button onClick={executePrint} style={{ padding: '10px 24px', background: '#00B894', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '14px' }}>
+              印刷する
+            </button>
           </div>
         </div>
       );

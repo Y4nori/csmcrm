@@ -2919,6 +2919,118 @@ switch ($request) {
         }
         break;
 
+    // ========== 月次締めレポート ==========
+    case 'monthly-closing-report':
+        checkAuth();
+
+        if ($method === 'GET') {
+            $userId = (int)($_GET['user_id'] ?? $_SESSION['user_id']);
+            $year = (int)($_GET['year'] ?? date('Y'));
+            $month = (int)($_GET['month'] ?? date('n'));
+
+            // 管理者以外は自分のデータのみ
+            if ($_SESSION['role'] !== 'admin' && $_SESSION['role'] !== 'master') {
+                $userId = (int)$_SESSION['user_id'];
+            }
+
+            // 締め日計算（20日、土日の場合は前営業日）
+            $closingDate = new DateTime("$year-$month-20");
+            while (true) {
+                $dow = (int)$closingDate->format('w');
+                if ($dow === 0) {
+                    $closingDate->modify('-2 days');
+                } elseif ($dow === 6) {
+                    $closingDate->modify('-1 day');
+                } else {
+                    break;
+                }
+            }
+
+            // 期間：前月21日〜当月20日（締め日）
+            $startYear = $year;
+            $startMonth = $month - 1;
+            if ($startMonth <= 0) {
+                $startMonth = 12;
+                $startYear--;
+            }
+            $periodStart = "$startYear-" . str_pad($startMonth, 2, '0', STR_PAD_LEFT) . "-21";
+            $periodEnd = $closingDate->format('Y-m-d');
+
+            // ユーザー名取得
+            $user = $db->fetch("SELECT name FROM users WHERE id = ?", [$userId]);
+            $userName = $user ? $user['name'] : '不明';
+
+            // 出勤日数
+            $attendanceData = $db->fetch(
+                "SELECT COUNT(*) as days FROM timecards WHERE user_id = ? AND work_date BETWEEN ? AND ? AND clock_in IS NOT NULL",
+                [$userId, $periodStart, $periodEnd]
+            );
+            $attendanceDays = (int)($attendanceData['days'] ?? 0);
+
+            // 日報の時間集計
+            $hoursData = $db->fetch(
+                "SELECT
+                    COALESCE(SUM(drh.regular_hours), 0) as total_regular,
+                    COALESCE(SUM(drh.night_hours), 0) as total_night,
+                    COALESCE(SUM(drh.construction_points), 0) as total_construction,
+                    COALESCE(SUM(drh.other_hours), 0) as total_other
+                 FROM daily_reports dr
+                 JOIN daily_report_hours drh ON dr.id = drh.report_id
+                 WHERE dr.user_id = ? AND dr.report_date BETWEEN ? AND ?",
+                [$userId, $periodStart, $periodEnd]
+            );
+
+            $overtimeHours = floatval($hoursData['total_regular'] ?? 0);
+            $nightHours = floatval($hoursData['total_night'] ?? 0);
+            $constructionPoints = floatval($hoursData['total_construction'] ?? 0);
+            $otherHours = floatval($hoursData['total_other'] ?? 0);
+
+            // 作業詳細
+            $details = $db->fetchAll(
+                "SELECT dr.report_date, drd.start_time, drd.end_time, drd.site_name,
+                        drd.worker_count, drd.companions, dr.contact_notes
+                 FROM daily_reports dr
+                 JOIN daily_report_details drd ON dr.id = drd.report_id
+                 WHERE dr.user_id = ? AND dr.report_date BETWEEN ? AND ?
+                 ORDER BY dr.report_date, drd.sort_order, drd.start_time",
+                [$userId, $periodStart, $periodEnd]
+            );
+
+            // 報告連絡事項
+            $notes = $db->fetchAll(
+                "SELECT report_date, contact_notes, remarks FROM daily_reports
+                 WHERE user_id = ? AND report_date BETWEEN ? AND ?
+                   AND (contact_notes IS NOT NULL AND contact_notes != '' OR remarks IS NOT NULL AND remarks != '')
+                 ORDER BY report_date",
+                [$userId, $periodStart, $periodEnd]
+            );
+
+            // ユーザー一覧（管理者用）
+            $users = [];
+            if ($_SESSION['role'] === 'admin' || $_SESSION['role'] === 'master') {
+                $users = $db->fetchAll("SELECT id, name FROM users WHERE is_active = 1 ORDER BY id");
+            }
+
+            respond([
+                'userName' => $userName,
+                'userId' => $userId,
+                'periodStart' => $periodStart,
+                'periodEnd' => $periodEnd,
+                'closingDate' => $closingDate->format('Y-m-d'),
+                'year' => $year,
+                'month' => $month,
+                'attendanceDays' => $attendanceDays,
+                'overtimeHours' => $overtimeHours,
+                'nightHours' => $nightHours,
+                'constructionPoints' => $constructionPoints,
+                'otherHours' => $otherHours,
+                'details' => $details,
+                'notes' => $notes,
+                'users' => $users
+            ]);
+        }
+        break;
+
     default:
         error('Invalid action', 404);
 }

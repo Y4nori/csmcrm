@@ -244,6 +244,7 @@ function App() {
     if (path === '/admin/timecards') return 'adminTimecards';
     if (path === '/admin/audit-logs') return 'adminAuditLogs';
     if (path === '/inventory') return 'inventory';
+    if (path === '/monthly-closing') return 'monthlyClosing';
     return 'dashboard';
   };
   const currentView = getCurrentView();
@@ -3032,6 +3033,18 @@ function App() {
             <Icons.ChevronRight className="ml-auto text-gray-400" />
           </button>
 
+          <button onClick={() => navigate('/monthly-closing')}
+            className="w-full bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-4 text-left hover:bg-gray-50">
+            <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: 'rgba(91, 189, 86, 0.1)' }}>
+              <Icons.Calculator style={{ color: '#00B894' }} />
+            </div>
+            <div>
+              <p className="font-bold text-gray-800">月次締めレポート</p>
+              <p className="text-sm text-gray-500">日報の月次集計・印刷出力</p>
+            </div>
+            <Icons.ChevronRight className="ml-auto text-gray-400" />
+          </button>
+
           {(userRole === 'master' || userRole === 'admin') && (
             <button onClick={() => navigate('/admin/audit-logs')}
               className="w-full bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-4 text-left hover:bg-gray-50">
@@ -3676,6 +3689,292 @@ function App() {
             </div>
           </div>
         )}
+      </div>
+    );
+  };
+
+  // ========== 月次締めレポート ==========
+  const MonthlyClosingReport = () => {
+    const now = new Date();
+    const [selectedYear, setSelectedYear] = useState(now.getFullYear());
+    const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1);
+    const [selectedUserId, setSelectedUserId] = useState(null);
+    const [reportData, setReportData] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [users, setUsers] = useState([]);
+    const [isPrintView, setIsPrintView] = useState(false);
+
+    const fetchReport = async (year, month, userId) => {
+      setLoading(true);
+      try {
+        let url = `${API_BASE}?action=monthly-closing-report&year=${year}&month=${month}`;
+        if (userId) url += `&user_id=${userId}`;
+        const res = await fetch(url, { credentials: 'include' });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        setReportData(data);
+        if (data.users && data.users.length > 0) {
+          setUsers(data.users);
+          if (!userId && !selectedUserId) {
+            setSelectedUserId(data.userId);
+          }
+        }
+      } catch (e) {
+        console.error(e);
+        alert('レポートの取得に失敗しました');
+      }
+      setLoading(false);
+    };
+
+    useEffect(() => {
+      fetchReport(selectedYear, selectedMonth, selectedUserId);
+    }, [selectedYear, selectedMonth, selectedUserId]);
+
+    const handlePrint = () => {
+      setIsPrintView(true);
+      setTimeout(() => {
+        window.print();
+        setIsPrintView(false);
+      }, 300);
+    };
+
+    const formatDate = (dateStr) => {
+      if (!dateStr) return '';
+      const d = new Date(dateStr);
+      return `${d.getMonth() + 1}/${d.getDate()}`;
+    };
+
+    const formatPeriod = () => {
+      if (!reportData) return '';
+      const s = new Date(reportData.periodStart);
+      const e = new Date(reportData.periodEnd);
+      return `${s.getFullYear()}年${s.getMonth() + 1}月${s.getDate()}日 〜 ${e.getFullYear()}年${e.getMonth() + 1}月${e.getDate()}日`;
+    };
+
+    // 印刷用ビュー
+    if (isPrintView && reportData) {
+      // 作業詳細を日付ごとにグループ化
+      const detailsByDate = {};
+      (reportData.details || []).forEach(d => {
+        if (!detailsByDate[d.report_date]) detailsByDate[d.report_date] = [];
+        detailsByDate[d.report_date].push(d);
+      });
+
+      return (
+        <div style={{ fontFamily: '"Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif', fontSize: '14px', lineHeight: '1.4', padding: '20px', maxWidth: '800px', margin: '0 auto', background: 'white' }}>
+          <style dangerouslySetInnerHTML={{ __html: `
+            @media print {
+              body { margin: 0; }
+              .no-print { display: none !important; }
+              @page { margin: 10mm; }
+              nav, header { display: none !important; }
+            }
+          `}} />
+          <h1 style={{ textAlign: 'center', fontSize: '20px', marginBottom: '20px', letterSpacing: '0.5em' }}>作業・営業日報締め</h1>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px' }}>
+            <div>
+              <span>氏名：</span>
+              <span style={{ borderBottom: '1px solid #000', padding: '0 30px' }}>{reportData.userName}</span>
+            </div>
+            <div>
+              <span>期間：{formatPeriod()}</span>
+            </div>
+          </div>
+
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px' }}>
+            <tbody>
+              <tr>
+                <td style={{ border: '1px solid #000', padding: '8px', background: '#f5f5f5', fontWeight: 'bold', width: '25%' }}>出勤日数</td>
+                <td style={{ border: '1px solid #000', padding: '8px', width: '25%' }}>{reportData.attendanceDays} 日</td>
+                <td style={{ border: '1px solid #000', padding: '8px', background: '#f5f5f5', fontWeight: 'bold', width: '25%' }}>残業時間</td>
+                <td style={{ border: '1px solid #000', padding: '8px', width: '25%' }}>{reportData.overtimeHours} 時間</td>
+              </tr>
+              <tr>
+                <td style={{ border: '1px solid #000', padding: '8px', background: '#f5f5f5', fontWeight: 'bold' }}>夜勤</td>
+                <td style={{ border: '1px solid #000', padding: '8px' }}>{reportData.nightHours} 時間</td>
+                <td style={{ border: '1px solid #000', padding: '8px', background: '#f5f5f5', fontWeight: 'bold' }}>工事P</td>
+                <td style={{ border: '1px solid #000', padding: '8px' }}>{reportData.constructionPoints}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '10px', borderBottom: '2px solid #000', paddingBottom: '5px' }}>営業売上</h3>
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px' }}>
+            <thead>
+              <tr style={{ background: '#f5f5f5' }}>
+                <th style={{ border: '1px solid #000', padding: '6px', fontSize: '12px' }}>日付</th>
+                <th style={{ border: '1px solid #000', padding: '6px', fontSize: '12px' }}>取引先名</th>
+                <th style={{ border: '1px solid #000', padding: '6px', fontSize: '12px' }}>作業時間</th>
+                <th style={{ border: '1px solid #000', padding: '6px', fontSize: '12px' }}>人数</th>
+              </tr>
+            </thead>
+            <tbody>
+              {reportData.details && reportData.details.length > 0 ? (
+                reportData.details.map((d, i) => (
+                  <tr key={i}>
+                    <td style={{ border: '1px solid #000', padding: '6px', fontSize: '12px' }}>{formatDate(d.report_date)}</td>
+                    <td style={{ border: '1px solid #000', padding: '6px', fontSize: '12px' }}>{d.site_name}</td>
+                    <td style={{ border: '1px solid #000', padding: '6px', fontSize: '12px' }}>{d.start_time || ''} - {d.end_time || ''}</td>
+                    <td style={{ border: '1px solid #000', padding: '6px', fontSize: '12px', textAlign: 'center' }}>{d.worker_count || ''}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr><td colSpan="4" style={{ border: '1px solid #000', padding: '8px', textAlign: 'center', color: '#999' }}>データなし</td></tr>
+              )}
+            </tbody>
+          </table>
+
+          <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '10px', borderBottom: '2px solid #000', paddingBottom: '5px' }}>報告連絡事項</h3>
+          <div style={{ border: '1px solid #000', padding: '10px', minHeight: '100px' }}>
+            {reportData.notes && reportData.notes.length > 0 ? (
+              reportData.notes.map((n, i) => (
+                <div key={i} style={{ marginBottom: '8px' }}>
+                  <span style={{ fontWeight: 'bold', fontSize: '12px' }}>{formatDate(n.report_date)}:</span>
+                  <span style={{ fontSize: '12px', marginLeft: '8px' }}>{n.contact_notes}{n.remarks ? ` / ${n.remarks}` : ''}</span>
+                </div>
+              ))
+            ) : (
+              <p style={{ color: '#999' }}>なし</p>
+            )}
+          </div>
+
+          <div className="no-print" style={{ marginTop: '20px', textAlign: 'center' }}>
+            <button onClick={() => setIsPrintView(false)} style={{ padding: '10px 20px', background: '#666', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>戻る</button>
+          </div>
+        </div>
+      );
+    }
+
+    // 通常ビュー（選択画面）
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-3">
+          <button onClick={() => navigate('/menu')} className="text-gray-500"><Icons.ChevronLeft /></button>
+          <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#2D3436' }}>月次締めレポート</h2>
+        </div>
+
+        {/* 期間選択 */}
+        <div className="card-modern">
+          <div className="flex gap-3 items-end flex-wrap">
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">年</label>
+              <select className="select-modern" value={selectedYear} onChange={e => setSelectedYear(parseInt(e.target.value))}>
+                {[now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1].map(y => (
+                  <option key={y} value={y}>{y}年</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">月</label>
+              <select className="select-modern" value={selectedMonth} onChange={e => setSelectedMonth(parseInt(e.target.value))}>
+                {Array.from({length: 12}, (_, i) => i + 1).map(m => (
+                  <option key={m} value={m}>{m}月</option>
+                ))}
+              </select>
+            </div>
+            {users.length > 0 && (
+              <div>
+                <label className="text-xs text-gray-500 mb-1 block">スタッフ</label>
+                <select className="select-modern" value={selectedUserId || ''} onChange={e => setSelectedUserId(parseInt(e.target.value))}>
+                  {users.map(u => (
+                    <option key={u.id} value={u.id}>{u.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+          <p className="text-xs text-gray-400 mt-2">
+            締め日: 毎月20日（土日の場合は前営業日）
+          </p>
+        </div>
+
+        {loading ? (
+          <div className="flex justify-center py-12">
+            <Icons.Loader />
+          </div>
+        ) : reportData ? (
+          <>
+            {/* サマリーカード */}
+            <div className="card-modern">
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="font-bold text-gray-800">{reportData.userName}</h3>
+                <span className="text-xs text-gray-400">{formatPeriod()}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div style={{ background: '#E8F8F5', borderRadius: '12px', padding: '12px' }}>
+                  <p className="text-xs text-gray-500">出勤日数</p>
+                  <p className="text-2xl font-bold" style={{ color: '#00B894' }}>{reportData.attendanceDays}<span className="text-sm font-normal text-gray-500 ml-1">日</span></p>
+                </div>
+                <div style={{ background: '#EBF5FB', borderRadius: '12px', padding: '12px' }}>
+                  <p className="text-xs text-gray-500">残業時間</p>
+                  <p className="text-2xl font-bold" style={{ color: '#2980B9' }}>{reportData.overtimeHours}<span className="text-sm font-normal text-gray-500 ml-1">h</span></p>
+                </div>
+                <div style={{ background: '#F4ECF7', borderRadius: '12px', padding: '12px' }}>
+                  <p className="text-xs text-gray-500">夜勤</p>
+                  <p className="text-2xl font-bold" style={{ color: '#8E44AD' }}>{reportData.nightHours}<span className="text-sm font-normal text-gray-500 ml-1">h</span></p>
+                </div>
+                <div style={{ background: '#FFF3E0', borderRadius: '12px', padding: '12px' }}>
+                  <p className="text-xs text-gray-500">工事P</p>
+                  <p className="text-2xl font-bold" style={{ color: '#E67E22' }}>{reportData.constructionPoints}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* 作業詳細 */}
+            <div className="card-modern">
+              <h3 className="font-bold text-gray-800 mb-3">営業売上・作業詳細</h3>
+              {reportData.details && reportData.details.length > 0 ? (
+                <div style={{ overflowX: 'auto' }}>
+                  <table className="table-modern" style={{ minWidth: '400px' }}>
+                    <thead>
+                      <tr>
+                        <th>日付</th>
+                        <th>取引先名</th>
+                        <th>時間</th>
+                        <th>人数</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {reportData.details.map((d, i) => (
+                        <tr key={i}>
+                          <td style={{ whiteSpace: 'nowrap' }}>{formatDate(d.report_date)}</td>
+                          <td>{d.site_name}</td>
+                          <td style={{ whiteSpace: 'nowrap' }}>{d.start_time || '-'} - {d.end_time || '-'}</td>
+                          <td style={{ textAlign: 'center' }}>{d.worker_count || '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="text-gray-400 text-sm text-center py-4">作業データなし</p>
+              )}
+            </div>
+
+            {/* 報告連絡事項 */}
+            <div className="card-modern">
+              <h3 className="font-bold text-gray-800 mb-3">報告連絡事項</h3>
+              {reportData.notes && reportData.notes.length > 0 ? (
+                <div className="space-y-2">
+                  {reportData.notes.map((n, i) => (
+                    <div key={i} className="flex gap-2 text-sm">
+                      <span className="text-gray-400 whitespace-nowrap">{formatDate(n.report_date)}</span>
+                      <span className="text-gray-700">{n.contact_notes}{n.remarks ? ` / ${n.remarks}` : ''}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-400 text-sm text-center py-4">連絡事項なし</p>
+              )}
+            </div>
+
+            {/* 印刷ボタン */}
+            <button onClick={handlePrint} className="btn-primary w-full flex items-center justify-center gap-2">
+              <Icons.Download /> 印刷・PDF出力
+            </button>
+          </>
+        ) : null}
       </div>
     );
   };
@@ -4995,6 +5294,7 @@ function App() {
         {currentView === 'adminTimecards' && <TimecardAdminView />}
         {currentView === 'adminAuditLogs' && <AuditLogView />}
         {currentView === 'inventory' && <InventoryView />}
+        {currentView === 'monthlyClosing' && <MonthlyClosingReport />}
       </main>
 
       <nav className="fixed bottom-0 left-0 right-0 bg-white z-20" style={{ borderTop: '1px solid #E9ECEF', padding: '8px 0 24px' }}>
@@ -5033,7 +5333,7 @@ function App() {
                     <NavItem onClick={() => navigate('/invoices')} active={isActive('invoices')} label="請求"
                       strokeIcon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>}
                       fillIcon={<svg width="24" height="24" viewBox="0 0 24 24" fill="#00B894" stroke="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path></svg>} />
-                    <NavItem onClick={() => navigate('/menu')} active={isActive(['menu', 'settings', 'adminDailyReports', 'adminTimecards', 'adminAuditLogs'])} label="メニュー"
+                    <NavItem onClick={() => navigate('/menu')} active={isActive(['menu', 'settings', 'adminDailyReports', 'adminTimecards', 'adminAuditLogs', 'monthlyClosing'])} label="メニュー"
                       strokeIcon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>}
                       fillIcon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#00B894" strokeWidth="2.5"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>} />
                   </>

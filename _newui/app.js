@@ -1132,7 +1132,7 @@ function App() {
   // 現場詳細（簡略版）
   const SiteDetail = () => {
     const [activeTab, setActiveTab] = useState('info');
-
+    const [tlPage, setTlPage] = React.useState(1);
     return (
       <div className="space-y-4">
         {/* ヘッダー */}
@@ -1361,7 +1361,6 @@ function App() {
           (selectedSite?.contactLogs || selectedCorp?.contactLogs || []).forEach(c => items.push({ type: 'contact', date: c.date || c.contact_date, data: c }));
           (selectedSite?.photos || []).forEach(p => items.push({ type: 'photo', date: p.date || p.photo_date, data: p }));
           items.sort((a, b) => new Date(b.date) - new Date(a.date));
-          const [tlPage, setTlPage] = React.useState(1);
           const TL_PER_PAGE = 20;
           const pagedItems = items.slice(0, tlPage * TL_PER_PAGE);
           return (

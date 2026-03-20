@@ -599,7 +599,7 @@ function App() {
       <div className="space-y-4">
         {/* グリーティングカード */}
         <div className="greeting-card">
-          <p style={{ fontSize: '14px', opacity: 0.9, margin: '0 0 4px' }}>おはようございます</p>
+          <p style={{ fontSize: '14px', opacity: 0.9, margin: '0 0 4px' }}>{(() => { const h = new Date().getHours(); if (h < 12) return 'おはようございます'; if (h < 18) return 'こんにちは'; return 'おつかれさまです'; })()}</p>
           <h2 style={{ fontSize: '22px', fontWeight: 700, margin: '0 0 8px' }}>{currentUser?.name}さん</h2>
           <p style={{ fontSize: '13px', opacity: 0.85, margin: 0 }}>
             {today.getMonth() + 1}月{today.getDate()}日（{dayNames[today.getDay()]}）・ 今日の予定 <strong style={{ fontSize: '20px', verticalAlign: 'middle' }}>{todayWorks.length}</strong> 件

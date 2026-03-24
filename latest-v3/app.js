@@ -117,7 +117,7 @@ const api = {
   createDailyReport: (data) => api.call('daily-reports', 'POST', data),
   getDailyReport: (id) => api.call('daily-report', 'GET', null, { id }),
   updateDailyReport: (id, data) => api.call('daily-report', 'PUT', data, { id }),
-  deleteDailyReport: (id) => api.call('daily-report', 'DELETE', null, { id }),
+  deleteDailyReport: (id, reportDate) => api.call('daily-report', 'DELETE', null, { id, report_date: reportDate }),
   updateDailyReportHours: (id, data) => api.call('daily-report-hours', 'PUT', data, { id }),
   exportDailyReports: (params) => api.call('daily-reports-export', 'GET', null, params),
 
@@ -2541,7 +2541,7 @@ function App() {
                         }
                         if (!confirm('この日報を削除しますか？')) return;
                         try {
-                          await api.deleteDailyReport(report.id);
+                          await api.deleteDailyReport(report.id, report.report_date);
                           loadReports();
                         } catch (err) {
                           alert('削除に失敗しました: ' + err.message);
@@ -2585,7 +2585,7 @@ function App() {
                     }
                     if (!confirm('この日報を削除しますか？')) return;
                     try {
-                      await api.deleteDailyReport(viewingReport.id);
+                      await api.deleteDailyReport(viewingReport.id, viewingReport.report_date);
                       alert('日報を削除しました');
                       setViewingReport(null);
                       loadReports();
@@ -3596,7 +3596,7 @@ function App() {
                     }
                     if (!confirm('この日報を削除しますか？')) return;
                     try {
-                      await api.deleteDailyReport(viewingReport.id);
+                      await api.deleteDailyReport(viewingReport.id, viewingReport.report_date);
                       alert('日報を削除しました');
                       setViewingReport(null);
                       loadReports();

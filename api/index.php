@@ -1626,19 +1626,36 @@ switch ($request) {
 
             respond(['message' => '日報を更新しました']);
         } elseif ($method === 'DELETE') {
-            // 権限チェック（id=0の重複対策でuser_idも条件に含める）
+            // report_dateを取得（id=0の重複レコード対策）
+            $reportDate = $_GET['report_date'] ?? null;
+
+            // 権限チェック + 対象レコード特定
             if ($_SESSION['role'] === 'admin' || $_SESSION['role'] === 'master') {
-                $report = $db->fetch("SELECT id, user_id FROM daily_reports WHERE id = ?", [$id]);
+                if ($reportDate) {
+                    $report = $db->fetch("SELECT id, user_id FROM daily_reports WHERE id = ? AND report_date = ? LIMIT 1", [$id, $reportDate]);
+                } else {
+                    $report = $db->fetch("SELECT id, user_id FROM daily_reports WHERE id = ? LIMIT 1", [$id]);
+                }
             } else {
-                $report = $db->fetch("SELECT id, user_id FROM daily_reports WHERE id = ? AND user_id = ?", [$id, $_SESSION['user_id']]);
+                if ($reportDate) {
+                    $report = $db->fetch("SELECT id, user_id FROM daily_reports WHERE id = ? AND user_id = ? AND report_date = ? LIMIT 1", [$id, $_SESSION['user_id'], $reportDate]);
+                } else {
+                    $report = $db->fetch("SELECT id, user_id FROM daily_reports WHERE id = ? AND user_id = ? LIMIT 1", [$id, $_SESSION['user_id']]);
+                }
             }
             if (!$report) {
                 error('日報が見つかりません', 404);
             }
 
+            // 関連データ削除
             $db->delete("DELETE FROM daily_report_details WHERE report_id = ?", [$id]);
             $db->delete("DELETE FROM daily_report_hours WHERE report_id = ?", [$id]);
-            $db->delete("DELETE FROM daily_reports WHERE id = ? AND user_id = ?", [$id, $report['user_id']]);
+            // メインレコードはreport_dateで1件だけ削除
+            if ($reportDate) {
+                $db->delete("DELETE FROM daily_reports WHERE id = ? AND user_id = ? AND report_date = ? LIMIT 1", [$id, $report['user_id'], $reportDate]);
+            } else {
+                $db->delete("DELETE FROM daily_reports WHERE id = ? AND user_id = ? LIMIT 1", [$id, $report['user_id']]);
+            }
             respond(['message' => '日報を削除しました']);
         }
         break;

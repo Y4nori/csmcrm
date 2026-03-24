@@ -1604,6 +1604,8 @@ switch ($request) {
                 error('権限がありません', 403);
             }
 
+            $db->delete("DELETE FROM daily_report_details WHERE report_id = ?", [$id]);
+            $db->delete("DELETE FROM daily_report_hours WHERE report_id = ?", [$id]);
             $db->delete("DELETE FROM daily_reports WHERE id = ?", [$id]);
             respond(['message' => '日報を削除しました']);
         }

@@ -2457,11 +2457,19 @@ function App() {
     );
   };
 
+  // 月度計算: 21日以降は翌月度
+  const getBusinessMonth = () => {
+    const now = new Date();
+    let y = now.getFullYear(), m = now.getMonth() + 1;
+    if (now.getDate() >= 21) { m++; if (m > 12) { m = 1; y++; } }
+    return `${y}-${String(m).padStart(2, '0')}`;
+  };
+
   // ========== 日報一覧 ==========
   const DailyReportList = () => {
     const [reports, setReports] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
+    const [selectedMonth, setSelectedMonth] = useState(getBusinessMonth());
     const [viewingReport, setViewingReport] = useState(null);
 
     useEffect(() => {
@@ -3434,7 +3442,7 @@ function App() {
   const DailyReportAdminView = () => {
     const [reports, setReports] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
+    const [selectedMonth, setSelectedMonth] = useState(getBusinessMonth());
     const [selectedUser, setSelectedUser] = useState('');
     const [editingHours, setEditingHours] = useState(null);
     const [viewingReport, setViewingReport] = useState(null);

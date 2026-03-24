@@ -187,6 +187,20 @@ function checkMaster() {
     }
 }
 
+// 月度の日付範囲を計算（N月度 = 前月21日〜当月20日）
+function getBusinessMonthRange($yearMonth) {
+    $parts = explode('-', $yearMonth);
+    $year = (int)$parts[0];
+    $month = (int)$parts[1];
+    $prevMonth = $month - 1;
+    $prevYear = $year;
+    if ($prevMonth < 1) { $prevMonth = 12; $prevYear--; }
+    return [
+        sprintf('%04d-%02d-21', $prevYear, $prevMonth),
+        sprintf('%04d-%02d-20', $year, $month)
+    ];
+}
+
 // 相対日付計算（第N週の特定曜日を計算）
 // $nth: 1-4 or -1(最終), $dayOfWeek: 0(日)-6(土)
 function calculateNthDayOfWeek($year, $month, $nth, $dayOfWeek) {
@@ -1433,13 +1447,16 @@ switch ($request) {
             $yearMonth = $_GET['year_month'] ?? date('Y-m');
             $userId = $_GET['user_id'] ?? null;
 
+            // 月度計算: N月度 = 前月21日〜当月20日
+            list($startDate, $endDate) = getBusinessMonthRange($yearMonth);
+
             $sql = "SELECT dr.id, dr.user_id, dr.report_date, dr.vehicle, dr.expenses,
                     dr.contact_notes, dr.remarks, dr.status, dr.created_at, dr.updated_at,
                     u.name as user_name
                     FROM daily_reports dr
                     JOIN users u ON dr.user_id = u.id
-                    WHERE DATE_FORMAT(dr.report_date, '%Y-%m') = ?";
-            $params = [$yearMonth];
+                    WHERE dr.report_date >= ? AND dr.report_date <= ?";
+            $params = [$startDate, $endDate];
 
             // スタッフは自分のみ、管理者・マスターは全員または指定ユーザー
             if ($_SESSION['role'] !== 'admin' && $_SESSION['role'] !== 'master') {
@@ -1696,13 +1713,14 @@ switch ($request) {
         $output = fopen('php://output', 'w');
         fputcsv($output, ['日付', '氏名', '開始時刻', '終了時刻', '現場名', '人数', '同行者', '車両', '経費', '連絡事項', '備考', '時間', '夜勤時間', '工事P', 'その他']);
 
+        list($startDate, $endDate) = getBusinessMonthRange($yearMonth);
         $sql = "SELECT dr.id, dr.user_id, dr.report_date, dr.vehicle, dr.expenses,
                 dr.contact_notes, dr.remarks, dr.status, dr.created_at, dr.updated_at,
                 u.name as user_name
                 FROM daily_reports dr
                 JOIN users u ON dr.user_id = u.id
-                WHERE DATE_FORMAT(dr.report_date, '%Y-%m') = ?";
-        $params = [$yearMonth];
+                WHERE dr.report_date >= ? AND dr.report_date <= ?";
+        $params = [$startDate, $endDate];
         if ($userId) {
             $sql .= " AND dr.user_id = ?";
             $params[] = $userId;

@@ -1529,10 +1529,10 @@ switch ($request) {
 
     case 'daily-report':
         checkAuth();
-        $id = (int)($_GET['id'] ?? 0);
-        if ($id <= 0) {
+        if (!isset($_GET['id']) || $_GET['id'] === '') {
             error('Invalid daily report ID', 400);
         }
+        $id = (int)$_GET['id'];
 
         if ($method === 'GET') {
             $report = $db->fetch(

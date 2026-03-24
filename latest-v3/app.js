@@ -2534,7 +2534,7 @@ function App() {
                       </button>
                       <button onClick={async (e) => {
                         e.stopPropagation();
-                        if (!report.id) {
+                        if (report.id === undefined || report.id === null) {
                           console.error('Report object missing id:', report);
                           alert('削除に失敗しました: 日報IDが取得できません。ページを再読み込みしてください。');
                           return;
@@ -2578,7 +2578,7 @@ function App() {
                     navigate(`/daily-reports/${viewingReport.id}`);
                   }} className="text-sm px-3 py-1 bg-gray-100 text-gray-700 rounded">編集</button>
                   <button onClick={async () => {
-                    if (!viewingReport.id) {
+                    if (viewingReport.id === undefined || viewingReport.id === null) {
                       console.error('viewingReport missing id:', viewingReport);
                       alert('削除に失敗しました: 日報IDが取得できません。ページを再読み込みしてください。');
                       return;
@@ -3589,7 +3589,7 @@ function App() {
                     window.open(`${basePath}api/index.php?action=daily-report-pdf&id=${viewingReport.id}`, '_blank');
                   }} className="text-sm px-3 py-1 bg-blue-100 text-blue-700 rounded">PDF</button>
                   <button onClick={async () => {
-                    if (!viewingReport.id) {
+                    if (viewingReport.id === undefined || viewingReport.id === null) {
                       console.error('viewingReport missing id:', viewingReport);
                       alert('削除に失敗しました: 日報IDが取得できません。ページを再読み込みしてください。');
                       return;

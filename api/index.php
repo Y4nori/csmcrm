@@ -3359,6 +3359,50 @@ switch ($request) {
         }
         break;
 
+    // デバッグ用: DB状態確認
+    case 'debug-info':
+        checkAuth();
+
+        $info = [];
+
+        // daily_reportsの全レコード概要
+        $info['daily_reports_summary'] = $db->fetchAll(
+            "SELECT id, user_id, report_date, status,
+             (SELECT name FROM users WHERE id = dr.user_id) as user_name
+             FROM daily_reports dr ORDER BY report_date DESC"
+        );
+
+        // id=0のレコード数
+        $info['id_zero_count'] = $db->fetch("SELECT COUNT(*) as cnt FROM daily_reports WHERE id = 0")['cnt'];
+
+        // AUTO_INCREMENT状態
+        $info['auto_increment'] = $db->fetch(
+            "SELECT AUTO_INCREMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'daily_reports'"
+        );
+
+        // daily_report_details (report_id=0)
+        $info['details_id_zero'] = $db->fetchAll(
+            "SELECT * FROM daily_report_details WHERE report_id = 0"
+        );
+
+        // daily_report_hours (report_id=0)
+        $info['hours_id_zero'] = $db->fetchAll(
+            "SELECT * FROM daily_report_hours WHERE report_id = 0"
+        );
+
+        // セッション情報
+        $info['session'] = [
+            'user_id' => $_SESSION['user_id'],
+            'role' => $_SESSION['role'],
+            'name' => $_SESSION['name'] ?? 'unknown'
+        ];
+
+        // テーブル構造
+        $info['table_structure'] = $db->fetchAll("DESCRIBE daily_reports");
+
+        respond($info);
+        break;
+
     default:
         error('Invalid action', 404);
 }

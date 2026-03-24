@@ -410,7 +410,14 @@ function App() {
       setIsLoggedIn(true);
       await loadData(user.role);
     } catch (e) {
-      setLoginError('ユーザー名またはパスワードが間違っています');
+      const msg = e.message || '';
+      if (msg.includes('Internal Server Error')) {
+        setLoginError('サーバーエラー: ' + msg);
+      } else if (msg.includes('429') || msg.includes('上限')) {
+        setLoginError(msg);
+      } else {
+        setLoginError('ユーザー名またはパスワードが間違っています');
+      }
     }
   };
 

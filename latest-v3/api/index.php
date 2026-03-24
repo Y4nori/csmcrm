@@ -1626,18 +1626,19 @@ switch ($request) {
 
             respond(['message' => '日報を更新しました']);
         } elseif ($method === 'DELETE') {
-            // 権限チェック
-            $report = $db->fetch("SELECT user_id FROM daily_reports WHERE id = ?", [$id]);
+            // 権限チェック（id=0の重複対策でuser_idも条件に含める）
+            if ($_SESSION['role'] === 'admin' || $_SESSION['role'] === 'master') {
+                $report = $db->fetch("SELECT id, user_id FROM daily_reports WHERE id = ?", [$id]);
+            } else {
+                $report = $db->fetch("SELECT id, user_id FROM daily_reports WHERE id = ? AND user_id = ?", [$id, $_SESSION['user_id']]);
+            }
             if (!$report) {
                 error('日報が見つかりません', 404);
-            }
-            if ($_SESSION['role'] !== 'admin' && $_SESSION['role'] !== 'master' && $report['user_id'] != $_SESSION['user_id']) {
-                error('権限がありません', 403);
             }
 
             $db->delete("DELETE FROM daily_report_details WHERE report_id = ?", [$id]);
             $db->delete("DELETE FROM daily_report_hours WHERE report_id = ?", [$id]);
-            $db->delete("DELETE FROM daily_reports WHERE id = ?", [$id]);
+            $db->delete("DELETE FROM daily_reports WHERE id = ? AND user_id = ?", [$id, $report['user_id']]);
             respond(['message' => '日報を削除しました']);
         }
         break;

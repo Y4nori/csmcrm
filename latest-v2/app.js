@@ -2504,21 +2504,44 @@ function App() {
           <div className="space-y-2">
             {reports.map(report => {
               const st = statusLabel(report.status);
+              const isOwn = !report.user_name || report.user_name === currentUser?.name;
               return (
                 <div key={report.id} className="bg-white border border-gray-200 rounded-xl p-4 cursor-pointer hover:bg-gray-50">
                   <div className="flex justify-between items-start" onClick={() => setViewingReport(report)}>
                     <div>
                       <p className="font-bold text-gray-800">{report.report_date}</p>
+                      {report.user_name && (userRole === 'admin' || userRole === 'master') && (
+                        <p className="text-xs text-blue-500 font-medium">{report.user_name}</p>
+                      )}
                       <p className="text-sm text-gray-500">{report.details?.length || 0}件の作業</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className={`text-xs px-2 py-1 rounded ${st.color}`}>{st.label}</span>
                     </div>
                   </div>
-                  <div className="flex justify-end mt-2 pt-2 border-t border-gray-100">
+                  <div className="flex justify-between items-center mt-2 pt-2 border-t border-gray-100">
+                    <div className="flex gap-2">
+                      <button onClick={(e) => { e.stopPropagation(); navigate(`/daily-reports/${report.id}`); }}
+                        className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700" style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+                        <Icons.Edit /> 編集
+                      </button>
+                      <button onClick={async (e) => {
+                        e.stopPropagation();
+                        if (!confirm('この日報を削除しますか？')) return;
+                        try {
+                          await api.deleteDailyReport(report.id);
+                          loadReports();
+                        } catch (err) {
+                          alert('削除に失敗しました: ' + err.message);
+                        }
+                      }}
+                        className="flex items-center gap-1 text-xs text-red-400 hover:text-red-600" style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+                        <Icons.Trash /> 削除
+                      </button>
+                    </div>
                     <button onClick={(e) => { e.stopPropagation(); navigate('/daily-reports/new', { state: { template: report } }); }}
                       className="flex items-center gap-1 text-xs text-gray-400 hover:text-green-600" style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-                      <Icons.Copy /> コピーして新規作成
+                      <Icons.Copy /> コピー
                     </button>
                   </div>
                 </div>
@@ -2546,10 +2569,12 @@ function App() {
                     if (!confirm('この日報を削除しますか？')) return;
                     try {
                       await api.deleteDailyReport(viewingReport.id);
+                      alert('日報を削除しました');
                       setViewingReport(null);
                       loadReports();
                     } catch (e) {
-                      alert('削除に失敗しました: ' + e.message);
+                      console.error('Delete error:', e);
+                      alert('削除に失敗しました: ' + (e.message || 'エラーが発生しました'));
                     }
                   }} className="text-sm px-3 py-1 bg-red-100 text-red-600 rounded">削除</button>
                   <button onClick={() => setViewingReport(null)} className="text-gray-400 hover:text-gray-600">
@@ -3509,10 +3534,12 @@ function App() {
                     if (!confirm('この日報を削除しますか？')) return;
                     try {
                       await api.deleteDailyReport(viewingReport.id);
+                      alert('日報を削除しました');
                       setViewingReport(null);
                       loadReports();
                     } catch (e) {
-                      alert('削除に失敗しました: ' + e.message);
+                      console.error('Delete error:', e);
+                      alert('削除に失敗しました: ' + (e.message || 'エラーが発生しました'));
                     }
                   }} className="text-sm px-3 py-1 bg-red-100 text-red-600 rounded">削除</button>
                   <button onClick={() => setViewingReport(null)} className="text-gray-400 hover:text-gray-600">

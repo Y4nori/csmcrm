@@ -5786,11 +5786,16 @@ function App() {
             <span style={{ color: '#636E72', fontSize: '13px' }}>{currentUser?.name}</span>
             <div onClick={() => setShowNotificationPanel(!showNotificationPanel)} style={{ position: 'relative', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
               <svg width="22" height="22" fill="none" stroke="#636E72" strokeWidth="2" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
-              {generateNotifications.length > 0 && (
-                <div style={{ position: 'absolute', top: '4px', right: '4px', minWidth: '18px', height: '18px', background: '#E74C3C', borderRadius: '9px', border: '2px solid white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <span style={{ color: 'white', fontSize: '10px', fontWeight: 700 }}>{generateNotifications.length}</span>
-                </div>
-              )}
+              {(() => {
+                const visibleNotifs = (userRole === 'admin' || userRole === 'master')
+                  ? generateNotifications
+                  : generateNotifications.filter(n => n.type !== 'invoice' && n.type !== 'payment' && n.type !== 'contract');
+                return visibleNotifs.length > 0 && (
+                  <div style={{ position: 'absolute', top: '4px', right: '4px', minWidth: '18px', height: '18px', background: '#E74C3C', borderRadius: '9px', border: '2px solid white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <span style={{ color: 'white', fontSize: '10px', fontWeight: 700 }}>{visibleNotifs.length}</span>
+                  </div>
+                );
+              })()}
             </div>
             <button onClick={handleLogout} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#B2BEC3', padding: '4px' }}><Icons.LogOut /></button>
           </div>
@@ -5798,19 +5803,23 @@ function App() {
       </header>
 
       {/* 通知パネル（ドロップダウン） */}
-      {showNotificationPanel && (
+      {showNotificationPanel && (() => {
+        const panelNotifs = (userRole === 'admin' || userRole === 'master')
+          ? generateNotifications
+          : generateNotifications.filter(n => n.type !== 'invoice' && n.type !== 'payment' && n.type !== 'contract');
+        return (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 50 }} onClick={() => setShowNotificationPanel(false)}>
           <div onClick={(e) => e.stopPropagation()} style={{ position: 'fixed', top: '60px', right: '12px', width: 'calc(100% - 24px)', maxWidth: '400px', maxHeight: '70vh', background: 'white', borderRadius: '16px', boxShadow: '0 8px 32px rgba(0,0,0,0.15)', zIndex: 51, overflow: 'hidden' }}>
             <div style={{ padding: '16px 20px', borderBottom: '1px solid #E9ECEF', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: '#2D3436' }}>通知 ({generateNotifications.length})</h3>
+              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: '#2D3436' }}>通知 ({panelNotifs.length})</h3>
               <button onClick={() => setShowNotificationPanel(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#B2BEC3', fontSize: '20px' }}>&times;</button>
             </div>
             <div style={{ maxHeight: 'calc(70vh - 60px)', overflowY: 'auto', padding: '12px' }}>
-              {generateNotifications.length === 0 ? (
+              {panelNotifs.length === 0 ? (
                 <p style={{ color: '#B2BEC3', textAlign: 'center', padding: '24px 0' }}>通知はありません</p>
               ) : (
                 <div className="space-y-2">
-                  {generateNotifications.map(n => (
+                  {panelNotifs.map(n => (
                     <div key={n.id} onClick={() => {
                       setShowNotificationPanel(false);
                       if (n.corpId) navigate(`/corp/${n.corpId}`);
@@ -5831,7 +5840,8 @@ function App() {
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       <main className="max-w-5xl mx-auto p-4 pb-24">
         {currentView === 'dashboard' && <Dashboard />}

@@ -1420,7 +1420,9 @@ switch ($request) {
             $yearMonth = $_GET['year_month'] ?? date('Y-m');
             $userId = $_GET['user_id'] ?? null;
 
-            $sql = "SELECT dr.*, u.name as user_name,
+            $sql = "SELECT dr.id, dr.user_id, dr.report_date, dr.vehicle, dr.expenses,
+                    dr.contact_notes, dr.remarks, dr.status, dr.created_at, dr.updated_at,
+                    u.name as user_name,
                     drh.regular_hours, drh.night_hours, drh.construction_points, drh.other_hours
                     FROM daily_reports dr
                     JOIN users u ON dr.user_id = u.id
@@ -1515,7 +1517,9 @@ switch ($request) {
 
         if ($method === 'GET') {
             $report = $db->fetch(
-                "SELECT dr.*, u.name as user_name,
+                "SELECT dr.id, dr.user_id, dr.report_date, dr.vehicle, dr.expenses,
+                 dr.contact_notes, dr.remarks, dr.status, dr.created_at, dr.updated_at,
+                 u.name as user_name,
                  drh.regular_hours, drh.night_hours, drh.construction_points, drh.other_hours
                  FROM daily_reports dr
                  JOIN users u ON dr.user_id = u.id
@@ -1647,7 +1651,9 @@ switch ($request) {
         $output = fopen('php://output', 'w');
         fputcsv($output, ['日付', '氏名', '開始時刻', '終了時刻', '現場名', '人数', '同行者', '車両', '経費', '連絡事項', '備考', '時間', '夜勤時間', '工事P', 'その他']);
 
-        $sql = "SELECT dr.*, u.name as user_name,
+        $sql = "SELECT dr.id, dr.user_id, dr.report_date, dr.vehicle, dr.expenses,
+                dr.contact_notes, dr.remarks, dr.status, dr.created_at, dr.updated_at,
+                u.name as user_name,
                 drh.regular_hours, drh.night_hours, drh.construction_points, drh.other_hours
                 FROM daily_reports dr
                 JOIN users u ON dr.user_id = u.id
@@ -1773,22 +1779,24 @@ switch ($request) {
                 [$_SESSION['user_id'], $workDate]
             );
 
-            // 当日に有効な出勤レコードがない場合、前日の未退勤レコードを検索（夜勤対応）
+            // 当日に有効な出勤レコードがない場合、直近の未退勤レコードを検索（夜勤・日付跨ぎ対応）
             if (!$existing || !$existing['clock_in'] || $existing['clock_out']) {
-                $yesterday = date('Y-m-d', strtotime('-1 day'));
-                $yesterdayRecord = $db->fetch(
+                $recentUnclosed = $db->fetch(
                     "SELECT id, clock_in, clock_out, work_date FROM timecards
-                     WHERE user_id = ? AND work_date = ? AND clock_in IS NOT NULL AND clock_out IS NULL",
-                    [$_SESSION['user_id'], $yesterday]
+                     WHERE user_id = ? AND work_date >= ? AND work_date < ?
+                     AND clock_in IS NOT NULL AND clock_out IS NULL
+                     ORDER BY work_date DESC LIMIT 1",
+                    [$_SESSION['user_id'],
+                     date('Y-m-d', strtotime('-2 days')),
+                     $workDate]
                 );
 
-                if ($yesterdayRecord) {
-                    // 出勤から24時間以内かチェック
-                    $clockInDateTime = strtotime($yesterday . ' ' . $yesterdayRecord['clock_in']);
+                if ($recentUnclosed) {
+                    $clockInDateTime = strtotime($recentUnclosed['work_date'] . ' ' . $recentUnclosed['clock_in']);
                     $nowDateTime = strtotime($workDate . ' ' . $clockOut);
 
                     if (($nowDateTime - $clockInDateTime) <= 36 * 3600) {
-                        $existing = $yesterdayRecord;
+                        $existing = $recentUnclosed;
                     }
                 }
             }
@@ -1820,27 +1828,38 @@ switch ($request) {
         $id = (int)($_GET['id'] ?? 0);
 
         if ($method === 'GET') {
-            // 今日のタイムカード取得
+            // 今日のタイムカード取得（クライアントの日付を優先）
             $workDate = $_GET['date'] ?? date('Y-m-d');
             $timecard = $db->fetch(
                 "SELECT * FROM timecards WHERE user_id = ? AND work_date = ?",
                 [$_SESSION['user_id'], $workDate]
             );
 
-            // 今日のレコードがない or 既に退勤済みの場合、前日の未退勤レコードを確認（夜勤対応）
+            // 今日のレコードがあり、出勤済み＆未退勤ならそのまま返す
+            if ($timecard && $timecard['clock_in'] && !$timecard['clock_out']) {
+                $timecard['is_overnight'] = false;
+                respond($timecard);
+            }
+
+            // 今日のレコードがない or 未出勤 or 既に退勤済みの場合、
+            // 前日・前々日の未退勤レコードを確認（夜勤・日付跨ぎ対応）
             if (!$timecard || !$timecard['clock_in'] || $timecard['clock_out']) {
-                $yesterday = date('Y-m-d', strtotime('-1 day', strtotime($workDate)));
-                $yesterdayRecord = $db->fetch(
+                $recentUnclosed = $db->fetch(
                     "SELECT * FROM timecards
-                     WHERE user_id = ? AND work_date = ? AND clock_in IS NOT NULL AND clock_out IS NULL",
-                    [$_SESSION['user_id'], $yesterday]
+                     WHERE user_id = ? AND work_date >= ? AND work_date < ?
+                     AND clock_in IS NOT NULL AND clock_out IS NULL
+                     ORDER BY work_date DESC LIMIT 1",
+                    [$_SESSION['user_id'],
+                     date('Y-m-d', strtotime('-2 days', strtotime($workDate))),
+                     $workDate]
                 );
 
-                if ($yesterdayRecord) {
-                    $clockInDateTime = strtotime($yesterday . ' ' . $yesterdayRecord['clock_in']);
-                    if ((time() - $clockInDateTime) <= 36 * 3600) {
-                        $yesterdayRecord['is_overnight'] = true;
-                        respond($yesterdayRecord);
+                if ($recentUnclosed) {
+                    $clockInDateTime = strtotime($recentUnclosed['work_date'] . ' ' . $recentUnclosed['clock_in']);
+                    $now = time();
+                    if (($now - $clockInDateTime) <= 36 * 3600) {
+                        $recentUnclosed['is_overnight'] = true;
+                        respond($recentUnclosed);
                     }
                 }
             }
@@ -2064,7 +2083,9 @@ switch ($request) {
         $id = $_GET['id'] ?? 0;
 
         $report = $db->fetch(
-            "SELECT dr.*, u.name as user_name,
+            "SELECT dr.id, dr.user_id, dr.report_date, dr.vehicle, dr.expenses,
+             dr.contact_notes, dr.remarks, dr.status, dr.created_at, dr.updated_at,
+             u.name as user_name,
              drh.regular_hours, drh.night_hours, drh.construction_points, drh.other_hours
              FROM daily_reports dr
              JOIN users u ON dr.user_id = u.id
@@ -2876,23 +2897,23 @@ switch ($request) {
             // 全営業所の在庫サマリー
             $summary = $db->fetchAll(
                 "SELECT p.id as product_id, c.name as category_name, p.name as product_name, p.unit,
-                        SUM(COALESCE(s.quantity, 0)) as total_quantity, p.min_stock
+                        SUM(COALESCE(s.quantity, 0)) as total_quantity, p.alert_threshold as min_stock
                  FROM inventory_products p
                  JOIN inventory_categories c ON p.category_id = c.id
                  LEFT JOIN inventory_stocks s ON s.product_id = p.id
                  WHERE p.is_active = 1
-                 GROUP BY p.id, c.name, p.name, p.unit, p.min_stock
+                 GROUP BY p.id, c.name, p.name, p.unit, p.alert_threshold
                  ORDER BY c.sort_order, p.id"
             );
 
             // 在庫不足アラート
             $lowStock = $db->fetchAll(
                 "SELECT s.branch_id, b.name as branch_name, s.product_id, p.name as product_name,
-                        s.quantity, p.min_stock, p.unit
+                        s.quantity, p.alert_threshold as min_stock, p.unit
                  FROM inventory_stocks s
                  JOIN inventory_branches b ON s.branch_id = b.id
                  JOIN inventory_products p ON s.product_id = p.id
-                 WHERE p.is_active = 1 AND b.is_active = 1 AND s.quantity <= p.min_stock AND p.min_stock > 0
+                 WHERE p.is_active = 1 AND b.is_active = 1 AND s.quantity <= p.alert_threshold AND p.alert_threshold > 0
                  ORDER BY b.id, p.id"
             );
 

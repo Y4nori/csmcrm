@@ -123,7 +123,7 @@ const api = {
 
   // タイムカードAPI
   getTimecards: (params) => api.call('timecards', 'GET', null, params),
-  getTodayTimecard: () => api.call('timecard', 'GET'),
+  getTodayTimecard: () => api.call('timecard', 'GET', null, { date: new Date().toISOString().slice(0, 10) }),
   clockIn: (data) => api.call('timecard-clock-in', 'POST', data),
   clockOut: (data) => api.call('timecard-clock-out', 'POST', data),
   updateTimecard: (id, data) => api.call('timecard', 'PUT', data, { id }),
@@ -2657,6 +2657,7 @@ function App() {
     const path = location.pathname;
     const reportId = path.split('/')[2];
     const isNew = reportId === 'new';
+    const isValidId = isNew || (reportId && !isNaN(reportId) && parseInt(reportId) > 0);
 
     const [loading, setLoading] = useState(!isNew);
     const [saving, setSaving] = useState(false);
@@ -2678,6 +2679,10 @@ function App() {
     const [activeDetailIndex, setActiveDetailIndex] = useState(null);
 
     useEffect(() => {
+      if (!isValidId) {
+        navigate('/daily-reports');
+        return;
+      }
       loadVehicles();
       if (!isNew) {
         loadReport();
@@ -3140,6 +3145,12 @@ function App() {
               <p style={{ color: '#00B894', fontWeight: 600 }}>本日の打刻完了</p>
             )}
           </div>
+
+          {todayCard?.is_overnight && (
+            <p className="text-center text-xs mb-2" style={{ color: '#E67E22' }}>
+              ※ {todayCard.work_date} の出勤分（日跨ぎ）
+            </p>
+          )}
 
           <div className="flex justify-center gap-8 text-sm">
             <div>

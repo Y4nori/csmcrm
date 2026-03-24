@@ -2657,6 +2657,7 @@ function App() {
     const path = location.pathname;
     const reportId = path.split('/')[2];
     const isNew = reportId === 'new';
+    const isValidId = isNew || (reportId && !isNaN(reportId) && parseInt(reportId) > 0);
 
     const [loading, setLoading] = useState(!isNew);
     const [saving, setSaving] = useState(false);
@@ -2678,6 +2679,10 @@ function App() {
     const [activeDetailIndex, setActiveDetailIndex] = useState(null);
 
     useEffect(() => {
+      if (!isValidId) {
+        navigate('/daily-reports');
+        return;
+      }
       loadVehicles();
       if (!isNew) {
         loadReport();

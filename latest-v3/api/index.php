@@ -132,23 +132,27 @@ $db->query("CREATE TABLE IF NOT EXISTS login_rate_limit (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
 // 倉庫支店を自動追加（存在しない場合のみ）
-$warehouseExists = $db->fetch("SELECT id FROM inventory_branches WHERE name = '倉庫' OR code = 'WAREHOUSE'");
-if (!$warehouseExists) {
-    $db->query("INSERT INTO inventory_branches (name, code, is_active) VALUES ('倉庫', 'WAREHOUSE', 1)");
-}
+try {
+    $warehouseExists = $db->fetch("SELECT id FROM inventory_branches WHERE name = '倉庫' OR code = 'WAREHOUSE'");
+    if (!$warehouseExists) {
+        $db->query("INSERT INTO inventory_branches (name, code, is_active) VALUES ('倉庫', 'WAREHOUSE', 1)");
+    }
 
-// 営業所名の更新（旧名→新名）
-$branchRenames = [
-    ['大阪営業', '大阪支店'],
-    ['阪和営業', '阪和営業所'],
-    ['京滋営業', '京滋支店'],
-    ['福知山営業', '福知山営業所'],
-    ['神戸営業所', '神戸支店'],
-];
-foreach ($branchRenames as $rename) {
-    try {
-        $db->update("UPDATE inventory_branches SET name = ? WHERE name = ?", [$rename[1], $rename[0]]);
-    } catch (Exception $e) {}
+    // 営業所名の更新（旧名→新名）
+    $branchRenames = [
+        ['大阪営業', '大阪支店'],
+        ['阪和営業', '阪和営業所'],
+        ['京滋営業', '京滋支店'],
+        ['福知山営業', '福知山営業所'],
+        ['神戸営業所', '神戸支店'],
+    ];
+    foreach ($branchRenames as $rename) {
+        try {
+            $db->update("UPDATE inventory_branches SET name = ? WHERE name = ?", [$rename[1], $rename[0]]);
+        } catch (Exception $e) {}
+    }
+} catch (Exception $e) {
+    // inventory_branchesテーブルが未作成の場合は無視
 }
 
 // レスポンス関数
@@ -1422,11 +1426,9 @@ switch ($request) {
 
             $sql = "SELECT dr.id, dr.user_id, dr.report_date, dr.vehicle, dr.expenses,
                     dr.contact_notes, dr.remarks, dr.status, dr.created_at, dr.updated_at,
-                    u.name as user_name,
-                    drh.regular_hours, drh.night_hours, drh.construction_points, drh.other_hours
+                    u.name as user_name
                     FROM daily_reports dr
                     JOIN users u ON dr.user_id = u.id
-                    LEFT JOIN daily_report_hours drh ON dr.id = drh.report_id
                     WHERE DATE_FORMAT(dr.report_date, '%Y-%m') = ?";
             $params = [$yearMonth];
 
@@ -1442,12 +1444,20 @@ switch ($request) {
             $sql .= " ORDER BY dr.report_date DESC";
             $reports = $db->fetchAll($sql, $params);
 
-            // 各日報の作業明細を取得
+            // 各日報の作業明細と時間集計を別クエリで取得
             foreach ($reports as &$report) {
                 $report['details'] = $db->fetchAll(
                     "SELECT * FROM daily_report_details WHERE report_id = ? ORDER BY sort_order, start_time",
                     [$report['id']]
                 );
+                $hours = $db->fetch(
+                    "SELECT regular_hours, night_hours, construction_points, other_hours FROM daily_report_hours WHERE report_id = ?",
+                    [$report['id']]
+                );
+                $report['regular_hours'] = $hours['regular_hours'] ?? null;
+                $report['night_hours'] = $hours['night_hours'] ?? null;
+                $report['construction_points'] = $hours['construction_points'] ?? null;
+                $report['other_hours'] = $hours['other_hours'] ?? null;
             }
 
             respond($reports);
@@ -1519,11 +1529,9 @@ switch ($request) {
             $report = $db->fetch(
                 "SELECT dr.id, dr.user_id, dr.report_date, dr.vehicle, dr.expenses,
                  dr.contact_notes, dr.remarks, dr.status, dr.created_at, dr.updated_at,
-                 u.name as user_name,
-                 drh.regular_hours, drh.night_hours, drh.construction_points, drh.other_hours
+                 u.name as user_name
                  FROM daily_reports dr
                  JOIN users u ON dr.user_id = u.id
-                 LEFT JOIN daily_report_hours drh ON dr.id = drh.report_id
                  WHERE dr.id = ?",
                 [$id]
             );
@@ -1541,6 +1549,16 @@ switch ($request) {
                 "SELECT * FROM daily_report_details WHERE report_id = ? ORDER BY sort_order, start_time",
                 [$id]
             );
+
+            // 時間集計を別クエリで取得
+            $hours = $db->fetch(
+                "SELECT regular_hours, night_hours, construction_points, other_hours FROM daily_report_hours WHERE report_id = ?",
+                [$id]
+            );
+            $report['regular_hours'] = $hours['regular_hours'] ?? null;
+            $report['night_hours'] = $hours['night_hours'] ?? null;
+            $report['construction_points'] = $hours['construction_points'] ?? null;
+            $report['other_hours'] = $hours['other_hours'] ?? null;
 
             respond($report);
         } elseif ($method === 'PUT') {
@@ -1653,11 +1671,9 @@ switch ($request) {
 
         $sql = "SELECT dr.id, dr.user_id, dr.report_date, dr.vehicle, dr.expenses,
                 dr.contact_notes, dr.remarks, dr.status, dr.created_at, dr.updated_at,
-                u.name as user_name,
-                drh.regular_hours, drh.night_hours, drh.construction_points, drh.other_hours
+                u.name as user_name
                 FROM daily_reports dr
                 JOIN users u ON dr.user_id = u.id
-                LEFT JOIN daily_report_hours drh ON dr.id = drh.report_id
                 WHERE DATE_FORMAT(dr.report_date, '%Y-%m') = ?";
         $params = [$yearMonth];
         if ($userId) {
@@ -1669,6 +1685,15 @@ switch ($request) {
         $reports = $db->fetchAll($sql, $params);
 
         foreach ($reports as $report) {
+            $hours = $db->fetch(
+                "SELECT regular_hours, night_hours, construction_points, other_hours FROM daily_report_hours WHERE report_id = ?",
+                [$report['id']]
+            );
+            $report['regular_hours'] = $hours['regular_hours'] ?? null;
+            $report['night_hours'] = $hours['night_hours'] ?? null;
+            $report['construction_points'] = $hours['construction_points'] ?? null;
+            $report['other_hours'] = $hours['other_hours'] ?? null;
+
             $details = $db->fetchAll(
                 "SELECT * FROM daily_report_details WHERE report_id = ? ORDER BY sort_order",
                 [$report['id']]
@@ -2085,11 +2110,9 @@ switch ($request) {
         $report = $db->fetch(
             "SELECT dr.id, dr.user_id, dr.report_date, dr.vehicle, dr.expenses,
              dr.contact_notes, dr.remarks, dr.status, dr.created_at, dr.updated_at,
-             u.name as user_name,
-             drh.regular_hours, drh.night_hours, drh.construction_points, drh.other_hours
+             u.name as user_name
              FROM daily_reports dr
              JOIN users u ON dr.user_id = u.id
-             LEFT JOIN daily_report_hours drh ON dr.id = drh.report_id
              WHERE dr.id = ?",
             [$id]
         );
@@ -2097,6 +2120,15 @@ switch ($request) {
         if (!$report) {
             error('日報が見つかりません', 404);
         }
+
+        $hours = $db->fetch(
+            "SELECT regular_hours, night_hours, construction_points, other_hours FROM daily_report_hours WHERE report_id = ?",
+            [$id]
+        );
+        $report['regular_hours'] = $hours['regular_hours'] ?? null;
+        $report['night_hours'] = $hours['night_hours'] ?? null;
+        $report['construction_points'] = $hours['construction_points'] ?? null;
+        $report['other_hours'] = $hours['other_hours'] ?? null;
 
         $details = $db->fetchAll(
             "SELECT * FROM daily_report_details WHERE report_id = ? ORDER BY sort_order, start_time",

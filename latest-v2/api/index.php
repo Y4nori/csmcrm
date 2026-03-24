@@ -3135,6 +3135,7 @@ switch ($request) {
             $nightHours = floatval($input['nightHours'] ?? 0);
             $constructionPoints = floatval($input['constructionPoints'] ?? 0);
             $salesData = json_encode($input['salesData'] ?? [], JSON_UNESCAPED_UNICODE);
+            $status = $input['status'] ?? 'submitted'; // draft or submitted
 
             // 既存チェック
             $existing = $db->fetch(
@@ -3142,23 +3143,25 @@ switch ($request) {
                 [$userId, $year, $month]
             );
 
+            $statusLabel = $status === 'draft' ? '下書き保存' : '提出';
+
             if ($existing) {
                 // 更新
                 $db->query(
                     "UPDATE monthly_closing_submissions SET period_start = ?, period_end = ?, attendance_days = ?,
                      overtime_hours = ?, night_hours = ?, construction_points = ?, sales_data = ?,
-                     status = 'submitted', submitted_at = NOW() WHERE id = ?",
-                    [$periodStart, $periodEnd, $attendanceDays, $overtimeHours, $nightHours, $constructionPoints, $salesData, $existing['id']]
+                     status = ?, submitted_at = NOW() WHERE id = ?",
+                    [$periodStart, $periodEnd, $attendanceDays, $overtimeHours, $nightHours, $constructionPoints, $salesData, $status, $existing['id']]
                 );
-                respond(['success' => true, 'id' => $existing['id'], 'message' => '月締め日報を更新しました']);
+                respond(['success' => true, 'id' => $existing['id'], 'message' => "月締め日報を{$statusLabel}しました"]);
             } else {
                 // 新規
                 $id = $db->insert(
-                    "INSERT INTO monthly_closing_submissions (user_id, year, month, period_start, period_end, attendance_days, overtime_hours, night_hours, construction_points, sales_data)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    [$userId, $year, $month, $periodStart, $periodEnd, $attendanceDays, $overtimeHours, $nightHours, $constructionPoints, $salesData]
+                    "INSERT INTO monthly_closing_submissions (user_id, year, month, period_start, period_end, attendance_days, overtime_hours, night_hours, construction_points, sales_data, status)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    [$userId, $year, $month, $periodStart, $periodEnd, $attendanceDays, $overtimeHours, $nightHours, $constructionPoints, $salesData, $status]
                 );
-                respond(['success' => true, 'id' => $id, 'message' => '月締め日報を提出しました']);
+                respond(['success' => true, 'id' => $id, 'message' => "月締め日報を{$statusLabel}しました"]);
             }
         }
         break;

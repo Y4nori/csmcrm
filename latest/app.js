@@ -3000,15 +3000,30 @@ function App() {
       let cancelled = false;
 
       const load = async () => {
+        // 今日のタイムカードを取得
         try {
           const todayData = await api.getTodayTimecard();
           if (!cancelled) setTodayCard(todayData);
-        } catch (e) { console.error(e); }
+        } catch (e) {
+          console.error('Today timecard error:', e);
+        }
 
+        // 月次データを取得
         setLoading(true);
         try {
           const monthData = await api.getTimecards({ year_month: selectedMonth });
-          if (!cancelled) setMonthCards(monthData);
+          if (!cancelled) {
+            setMonthCards(monthData);
+            // todayCardがnullの場合、月次データから今日の記録を探してフォールバック
+            const todayStr = new Date().toISOString().slice(0, 10);
+            if (!cancelled) {
+              setTodayCard(prev => {
+                if (prev && prev.clock_in) return prev;
+                const todayFromMonth = (monthData || []).find(c => c.work_date === todayStr);
+                return todayFromMonth || prev;
+              });
+            }
+          }
         } catch (e) { console.error(e); }
         if (!cancelled) setLoading(false);
       };
@@ -3020,8 +3035,21 @@ function App() {
     const loadTodayCard = async () => {
       try {
         const data = await api.getTodayTimecard();
-        setTodayCard(data);
-      } catch (e) { console.error(e); }
+        if (data && (data.clock_in || data.id)) {
+          setTodayCard(data);
+        } else {
+          // APIが空データを返した場合、月次データから今日の記録を探す
+          const todayStr = new Date().toISOString().slice(0, 10);
+          const fallback = monthCards.find(c => c.work_date === todayStr);
+          setTodayCard(fallback || data);
+        }
+      } catch (e) {
+        console.error('loadTodayCard error:', e);
+        // エラー時も月次データからフォールバック
+        const todayStr = new Date().toISOString().slice(0, 10);
+        const fallback = monthCards.find(c => c.work_date === todayStr);
+        if (fallback) setTodayCard(fallback);
+      }
     };
 
     const loadMonthCards = async () => {
@@ -3063,21 +3091,23 @@ function App() {
 
     const handleClockIn = async () => {
       try {
-        await api.clockIn({ type: 'auto' });
+        const result = await api.clockIn({ type: 'auto' });
+        alert('出勤を記録しました: ' + (result.time ? result.time.slice(0, 5) : ''));
         await loadTodayCard();
         await loadMonthCards();
       } catch (e) {
-        alert(e.message);
+        alert('出勤エラー: ' + e.message);
       }
     };
 
     const handleClockOut = async () => {
       try {
-        await api.clockOut({ type: 'auto' });
+        const result = await api.clockOut({ type: 'auto' });
+        alert('退勤を記録しました: ' + (result.time ? result.time.slice(0, 5) : ''));
         await loadTodayCard();
         await loadMonthCards();
       } catch (e) {
-        alert(e.message);
+        alert('退勤エラー: ' + e.message);
       }
     };
 
@@ -4108,13 +4138,14 @@ function App() {
       setSalesEntries(salesEntries.filter((_, i) => i !== index));
     };
 
-    // 月締め日報を提出
-    const handleSubmit = async () => {
+    // 月締め日報を保存（下書き or 提出）
+    const handleSave = async (status = 'submitted') => {
       if (!reportData) return;
-      if (!confirm(existingSubmission ? '月締め日報を再提出しますか？' : '月締め日報を提出しますか？')) return;
+      const isDraft = status === 'draft';
+      if (!isDraft && !confirm(existingSubmission && existingSubmission.status !== 'draft' ? '月締め日報を再提出しますか？' : '月締め日報を提出しますか？')) return;
       setSubmitting(true);
       try {
-        await api.submitMonthlyClosing({
+        const result = await api.submitMonthlyClosing({
           year: selectedYear,
           month: selectedMonth,
           periodStart: reportData.periodStart,
@@ -4123,12 +4154,13 @@ function App() {
           overtimeHours: reportData.overtimeHours,
           nightHours: reportData.nightHours,
           constructionPoints: reportData.constructionPoints,
-          salesData: salesEntries
+          salesData: salesEntries,
+          status: status
         });
-        alert('月締め日報を提出しました');
+        alert(result.message || (isDraft ? '下書き保存しました' : '月締め日報を提出しました'));
         fetchReport(selectedYear, selectedMonth, selectedUserId);
       } catch (e) {
-        alert('提出に失敗しました: ' + e.message);
+        alert((isDraft ? '保存' : '提出') + 'に失敗しました: ' + e.message);
       }
       setSubmitting(false);
     };
@@ -4365,8 +4397,8 @@ function App() {
                         <p className="text-xs text-gray-400">提出: {new Date(sub.submitted_at).toLocaleDateString('ja-JP')}</p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span style={{ fontSize: '11px', fontWeight: 700, padding: '3px 10px', borderRadius: '20px', background: sub.status === 'reviewed' ? '#E8F8F5' : '#FFF3E0', color: sub.status === 'reviewed' ? '#00B894' : '#E67E22' }}>
-                          {sub.status === 'reviewed' ? '確認済み' : '未確認'}
+                        <span style={{ fontSize: '11px', fontWeight: 700, padding: '3px 10px', borderRadius: '20px', background: sub.status === 'reviewed' ? '#E8F8F5' : sub.status === 'draft' ? '#F8F9FA' : '#FFF3E0', color: sub.status === 'reviewed' ? '#00B894' : sub.status === 'draft' ? '#636E72' : '#E67E22' }}>
+                          {sub.status === 'reviewed' ? '確認済み' : sub.status === 'draft' ? '下書き' : '未確認'}
                         </span>
                         <Icons.ChevronRight />
                       </div>
@@ -4378,10 +4410,10 @@ function App() {
 
             {/* 提出状態 */}
             {existingSubmission && (
-              <div style={{ padding: '12px 16px', borderRadius: '12px', background: existingSubmission.status === 'reviewed' ? '#E8F8F5' : '#FFF3E0', border: `1px solid ${existingSubmission.status === 'reviewed' ? '#00B894' : '#E67E22'}` }}>
-                <p style={{ fontSize: '13px', fontWeight: 600, color: existingSubmission.status === 'reviewed' ? '#00B894' : '#E67E22' }}>
-                  {existingSubmission.status === 'reviewed' ? '✓ 管理者確認済み' : '提出済み（管理者確認待ち）'}
-                  <span className="text-xs font-normal ml-2">提出日: {new Date(existingSubmission.submitted_at).toLocaleDateString('ja-JP')}</span>
+              <div style={{ padding: '12px 16px', borderRadius: '12px', background: existingSubmission.status === 'reviewed' ? '#E8F8F5' : existingSubmission.status === 'draft' ? '#F8F9FA' : '#FFF3E0', border: `1px solid ${existingSubmission.status === 'reviewed' ? '#00B894' : existingSubmission.status === 'draft' ? '#B2BEC3' : '#E67E22'}` }}>
+                <p style={{ fontSize: '13px', fontWeight: 600, color: existingSubmission.status === 'reviewed' ? '#00B894' : existingSubmission.status === 'draft' ? '#636E72' : '#E67E22' }}>
+                  {existingSubmission.status === 'reviewed' ? '✓ 管理者確認済み' : existingSubmission.status === 'draft' ? '下書き保存中' : '提出済み（管理者確認待ち）'}
+                  <span className="text-xs font-normal ml-2">保存日: {new Date(existingSubmission.submitted_at).toLocaleDateString('ja-JP')}</span>
                 </p>
               </div>
             )}
@@ -4458,13 +4490,19 @@ function App() {
               </button>
             </div>
 
-            {/* 提出・印刷ボタン */}
+            {/* 下書き保存・提出・印刷ボタン */}
             <div className="space-y-3">
               {!isAdmin && (
-                <button onClick={handleSubmit} disabled={submitting}
-                  className="w-full" style={{ padding: '16px', background: submitting ? '#B2BEC3' : 'linear-gradient(135deg, #6C5CE7, #A29BFE)', color: 'white', border: 'none', borderRadius: '12px', fontSize: '15px', fontWeight: 700, cursor: submitting ? 'not-allowed' : 'pointer', boxShadow: '0 4px 16px rgba(108,92,231,0.3)' }}>
-                  {submitting ? '提出中...' : existingSubmission ? '月締め日報を再提出' : '月締め日報を提出'}
-                </button>
+                <>
+                  <button onClick={() => handleSave('draft')} disabled={submitting}
+                    className="w-full" style={{ padding: '14px', background: submitting ? '#B2BEC3' : 'white', color: '#636E72', border: '2px solid #B2BEC3', borderRadius: '12px', fontSize: '15px', fontWeight: 700, cursor: submitting ? 'not-allowed' : 'pointer' }}>
+                    {submitting ? '保存中...' : '下書き保存'}
+                  </button>
+                  <button onClick={() => handleSave('submitted')} disabled={submitting}
+                    className="w-full" style={{ padding: '16px', background: submitting ? '#B2BEC3' : 'linear-gradient(135deg, #6C5CE7, #A29BFE)', color: 'white', border: 'none', borderRadius: '12px', fontSize: '15px', fontWeight: 700, cursor: submitting ? 'not-allowed' : 'pointer', boxShadow: '0 4px 16px rgba(108,92,231,0.3)' }}>
+                    {submitting ? '提出中...' : existingSubmission && existingSubmission.status !== 'draft' ? '月締め日報を再提出' : '月締め日報を提出'}
+                  </button>
+                </>
               )}
               <button onClick={() => handlePrint()} className="w-full flex items-center justify-center gap-2" style={{ padding: '14px', background: 'white', border: '2px solid #00B894', color: '#00B894', borderRadius: '12px', fontWeight: 700, cursor: 'pointer' }}>
                 <Icons.Download /> 印刷・PDF出力

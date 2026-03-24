@@ -57,98 +57,100 @@ set_exception_handler(function($e) {
 // データベース接続
 $db = Database::getInstance();
 
-// 修正申請テーブル自動作成
-$db->query("CREATE TABLE IF NOT EXISTS timecard_requests (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    work_date DATE NOT NULL,
-    clock_in TIME NULL,
-    clock_out TIME NULL,
-    reason TEXT,
-    status VARCHAR(20) DEFAULT 'pending',
-    reject_comment TEXT NULL,
-    processed_by INT NULL,
-    processed_at DATETIME NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-)");
+// マイグレーション（全てtry-catchで囲み、失敗してもAPIは動作させる）
+try {
+    // 修正申請テーブル自動作成
+    $db->query("CREATE TABLE IF NOT EXISTS timecard_requests (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        work_date DATE NOT NULL,
+        clock_in TIME NULL,
+        clock_out TIME NULL,
+        reason TEXT,
+        status VARCHAR(20) DEFAULT 'pending',
+        reject_comment TEXT NULL,
+        processed_by INT NULL,
+        processed_at DATETIME NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )");
 
-// timecard_requestsテーブルに不足カラムがあれば追加
-$trMigrations = [
-    "ALTER TABLE timecard_requests ADD COLUMN reject_comment TEXT NULL",
-    "ALTER TABLE timecard_requests ADD COLUMN processed_by INT NULL",
-    "ALTER TABLE timecard_requests ADD COLUMN processed_at DATETIME NULL",
-];
-foreach ($trMigrations as $sql) {
-    try { $db->query($sql); } catch (Exception $e) {}
-}
+    // timecard_requestsテーブルに不足カラムがあれば追加
+    $trMigrations = [
+        "ALTER TABLE timecard_requests ADD COLUMN reject_comment TEXT NULL",
+        "ALTER TABLE timecard_requests ADD COLUMN processed_by INT NULL",
+        "ALTER TABLE timecard_requests ADD COLUMN processed_at DATETIME NULL",
+    ];
+    foreach ($trMigrations as $sql) {
+        try { $db->query($sql); } catch (Exception $e) {}
+    }
 
-// timecardsテーブルに不足カラムがあれば追加
-$tcMigrations = [
-    "ALTER TABLE timecards ADD COLUMN clock_in_type VARCHAR(20) DEFAULT 'auto'",
-    "ALTER TABLE timecards ADD COLUMN clock_out_type VARCHAR(20) DEFAULT 'auto'",
-];
-foreach ($tcMigrations as $sql) {
-    try { $db->query($sql); } catch (Exception $e) {}
-}
+    // timecardsテーブルに不足カラムがあれば追加
+    $tcMigrations = [
+        "ALTER TABLE timecards ADD COLUMN clock_in_type VARCHAR(20) DEFAULT 'auto'",
+        "ALTER TABLE timecards ADD COLUMN clock_out_type VARCHAR(20) DEFAULT 'auto'",
+    ];
+    foreach ($tcMigrations as $sql) {
+        try { $db->query($sql); } catch (Exception $e) {}
+    }
 
-// ログインログテーブル拡張（IP・成功/失敗・ユーザーエージェント）
-$db->query("CREATE TABLE IF NOT EXISTS login_logs (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NULL,
-    user_name VARCHAR(100),
-    username_attempted VARCHAR(100),
-    ip_address VARCHAR(45),
-    user_agent VARCHAR(500),
-    status ENUM('success', 'failed') DEFAULT 'success',
-    fail_reason VARCHAR(100) NULL,
-    login_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_ip (ip_address),
-    INDEX idx_login_at (login_at),
-    INDEX idx_status (status)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    // ログインログテーブル
+    $db->query("CREATE TABLE IF NOT EXISTS login_logs (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NULL,
+        user_name VARCHAR(100),
+        username_attempted VARCHAR(100),
+        ip_address VARCHAR(45),
+        user_agent VARCHAR(500),
+        status ENUM('success', 'failed') DEFAULT 'success',
+        fail_reason VARCHAR(100) NULL,
+        login_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_ip (ip_address),
+        INDEX idx_login_at (login_at),
+        INDEX idx_status (status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
-// login_logsに不足カラムがあれば追加
-$loginLogMigrations = [
-    "ALTER TABLE login_logs ADD COLUMN ip_address VARCHAR(45) NULL",
-    "ALTER TABLE login_logs ADD COLUMN user_agent VARCHAR(500) NULL",
-    "ALTER TABLE login_logs ADD COLUMN status ENUM('success', 'failed') DEFAULT 'success'",
-    "ALTER TABLE login_logs ADD COLUMN fail_reason VARCHAR(100) NULL",
-    "ALTER TABLE login_logs ADD COLUMN username_attempted VARCHAR(100) NULL",
-    "ALTER TABLE login_logs ADD INDEX idx_ip (ip_address)",
-    "ALTER TABLE login_logs ADD INDEX idx_status (status)",
-];
-foreach ($loginLogMigrations as $sql) {
-    try { $db->query($sql); } catch (Exception $e) {}
-}
+    // login_logsに不足カラムがあれば追加
+    $loginLogMigrations = [
+        "ALTER TABLE login_logs ADD COLUMN ip_address VARCHAR(45) NULL",
+        "ALTER TABLE login_logs ADD COLUMN user_agent VARCHAR(500) NULL",
+        "ALTER TABLE login_logs ADD COLUMN status ENUM('success', 'failed') DEFAULT 'success'",
+        "ALTER TABLE login_logs ADD COLUMN fail_reason VARCHAR(100) NULL",
+        "ALTER TABLE login_logs ADD COLUMN username_attempted VARCHAR(100) NULL",
+    ];
+    foreach ($loginLogMigrations as $sql) {
+        try { $db->query($sql); } catch (Exception $e) {}
+    }
 
-// レートリミットテーブル（ブルートフォース対策）
-$db->query("CREATE TABLE IF NOT EXISTS login_rate_limit (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    ip_address VARCHAR(45) NOT NULL,
-    attempt_count INT DEFAULT 0,
-    first_attempt_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    blocked_until TIMESTAMP NULL,
-    INDEX idx_ip (ip_address)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    // レートリミットテーブル（ブルートフォース対策）
+    $db->query("CREATE TABLE IF NOT EXISTS login_rate_limit (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        ip_address VARCHAR(45) NOT NULL,
+        attempt_count INT DEFAULT 0,
+        first_attempt_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        blocked_until DATETIME NULL,
+        INDEX idx_ip (ip_address)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
-// 倉庫支店を自動追加（存在しない場合のみ）
-$warehouseExists = $db->fetch("SELECT id FROM inventory_branches WHERE name = '倉庫' OR code = 'WAREHOUSE'");
-if (!$warehouseExists) {
-    $db->query("INSERT INTO inventory_branches (name, code, is_active) VALUES ('倉庫', 'WAREHOUSE', 1)");
-}
-
-// 営業所名の更新（旧名→新名）
-$branchRenames = [
-    ['大阪営業', '大阪支店'],
-    ['阪和営業', '阪和営業所'],
-    ['京滋営業', '京滋支店'],
-    ['福知山営業', '福知山営業所'],
-    ['神戸営業所', '神戸支店'],
-];
-foreach ($branchRenames as $rename) {
+    // 倉庫支店を自動追加
     try {
-        $db->update("UPDATE inventory_branches SET name = ? WHERE name = ?", [$rename[1], $rename[0]]);
+        $warehouseExists = $db->fetch("SELECT id FROM inventory_branches WHERE name = '倉庫' OR code = 'WAREHOUSE'");
+        if (!$warehouseExists) {
+            $db->query("INSERT INTO inventory_branches (name, code, is_active) VALUES ('倉庫', 'WAREHOUSE', 1)");
+        }
+        $branchRenames = [
+            ['大阪営業', '大阪支店'],
+            ['阪和営業', '阪和営業所'],
+            ['京滋営業', '京滋支店'],
+            ['福知山営業', '福知山営業所'],
+            ['神戸営業所', '神戸支店'],
+        ];
+        foreach ($branchRenames as $rename) {
+            try { $db->update("UPDATE inventory_branches SET name = ? WHERE name = ?", [$rename[1], $rename[0]]); } catch (Exception $e) {}
+        }
     } catch (Exception $e) {}
+} catch (Exception $e) {
+    // マイグレーション失敗してもAPI自体は動作させる
+    error_log("Migration error: " . $e->getMessage());
 }
 
 // レスポンス関数
@@ -278,71 +280,80 @@ switch ($request) {
 
         $username = $input['username'] ?? '';
         $password = $input['password'] ?? '';
-        $clientIp = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? 'unknown';
-        // X-Forwarded-For の場合、最初のIPを取得
+        $clientIp = isset($_SERVER['HTTP_X_FORWARDED_FOR']) ? $_SERVER['HTTP_X_FORWARDED_FOR'] : (isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown');
         if (strpos($clientIp, ',') !== false) {
             $clientIp = trim(explode(',', $clientIp)[0]);
         }
-        $userAgent = substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 500);
+        $userAgent = isset($_SERVER['HTTP_USER_AGENT']) ? substr($_SERVER['HTTP_USER_AGENT'], 0, 500) : '';
 
-        // レートリミットチェック（同一IPから5回失敗で15分ブロック）
-        $rateLimit = $db->fetch(
-            "SELECT * FROM login_rate_limit WHERE ip_address = ?",
-            [$clientIp]
-        );
-        if ($rateLimit && $rateLimit['blocked_until'] && strtotime($rateLimit['blocked_until']) > time()) {
-            $remainMin = ceil((strtotime($rateLimit['blocked_until']) - time()) / 60);
-            // ブロック中のアクセスもログに記録
-            $db->insert(
-                "INSERT INTO login_logs (user_id, user_name, username_attempted, ip_address, user_agent, status, fail_reason) VALUES (?, ?, ?, ?, ?, 'failed', ?)",
-                [null, null, $username, $clientIp, $userAgent, 'rate_limited']
+        // レートリミットチェック（失敗してもログイン処理は継続）
+        $rateLimit = null;
+        try {
+            $rateLimit = $db->fetch(
+                "SELECT * FROM login_rate_limit WHERE ip_address = ?",
+                [$clientIp]
             );
-            error("ログイン試行回数が上限を超えました。{$remainMin}分後に再試行してください。", 429);
+            if ($rateLimit && !empty($rateLimit['blocked_until']) && strtotime($rateLimit['blocked_until']) > time()) {
+                $remainMin = ceil((strtotime($rateLimit['blocked_until']) - time()) / 60);
+                try {
+                    $db->insert(
+                        "INSERT INTO login_logs (user_id, user_name, username_attempted, ip_address, user_agent, status, fail_reason) VALUES (?, ?, ?, ?, ?, 'failed', ?)",
+                        [null, null, $username, $clientIp, $userAgent, 'rate_limited']
+                    );
+                } catch (Exception $e) {}
+                error("ログイン試行回数が上限を超えました。{$remainMin}分後に再試行してください。", 429);
+            }
+        } catch (Exception $e) {
+            // レートリミットテーブルがない場合は無視して続行
         }
 
         if (empty($username) || empty($password)) {
-            error('Username and password required');
+            error('ユーザー名とパスワードを入力してください');
         }
 
         $user = $db->fetch("SELECT * FROM users WHERE username = ?", [$username]);
 
         if (!$user || !password_verify($password, $user['password'])) {
-            // 失敗をログに記録
+            // 失敗をログに記録（エラーが出ても無視）
             $failReason = !$user ? 'user_not_found' : 'wrong_password';
-            $db->insert(
-                "INSERT INTO login_logs (user_id, user_name, username_attempted, ip_address, user_agent, status, fail_reason) VALUES (?, ?, ?, ?, ?, 'failed', ?)",
-                [$user['id'] ?? null, $user['name'] ?? null, $username, $clientIp, $userAgent, $failReason]
-            );
-
-            // レートリミットカウント更新
-            if ($rateLimit) {
-                $newCount = $rateLimit['attempt_count'] + 1;
-                $blockedUntil = null;
-                // 5回失敗で15分ブロック
-                if ($newCount >= 5) {
-                    $blockedUntil = date('Y-m-d H:i:s', time() + 900);
-                }
-                $db->query(
-                    "UPDATE login_rate_limit SET attempt_count = ?, blocked_until = ? WHERE id = ?",
-                    [$newCount, $blockedUntil, $rateLimit['id']]
-                );
-            } else {
+            $userId = $user ? $user['id'] : null;
+            $userName = $user ? $user['name'] : null;
+            try {
                 $db->insert(
-                    "INSERT INTO login_rate_limit (ip_address, attempt_count) VALUES (?, 1)",
-                    [$clientIp]
+                    "INSERT INTO login_logs (user_id, user_name, username_attempted, ip_address, user_agent, status, fail_reason) VALUES (?, ?, ?, ?, ?, 'failed', ?)",
+                    [$userId, $userName, $username, $clientIp, $userAgent, $failReason]
                 );
-            }
+            } catch (Exception $e) {}
+
+            // レートリミットカウント更新（エラーが出ても無視）
+            try {
+                if ($rateLimit) {
+                    $newCount = $rateLimit['attempt_count'] + 1;
+                    $blockedUntil = null;
+                    if ($newCount >= 5) {
+                        $blockedUntil = date('Y-m-d H:i:s', time() + 900);
+                    }
+                    $db->query(
+                        "UPDATE login_rate_limit SET attempt_count = ?, blocked_until = ? WHERE id = ?",
+                        [$newCount, $blockedUntil, $rateLimit['id']]
+                    );
+                } else {
+                    $db->insert(
+                        "INSERT INTO login_rate_limit (ip_address, attempt_count) VALUES (?, 1)",
+                        [$clientIp]
+                    );
+                }
+            } catch (Exception $e) {}
 
             error('Invalid credentials', 401);
         }
 
         // ログイン成功 → レートリミットリセット
-        if ($rateLimit) {
-            $db->query(
-                "DELETE FROM login_rate_limit WHERE ip_address = ?",
-                [$clientIp]
-            );
-        }
+        try {
+            if ($rateLimit) {
+                $db->query("DELETE FROM login_rate_limit WHERE ip_address = ?", [$clientIp]);
+            }
+        } catch (Exception $e) {}
 
         // セッション固定化対策
         session_regenerate_id(true);
@@ -352,11 +363,13 @@ switch ($request) {
         $_SESSION['name'] = $user['name'];
         $_SESSION['role'] = $user['role'];
 
-        // ログイン成功履歴を記録（IP含む）
-        $db->insert(
-            "INSERT INTO login_logs (user_id, user_name, username_attempted, ip_address, user_agent, status) VALUES (?, ?, ?, ?, ?, 'success')",
-            [$user['id'], $user['name'], $username, $clientIp, $userAgent]
-        );
+        // ログイン成功履歴を記録（エラーが出ても無視）
+        try {
+            $db->insert(
+                "INSERT INTO login_logs (user_id, user_name, username_attempted, ip_address, user_agent, status) VALUES (?, ?, ?, ?, ?, 'success')",
+                [$user['id'], $user['name'], $username, $clientIp, $userAgent]
+            );
+        } catch (Exception $e) {}
 
         respond([
             'id' => $user['id'],
@@ -1420,11 +1433,11 @@ switch ($request) {
             $yearMonth = $_GET['year_month'] ?? date('Y-m');
             $userId = $_GET['user_id'] ?? null;
 
-            $sql = "SELECT dr.*, u.name as user_name,
-                    drh.regular_hours, drh.night_hours, drh.construction_points, drh.other_hours
+            $sql = "SELECT dr.id, dr.user_id, dr.report_date, dr.vehicle, dr.expenses,
+                    dr.contact_notes, dr.remarks, dr.status, dr.created_at, dr.updated_at,
+                    u.name as user_name
                     FROM daily_reports dr
                     JOIN users u ON dr.user_id = u.id
-                    LEFT JOIN daily_report_hours drh ON dr.id = drh.report_id
                     WHERE DATE_FORMAT(dr.report_date, '%Y-%m') = ?";
             $params = [$yearMonth];
 
@@ -1440,12 +1453,20 @@ switch ($request) {
             $sql .= " ORDER BY dr.report_date DESC";
             $reports = $db->fetchAll($sql, $params);
 
-            // 各日報の作業明細を取得
+            // 各日報の作業明細と時間集計を別クエリで取得
             foreach ($reports as &$report) {
                 $report['details'] = $db->fetchAll(
                     "SELECT * FROM daily_report_details WHERE report_id = ? ORDER BY sort_order, start_time",
                     [$report['id']]
                 );
+                $hours = $db->fetch(
+                    "SELECT regular_hours, night_hours, construction_points, other_hours FROM daily_report_hours WHERE report_id = ?",
+                    [$report['id']]
+                );
+                $report['regular_hours'] = $hours['regular_hours'] ?? null;
+                $report['night_hours'] = $hours['night_hours'] ?? null;
+                $report['construction_points'] = $hours['construction_points'] ?? null;
+                $report['other_hours'] = $hours['other_hours'] ?? null;
             }
 
             respond($reports);
@@ -1515,11 +1536,11 @@ switch ($request) {
 
         if ($method === 'GET') {
             $report = $db->fetch(
-                "SELECT dr.*, u.name as user_name,
-                 drh.regular_hours, drh.night_hours, drh.construction_points, drh.other_hours
+                "SELECT dr.id, dr.user_id, dr.report_date, dr.vehicle, dr.expenses,
+                 dr.contact_notes, dr.remarks, dr.status, dr.created_at, dr.updated_at,
+                 u.name as user_name
                  FROM daily_reports dr
                  JOIN users u ON dr.user_id = u.id
-                 LEFT JOIN daily_report_hours drh ON dr.id = drh.report_id
                  WHERE dr.id = ?",
                 [$id]
             );
@@ -1537,6 +1558,16 @@ switch ($request) {
                 "SELECT * FROM daily_report_details WHERE report_id = ? ORDER BY sort_order, start_time",
                 [$id]
             );
+
+            // 時間集計を別クエリで取得
+            $hours = $db->fetch(
+                "SELECT regular_hours, night_hours, construction_points, other_hours FROM daily_report_hours WHERE report_id = ?",
+                [$id]
+            );
+            $report['regular_hours'] = $hours['regular_hours'] ?? null;
+            $report['night_hours'] = $hours['night_hours'] ?? null;
+            $report['construction_points'] = $hours['construction_points'] ?? null;
+            $report['other_hours'] = $hours['other_hours'] ?? null;
 
             respond($report);
         } elseif ($method === 'PUT') {
@@ -1647,11 +1678,11 @@ switch ($request) {
         $output = fopen('php://output', 'w');
         fputcsv($output, ['日付', '氏名', '開始時刻', '終了時刻', '現場名', '人数', '同行者', '車両', '経費', '連絡事項', '備考', '時間', '夜勤時間', '工事P', 'その他']);
 
-        $sql = "SELECT dr.*, u.name as user_name,
-                drh.regular_hours, drh.night_hours, drh.construction_points, drh.other_hours
+        $sql = "SELECT dr.id, dr.user_id, dr.report_date, dr.vehicle, dr.expenses,
+                dr.contact_notes, dr.remarks, dr.status, dr.created_at, dr.updated_at,
+                u.name as user_name
                 FROM daily_reports dr
                 JOIN users u ON dr.user_id = u.id
-                LEFT JOIN daily_report_hours drh ON dr.id = drh.report_id
                 WHERE DATE_FORMAT(dr.report_date, '%Y-%m') = ?";
         $params = [$yearMonth];
         if ($userId) {
@@ -1663,6 +1694,15 @@ switch ($request) {
         $reports = $db->fetchAll($sql, $params);
 
         foreach ($reports as $report) {
+            $hours = $db->fetch(
+                "SELECT regular_hours, night_hours, construction_points, other_hours FROM daily_report_hours WHERE report_id = ?",
+                [$report['id']]
+            );
+            $report['regular_hours'] = $hours['regular_hours'] ?? null;
+            $report['night_hours'] = $hours['night_hours'] ?? null;
+            $report['construction_points'] = $hours['construction_points'] ?? null;
+            $report['other_hours'] = $hours['other_hours'] ?? null;
+
             $details = $db->fetchAll(
                 "SELECT * FROM daily_report_details WHERE report_id = ? ORDER BY sort_order",
                 [$report['id']]
@@ -1773,22 +1813,24 @@ switch ($request) {
                 [$_SESSION['user_id'], $workDate]
             );
 
-            // 当日に有効な出勤レコードがない場合、前日の未退勤レコードを検索（夜勤対応）
+            // 当日に有効な出勤レコードがない場合、直近の未退勤レコードを検索（夜勤・日付跨ぎ対応）
             if (!$existing || !$existing['clock_in'] || $existing['clock_out']) {
-                $yesterday = date('Y-m-d', strtotime('-1 day'));
-                $yesterdayRecord = $db->fetch(
+                $recentUnclosed = $db->fetch(
                     "SELECT id, clock_in, clock_out, work_date FROM timecards
-                     WHERE user_id = ? AND work_date = ? AND clock_in IS NOT NULL AND clock_out IS NULL",
-                    [$_SESSION['user_id'], $yesterday]
+                     WHERE user_id = ? AND work_date >= ? AND work_date < ?
+                     AND clock_in IS NOT NULL AND clock_out IS NULL
+                     ORDER BY work_date DESC LIMIT 1",
+                    [$_SESSION['user_id'],
+                     date('Y-m-d', strtotime('-2 days')),
+                     $workDate]
                 );
 
-                if ($yesterdayRecord) {
-                    // 出勤から24時間以内かチェック
-                    $clockInDateTime = strtotime($yesterday . ' ' . $yesterdayRecord['clock_in']);
+                if ($recentUnclosed) {
+                    $clockInDateTime = strtotime($recentUnclosed['work_date'] . ' ' . $recentUnclosed['clock_in']);
                     $nowDateTime = strtotime($workDate . ' ' . $clockOut);
 
                     if (($nowDateTime - $clockInDateTime) <= 36 * 3600) {
-                        $existing = $yesterdayRecord;
+                        $existing = $recentUnclosed;
                     }
                 }
             }
@@ -1820,27 +1862,38 @@ switch ($request) {
         $id = (int)($_GET['id'] ?? 0);
 
         if ($method === 'GET') {
-            // 今日のタイムカード取得
+            // 今日のタイムカード取得（クライアントの日付を優先）
             $workDate = $_GET['date'] ?? date('Y-m-d');
             $timecard = $db->fetch(
                 "SELECT * FROM timecards WHERE user_id = ? AND work_date = ?",
                 [$_SESSION['user_id'], $workDate]
             );
 
-            // 今日のレコードがない or 既に退勤済みの場合、前日の未退勤レコードを確認（夜勤対応）
+            // 今日のレコードがあり、出勤済み＆未退勤ならそのまま返す
+            if ($timecard && $timecard['clock_in'] && !$timecard['clock_out']) {
+                $timecard['is_overnight'] = false;
+                respond($timecard);
+            }
+
+            // 今日のレコードがない or 未出勤 or 既に退勤済みの場合、
+            // 前日・前々日の未退勤レコードを確認（夜勤・日付跨ぎ対応）
             if (!$timecard || !$timecard['clock_in'] || $timecard['clock_out']) {
-                $yesterday = date('Y-m-d', strtotime('-1 day', strtotime($workDate)));
-                $yesterdayRecord = $db->fetch(
+                $recentUnclosed = $db->fetch(
                     "SELECT * FROM timecards
-                     WHERE user_id = ? AND work_date = ? AND clock_in IS NOT NULL AND clock_out IS NULL",
-                    [$_SESSION['user_id'], $yesterday]
+                     WHERE user_id = ? AND work_date >= ? AND work_date < ?
+                     AND clock_in IS NOT NULL AND clock_out IS NULL
+                     ORDER BY work_date DESC LIMIT 1",
+                    [$_SESSION['user_id'],
+                     date('Y-m-d', strtotime('-2 days', strtotime($workDate))),
+                     $workDate]
                 );
 
-                if ($yesterdayRecord) {
-                    $clockInDateTime = strtotime($yesterday . ' ' . $yesterdayRecord['clock_in']);
-                    if ((time() - $clockInDateTime) <= 36 * 3600) {
-                        $yesterdayRecord['is_overnight'] = true;
-                        respond($yesterdayRecord);
+                if ($recentUnclosed) {
+                    $clockInDateTime = strtotime($recentUnclosed['work_date'] . ' ' . $recentUnclosed['clock_in']);
+                    $now = time();
+                    if (($now - $clockInDateTime) <= 36 * 3600) {
+                        $recentUnclosed['is_overnight'] = true;
+                        respond($recentUnclosed);
                     }
                 }
             }
@@ -2064,11 +2117,11 @@ switch ($request) {
         $id = $_GET['id'] ?? 0;
 
         $report = $db->fetch(
-            "SELECT dr.*, u.name as user_name,
-             drh.regular_hours, drh.night_hours, drh.construction_points, drh.other_hours
+            "SELECT dr.id, dr.user_id, dr.report_date, dr.vehicle, dr.expenses,
+             dr.contact_notes, dr.remarks, dr.status, dr.created_at, dr.updated_at,
+             u.name as user_name
              FROM daily_reports dr
              JOIN users u ON dr.user_id = u.id
-             LEFT JOIN daily_report_hours drh ON dr.id = drh.report_id
              WHERE dr.id = ?",
             [$id]
         );
@@ -2076,6 +2129,15 @@ switch ($request) {
         if (!$report) {
             error('日報が見つかりません', 404);
         }
+
+        $hours = $db->fetch(
+            "SELECT regular_hours, night_hours, construction_points, other_hours FROM daily_report_hours WHERE report_id = ?",
+            [$id]
+        );
+        $report['regular_hours'] = $hours['regular_hours'] ?? null;
+        $report['night_hours'] = $hours['night_hours'] ?? null;
+        $report['construction_points'] = $hours['construction_points'] ?? null;
+        $report['other_hours'] = $hours['other_hours'] ?? null;
 
         $details = $db->fetchAll(
             "SELECT * FROM daily_report_details WHERE report_id = ? ORDER BY sort_order, start_time",
@@ -2876,23 +2938,23 @@ switch ($request) {
             // 全営業所の在庫サマリー
             $summary = $db->fetchAll(
                 "SELECT p.id as product_id, c.name as category_name, p.name as product_name, p.unit,
-                        SUM(COALESCE(s.quantity, 0)) as total_quantity, p.min_stock
+                        SUM(COALESCE(s.quantity, 0)) as total_quantity, p.alert_threshold as min_stock
                  FROM inventory_products p
                  JOIN inventory_categories c ON p.category_id = c.id
                  LEFT JOIN inventory_stocks s ON s.product_id = p.id
                  WHERE p.is_active = 1
-                 GROUP BY p.id, c.name, p.name, p.unit, p.min_stock
+                 GROUP BY p.id, c.name, p.name, p.unit, p.alert_threshold
                  ORDER BY c.sort_order, p.id"
             );
 
             // 在庫不足アラート
             $lowStock = $db->fetchAll(
                 "SELECT s.branch_id, b.name as branch_name, s.product_id, p.name as product_name,
-                        s.quantity, p.min_stock, p.unit
+                        s.quantity, p.alert_threshold as min_stock, p.unit
                  FROM inventory_stocks s
                  JOIN inventory_branches b ON s.branch_id = b.id
                  JOIN inventory_products p ON s.product_id = p.id
-                 WHERE p.is_active = 1 AND b.is_active = 1 AND s.quantity <= p.min_stock AND p.min_stock > 0
+                 WHERE p.is_active = 1 AND b.is_active = 1 AND s.quantity <= p.alert_threshold AND p.alert_threshold > 0
                  ORDER BY b.id, p.id"
             );
 
@@ -3097,6 +3159,167 @@ switch ($request) {
                 'notes' => $notes,
                 'users' => $users
             ]);
+        }
+        break;
+
+    // ========== 月締め日報（スタッフ提出・管理者閲覧） ==========
+    case 'monthly-closing-submit':
+        checkAuth();
+
+        // テーブル自動作成
+        $db->query("CREATE TABLE IF NOT EXISTS monthly_closing_submissions (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NOT NULL,
+            year INT NOT NULL,
+            month INT NOT NULL,
+            period_start DATE NOT NULL,
+            period_end DATE NOT NULL,
+            attendance_days INT DEFAULT 0,
+            overtime_hours DECIMAL(6,1) DEFAULT 0,
+            night_hours DECIMAL(6,1) DEFAULT 0,
+            construction_points DECIMAL(6,1) DEFAULT 0,
+            sales_data JSON,
+            status VARCHAR(20) DEFAULT 'submitted',
+            submitted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            reviewed_by INT NULL,
+            reviewed_at DATETIME NULL,
+            UNIQUE KEY unique_user_month (user_id, year, month)
+        )");
+
+        if ($method === 'POST') {
+            $userId = (int)$_SESSION['user_id'];
+            $year = (int)($input['year'] ?? date('Y'));
+            $month = (int)($input['month'] ?? date('n'));
+            $periodStart = $input['periodStart'] ?? '';
+            $periodEnd = $input['periodEnd'] ?? '';
+            $attendanceDays = (int)($input['attendanceDays'] ?? 0);
+            $overtimeHours = floatval($input['overtimeHours'] ?? 0);
+            $nightHours = floatval($input['nightHours'] ?? 0);
+            $constructionPoints = floatval($input['constructionPoints'] ?? 0);
+            $salesData = json_encode($input['salesData'] ?? [], JSON_UNESCAPED_UNICODE);
+            $status = $input['status'] ?? 'submitted'; // draft or submitted
+
+            // 既存チェック
+            $existing = $db->fetch(
+                "SELECT id FROM monthly_closing_submissions WHERE user_id = ? AND year = ? AND month = ?",
+                [$userId, $year, $month]
+            );
+
+            $statusLabel = $status === 'draft' ? '下書き保存' : '提出';
+
+            if ($existing) {
+                // 更新
+                $db->query(
+                    "UPDATE monthly_closing_submissions SET period_start = ?, period_end = ?, attendance_days = ?,
+                     overtime_hours = ?, night_hours = ?, construction_points = ?, sales_data = ?,
+                     status = ?, submitted_at = NOW() WHERE id = ?",
+                    [$periodStart, $periodEnd, $attendanceDays, $overtimeHours, $nightHours, $constructionPoints, $salesData, $status, $existing['id']]
+                );
+                respond(['success' => true, 'id' => $existing['id'], 'message' => "月締め日報を{$statusLabel}しました"]);
+            } else {
+                // 新規
+                $id = $db->insert(
+                    "INSERT INTO monthly_closing_submissions (user_id, year, month, period_start, period_end, attendance_days, overtime_hours, night_hours, construction_points, sales_data, status)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    [$userId, $year, $month, $periodStart, $periodEnd, $attendanceDays, $overtimeHours, $nightHours, $constructionPoints, $salesData, $status]
+                );
+                respond(['success' => true, 'id' => $id, 'message' => "月締め日報を{$statusLabel}しました"]);
+            }
+        }
+        break;
+
+    case 'monthly-closing-submissions':
+        checkAuth();
+
+        // テーブル自動作成
+        $db->query("CREATE TABLE IF NOT EXISTS monthly_closing_submissions (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NOT NULL,
+            year INT NOT NULL,
+            month INT NOT NULL,
+            period_start DATE NOT NULL,
+            period_end DATE NOT NULL,
+            attendance_days INT DEFAULT 0,
+            overtime_hours DECIMAL(6,1) DEFAULT 0,
+            night_hours DECIMAL(6,1) DEFAULT 0,
+            construction_points DECIMAL(6,1) DEFAULT 0,
+            sales_data JSON,
+            status VARCHAR(20) DEFAULT 'submitted',
+            submitted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            reviewed_by INT NULL,
+            reviewed_at DATETIME NULL,
+            UNIQUE KEY unique_user_month (user_id, year, month)
+        )");
+
+        if ($method === 'GET') {
+            $year = (int)($_GET['year'] ?? date('Y'));
+            $month = (int)($_GET['month'] ?? date('n'));
+
+            if ($_SESSION['role'] === 'admin' || $_SESSION['role'] === 'master') {
+                // 管理者：全スタッフ分を取得
+                $submissions = $db->fetchAll(
+                    "SELECT mcs.*, u.name as user_name
+                     FROM monthly_closing_submissions mcs
+                     JOIN users u ON mcs.user_id = u.id
+                     WHERE mcs.year = ? AND mcs.month = ?
+                     ORDER BY mcs.submitted_at DESC",
+                    [$year, $month]
+                );
+            } else {
+                // スタッフ：自分のみ
+                $submissions = $db->fetchAll(
+                    "SELECT mcs.*, u.name as user_name
+                     FROM monthly_closing_submissions mcs
+                     JOIN users u ON mcs.user_id = u.id
+                     WHERE mcs.user_id = ? AND mcs.year = ? AND mcs.month = ?",
+                    [(int)$_SESSION['user_id'], $year, $month]
+                );
+            }
+
+            // sales_dataをデコード
+            foreach ($submissions as &$s) {
+                $s['sales_data'] = json_decode($s['sales_data'], true) ?? [];
+            }
+
+            respond($submissions);
+        }
+        break;
+
+    case 'monthly-closing-submission':
+        checkAuth();
+
+        $id = (int)($_GET['id'] ?? 0);
+
+        if ($method === 'GET') {
+            $sub = $db->fetch(
+                "SELECT mcs.*, u.name as user_name
+                 FROM monthly_closing_submissions mcs
+                 JOIN users u ON mcs.user_id = u.id
+                 WHERE mcs.id = ?",
+                [$id]
+            );
+            if (!$sub) error('Not found', 404);
+
+            // 管理者以外は自分のデータのみ
+            if ($_SESSION['role'] !== 'admin' && $_SESSION['role'] !== 'master' && (int)$sub['user_id'] !== (int)$_SESSION['user_id']) {
+                error('Forbidden', 403);
+            }
+
+            $sub['sales_data'] = json_decode($sub['sales_data'], true) ?? [];
+            respond($sub);
+        }
+
+        if ($method === 'PUT') {
+            // 管理者がステータスを更新（確認済みにする）
+            if ($_SESSION['role'] !== 'admin' && $_SESSION['role'] !== 'master') {
+                error('Forbidden', 403);
+            }
+            $status = $input['status'] ?? 'reviewed';
+            $db->query(
+                "UPDATE monthly_closing_submissions SET status = ?, reviewed_by = ?, reviewed_at = NOW() WHERE id = ?",
+                [$status, (int)$_SESSION['user_id'], $id]
+            );
+            respond(['success' => true]);
         }
         break;
 

@@ -1,0 +1,540 @@
+/* ============================================
+   CSM業務管理 - 新UIデザイン スタイルシート
+   GCOO風モダンデザイン
+   ============================================ */
+
+:root {
+  --primary: #00B894;
+  --primary-light: #E8F8F5;
+  --primary-dark: #00997B;
+  --primary-gradient: linear-gradient(135deg, #00B894, #00D2A0);
+  --bg: #F5F6FA;
+  --card-bg: #FFFFFF;
+  --text-primary: #2D3436;
+  --text-secondary: #636E72;
+  --text-muted: #B2BEC3;
+  --border: #E9ECEF;
+  --shadow: 0 2px 12px rgba(0,0,0,0.06);
+  --shadow-lg: 0 4px 20px rgba(0,0,0,0.08);
+  --radius: 16px;
+  --radius-sm: 12px;
+  --radius-xs: 8px;
+
+  /* タグ色 */
+  --tag-pest-bg: #FFEEF0;
+  --tag-pest-text: #E74C3C;
+  --tag-work-bg: #EBF5FB;
+  --tag-work-text: #2980B9;
+  --tag-area-bg: #F4ECF7;
+  --tag-area-text: #8E44AD;
+  --tag-billing-bg: #FFF3E0;
+  --tag-billing-text: #E67E22;
+}
+
+/* ============================================
+   ベース リセット & グローバル
+   ============================================ */
+* {
+  -webkit-tap-highlight-color: transparent;
+  box-sizing: border-box;
+}
+
+body {
+  padding-bottom: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* スクロールバー (細い) */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+/* ============================================
+   カード
+   ============================================ */
+.card-modern {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 20px;
+  transition: box-shadow 0.2s ease, transform 0.15s ease;
+}
+.card-modern:hover {
+  box-shadow: var(--shadow-lg);
+}
+.card-clickable:active {
+  transform: scale(0.98);
+}
+
+/* ============================================
+   タグ・バッジ
+   ============================================ */
+.tag {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+.tag-red { background: var(--tag-pest-bg); color: var(--tag-pest-text); }
+.tag-blue { background: var(--tag-work-bg); color: var(--tag-work-text); }
+.tag-purple { background: var(--tag-area-bg); color: var(--tag-area-text); }
+.tag-green { background: var(--primary-light); color: var(--primary-dark); }
+.tag-orange { background: var(--tag-billing-bg); color: var(--tag-billing-text); }
+
+/* サイト数バッジ */
+.site-count-badge {
+  background: var(--primary-light);
+  color: var(--primary-dark);
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* ============================================
+   タブバー
+   ============================================ */
+.tab-bar {
+  display: flex;
+  border-bottom: 2px solid var(--border);
+  gap: 0;
+  background: white;
+  border-radius: var(--radius) var(--radius) 0 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.tab-bar::-webkit-scrollbar { display: none; }
+.tab-item {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  padding: 12px 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+  background: none;
+  border-left: none;
+  border-right: none;
+  border-top: none;
+}
+.tab-item:hover {
+  color: var(--primary);
+}
+.tab-item-active,
+.tab-item.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
+/* ============================================
+   ボタン
+   ============================================ */
+.btn-primary {
+  padding: 14px 24px;
+  background: var(--primary-gradient);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 184, 148, 0.3);
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
+}
+.btn-primary:active {
+  transform: scale(0.97);
+  box-shadow: 0 2px 8px rgba(0, 184, 148, 0.2);
+}
+
+.btn-dashed {
+  width: 100%;
+  padding: 14px;
+  background: white;
+  border: 2px dashed var(--primary);
+  border-radius: var(--radius);
+  color: var(--primary);
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: background 0.2s;
+}
+.btn-dashed:active {
+  background: var(--primary-light);
+}
+
+/* ============================================
+   インプット
+   ============================================ */
+.input-modern {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 16px;
+  background: #FAFBFC;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  outline: none;
+}
+.input-modern:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(0, 184, 148, 0.12);
+  background: white;
+}
+
+/* ============================================
+   テーブル（モダン）
+   ============================================ */
+.table-modern {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
+}
+.table-modern th {
+  background: var(--primary-light);
+  color: var(--primary-dark);
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 12px;
+}
+.table-modern th:first-child { border-radius: var(--radius-xs) 0 0 0; }
+.table-modern th:last-child { border-radius: 0 var(--radius-xs) 0 0; }
+.table-modern td {
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.table-modern tr:last-child td { border-bottom: none; }
+.table-modern tr:hover td { background: #FAFBFC; }
+
+/* ============================================
+   キーボックスカード
+   ============================================ */
+.keybox-card {
+  border: 2px solid var(--primary);
+  border-radius: var(--radius);
+  background: var(--primary-light);
+  padding: 16px 20px;
+  transition: box-shadow 0.2s;
+}
+.keybox-card:active {
+  box-shadow: 0 0 0 4px rgba(0, 184, 148, 0.15);
+}
+
+/* ============================================
+   プログレスバー（在庫用）
+   ============================================ */
+.progress-bar {
+  background: var(--primary-light);
+  border-radius: 8px;
+  height: 6px;
+  overflow: hidden;
+}
+.progress-bar-fill {
+  height: 100%;
+  border-radius: 8px;
+  background: var(--primary);
+  transition: width 0.4s ease;
+}
+.progress-bar-fill-warning {
+  background: #E67E22;
+}
+.progress-bar-fill-danger {
+  background: #E74C3C;
+}
+
+/* ============================================
+   ステータスバッジ
+   ============================================ */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* ============================================
+   モーダル（改善）
+   ============================================ */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 50;
+  animation: fadeIn 0.2s ease;
+}
+@media (min-width: 640px) {
+  .modal-overlay {
+    align-items: center;
+  }
+}
+.modal-content {
+  background: white;
+  border-radius: var(--radius) var(--radius) 0 0;
+  max-height: 90vh;
+  width: 100%;
+  max-width: 500px;
+  overflow-y: auto;
+  animation: slideUp 0.25s ease;
+}
+@media (min-width: 640px) {
+  .modal-content {
+    border-radius: var(--radius);
+  }
+}
+
+/* ============================================
+   アニメーション
+   ============================================ */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+@keyframes slideInRight {
+  from { transform: translateX(10px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+/* ページ遷移アニメーション */
+main > div {
+  animation: slideUp 0.2s ease;
+}
+
+/* ============================================
+   ボトムナビ
+   ============================================ */
+.bottom-nav-item {
+  flex: 1;
+  text-align: center;
+  font-size: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.15s;
+}
+
+/* ============================================
+   グリーティングカード
+   ============================================ */
+.greeting-card {
+  background: var(--primary-gradient);
+  border-radius: var(--radius);
+  padding: 24px;
+  color: white;
+  position: relative;
+  overflow: hidden;
+}
+.greeting-card::before {
+  content: '';
+  position: absolute;
+  right: -20px;
+  top: -20px;
+  width: 120px;
+  height: 120px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 50%;
+}
+.greeting-card::after {
+  content: '';
+  position: absolute;
+  right: 30px;
+  bottom: -30px;
+  width: 80px;
+  height: 80px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 50%;
+}
+
+/* ============================================
+   法人カード フッター
+   ============================================ */
+.corp-footer {
+  background: var(--primary-light);
+  padding: 8px 20px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.corp-footer span {
+  font-size: 12px;
+  color: var(--primary-dark);
+}
+
+/* ============================================
+   低在庫アラートカード
+   ============================================ */
+.stock-alert-card {
+  border: 2px solid #FFEEF0;
+}
+.stock-alert-badge {
+  background: #FFEEF0;
+  color: #E74C3C;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+/* ============================================
+   アドレスカード（モックアップ準拠）
+   ============================================ */
+.address-card {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 20px;
+}
+.address-icon-box {
+  width: 36px;
+  height: 36px;
+  background: #EBF5FB;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* ============================================
+   メモカード（モックアップ準拠）
+   ============================================ */
+.memo-card {
+  background: #FFFDE7;
+  border: 1px solid #FFF9C4;
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+/* ============================================
+   スピナー
+   ============================================ */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* ============================================
+   ヘッダーロゴ
+   ============================================ */
+.header-logo {
+  width: 36px;
+  height: 36px;
+  background: var(--primary);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.header-logo span {
+  color: white;
+  font-weight: 800;
+  font-size: 12px;
+}
+
+/* ============================================
+   通知ドット
+   ============================================ */
+.notification-dot {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  width: 8px;
+  height: 8px;
+  background: #E74C3C;
+  border-radius: 50%;
+  border: 2px solid white;
+}
+
+/* ============================================
+   サマリーカード
+   ============================================ */
+.summary-card {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px;
+  transition: transform 0.15s ease;
+}
+.summary-card:active {
+  transform: scale(0.97);
+}
+.summary-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ============================================
+   ワークカード（作業予定カード）
+   ============================================ */
+.work-card {
+  padding: 16px;
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  cursor: pointer;
+  border-radius: 12px;
+  transition: background 0.15s;
+}
+.work-card:active {
+  background: #F5F6FA;
+}
+.work-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* ============================================
+   セレクトボックス（カスタム矢印）
+   ============================================ */
+select.select-modern {
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 10px 32px 10px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-xs);
+  font-size: 13px;
+  background: white url('data:image/svg+xml;utf8,<svg fill="%23636E72" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/></svg>') no-repeat right 8px center;
+  background-size: 18px;
+  color: var(--text-primary);
+  outline: none;
+}
+select.select-modern:focus {
+  border-color: var(--primary);
+}

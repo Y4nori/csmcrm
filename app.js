@@ -88,8 +88,11 @@ const api = {
   deleteSite: (id) => api.call('site', 'DELETE', null, { id }),
   
   updateYearlyPlan: (siteId, yearlyPlan) => api.call('yearly-plan', 'PUT', { yearlyPlan }, { site_id: siteId }),
-  
+  toggleYearlyPlanComplete: (siteId, month, completed) => api.call('yearly-plan-complete', 'PUT', { siteId, month, completed }),
+
   createWorkLog: (data) => api.call('work-logs', 'POST', data),
+  updateWorkLog: (id, data) => api.call('work-log', 'PUT', data, { id }),
+  deleteWorkLog: (id) => api.call('work-log', 'DELETE', null, { id }),
   createPhoto: (data) => api.call('photos', 'POST', data),
   deletePhoto: (id) => api.call('photos', 'DELETE', null, { id }),
   createContactLog: (data) => api.call('contact-logs', 'POST', data),
@@ -120,7 +123,7 @@ const api = {
 
   // タイムカードAPI
   getTimecards: (params) => api.call('timecards', 'GET', null, params),
-  getTodayTimecard: () => api.call('timecard', 'GET'),
+  getTodayTimecard: () => api.call('timecard', 'GET', null, { date: new Date().toISOString().slice(0, 10) }),
   clockIn: (data) => api.call('timecard-clock-in', 'POST', data),
   clockOut: (data) => api.call('timecard-clock-out', 'POST', data),
   updateTimecard: (id, data) => api.call('timecard', 'PUT', data, { id }),
@@ -157,7 +160,13 @@ const api = {
   updateInventoryProduct: (productId, data) => api.call('inventory-product-update', 'POST', { productId, ...data }),
   createInventoryProduct: (data) => api.call('inventory-product-create', 'POST', data),
   deleteInventoryProduct: (id) => api.call('inventory-product-delete', 'DELETE', null, { id }),
-  reorderInventoryProducts: (productIds) => api.call('inventory-product-reorder', 'POST', { productIds })
+  reorderInventoryProducts: (productIds) => api.call('inventory-product-reorder', 'POST', { productIds }),
+
+  // 月締め日報API
+  submitMonthlyClosing: (data) => api.call('monthly-closing-submit', 'POST', data),
+  getMonthlyClosingSubmissions: (params) => api.call('monthly-closing-submissions', 'GET', null, params),
+  getMonthlyClosingSubmission: (id) => api.call('monthly-closing-submission', 'GET', null, { id }),
+  updateMonthlyClosingSubmission: (id, data) => api.call('monthly-closing-submission', 'PUT', data, { id })
 };
 
 // SVGアイコン
@@ -203,7 +212,9 @@ const Icons = {
   Calculator: () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"></rect><line x1="8" y1="6" x2="16" y2="6"></line><line x1="8" y1="10" x2="8" y2="10.01"></line><line x1="12" y1="10" x2="12" y2="10.01"></line><line x1="16" y1="10" x2="16" y2="10.01"></line><line x1="8" y1="14" x2="8" y2="14.01"></line><line x1="12" y1="14" x2="12" y2="14.01"></line><line x1="16" y1="14" x2="16" y2="14.01"></line><line x1="8" y1="18" x2="8" y2="18.01"></line><line x1="12" y1="18" x2="12" y2="18.01"></line><line x1="16" y1="18" x2="16" y2="18.01"></line></svg>),
   ExternalLink: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>),
   Trash2: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>),
-  Package: () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16.5 9.4l-9-5.19M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>)
+  Package: () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16.5 9.4l-9-5.19M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>),
+  CheckCircle: () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>),
+  DollarSign: () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>)
 };
 
 // メインアプリ
@@ -223,6 +234,9 @@ function App() {
   const [corporations, setCorporations] = useState([]);
   const [masterData, setMasterData] = useState({ pestTypes: [], workTypes: [], workAreas: [] });
   const [users, setUsers] = useState([]);
+  const [lowStockItems, setLowStockItems] = useState([]);
+  const [showNotificationPanel, setShowNotificationPanel] = useState(false);
+  const [pendingClosingReports, setPendingClosingReports] = useState([]);
 
   // currentViewはlocation.pathnameから導出
   const getCurrentView = () => {
@@ -242,6 +256,7 @@ function App() {
     if (path === '/admin/timecards') return 'adminTimecards';
     if (path === '/admin/audit-logs') return 'adminAuditLogs';
     if (path === '/inventory') return 'inventory';
+    if (path === '/monthly-closing') return 'monthlyClosing';
     return 'dashboard';
   };
   const currentView = getCurrentView();
@@ -289,6 +304,27 @@ function App() {
   const totalSites = corporations.reduce((sum, c) => sum + (c.sites?.length || 0), 0);
   const months = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
+  // 次回予定作業を取得するヘルパー
+  const getNextScheduledWork = (site) => {
+    if (!site?.yearlyPlan) return null;
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1;
+    const currentYear = now.getFullYear();
+    // 当月以降で未完了の最初の予定を探す
+    for (let offset = 0; offset < 12; offset++) {
+      const m = ((currentMonth - 1 + offset) % 12) + 1;
+      const plan = site.yearlyPlan[m];
+      if (plan && plan.scheduled && !plan.completed) {
+        const day = plan.date || plan.day || 15;
+        const year = (m < currentMonth) ? currentYear + 1 : currentYear;
+        const dateObj = new Date(year, m - 1, day);
+        const isPast = dateObj < now && offset === 0;
+        return { month: m, day, date: dateObj, isPast, workType: plan.workType };
+      }
+    }
+    return null;
+  };
+
   // 初期化：認証チェック
   useEffect(() => {
     if (!DEV_MODE) {
@@ -329,6 +365,21 @@ function App() {
       if (userRole === 'admin' && results[2]) {
         setUsers(results[2]);
       }
+      // 在庫低在庫データを取得
+      try {
+        const summaryData = await api.getInventorySummary();
+        setLowStockItems(summaryData?.lowStock || []);
+      } catch (e) {
+        // 在庫テーブルがない場合は無視
+      }
+      // 管理者：未確認の月締め日報を取得
+      if (userRole === 'admin' || userRole === 'master') {
+        try {
+          const now = new Date();
+          const subs = await api.getMonthlyClosingSubmissions({ year: now.getFullYear(), month: now.getMonth() + 1 });
+          setPendingClosingReports((subs || []).filter(s => s.status === 'submitted'));
+        } catch (e) {}
+      }
     } catch (e) {
       console.error('Failed to load data:', e);
     }
@@ -359,7 +410,14 @@ function App() {
       setIsLoggedIn(true);
       await loadData(user.role);
     } catch (e) {
-      setLoginError('ユーザー名またはパスワードが間違っています');
+      const msg = e.message || '';
+      if (msg.includes('Internal Server Error')) {
+        setLoginError('サーバーエラー: ' + msg);
+      } else if (msg.includes('429') || msg.includes('上限')) {
+        setLoginError(msg);
+      } else {
+        setLoginError('ユーザー名またはパスワードが間違っています');
+      }
     }
   };
 
@@ -464,6 +522,26 @@ function App() {
         }
       });
     });
+    // 在庫低在庫アラート
+    lowStockItems.forEach(item => {
+      notifs.push({
+        id: `inventory-${item.branch_id}-${item.product_id}`,
+        type: 'inventory',
+        title: '在庫不足',
+        message: `${item.branch_name} - ${item.product_name}: 残${item.quantity}${item.unit || '個'}（基準: ${item.min_stock}）`,
+        priority: item.quantity === 0 ? 'high' : 'medium'
+      });
+    });
+    // 管理者：未確認の月締め日報
+    pendingClosingReports.forEach(sub => {
+      notifs.push({
+        id: `closing-${sub.id}`,
+        type: 'closing',
+        title: '月締め日報（未確認）',
+        message: `${sub.user_name}の${sub.year}年${sub.month}月分`,
+        priority: 'medium'
+      });
+    });
     return notifs;
   })();
 
@@ -525,26 +603,35 @@ function App() {
   // ログイン画面
   if (!isLoggedIn) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-sm">
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-white" style={{ backgroundColor: '#5bbd56' }}><Icons.Lock /></div>
-            <h1 className="text-2xl font-bold text-gray-800">CSM業務管理</h1>
-            <p className="text-gray-500 text-sm mt-2">ログインしてください</p>
+      <div className="min-h-screen flex flex-col justify-center" style={{ background: 'linear-gradient(160deg, #00B894 0%, #00D2A0 40%, #E8F8F5 100%)', padding: '32px' }}>
+        {/* ロゴエリア */}
+        <div className="text-center mb-12">
+          <div style={{ width: '80px', height: '80px', background: 'white', borderRadius: '20px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 32px rgba(0,0,0,0.12)', marginBottom: '20px' }}>
+            <span style={{ fontSize: '28px', fontWeight: 800, color: '#00B894' }}>CSM</span>
           </div>
-          <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); handleLogin(); }}>
+          <h1 className="text-white text-2xl font-bold" style={{ margin: 0 }}>CSM業務管理</h1>
+          <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: '14px', marginTop: '6px' }}>害虫駆除・施設管理システム</p>
+        </div>
+
+        {/* ログインカード */}
+        <div className="bg-white w-full max-w-sm mx-auto" style={{ borderRadius: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', padding: '32px 24px' }}>
+          <form className="space-y-5" onSubmit={(e) => { e.preventDefault(); handleLogin(); }}>
             <div>
-              <label className="text-gray-600 text-sm font-medium">ユーザー名</label>
+              <label style={{ fontSize: '13px', fontWeight: 600, color: '#636E72', display: 'block', marginBottom: '6px' }}>ユーザー名</label>
               <input type="text" value={loginForm.username} onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })}
-                className="w-full bg-white border border-gray-300 rounded-lg px-4 py-3 mt-1" placeholder="ユーザー名を入力" autoComplete="username" />
+                className="w-full" style={{ padding: '14px 16px', border: '1.5px solid #E9ECEF', borderRadius: '12px', fontSize: '16px', background: '#FAFBFC', outline: 'none' }}
+                placeholder="ユーザー名を入力" autoComplete="username" />
             </div>
             <div>
-              <label className="text-gray-600 text-sm font-medium">パスワード</label>
+              <label style={{ fontSize: '13px', fontWeight: 600, color: '#636E72', display: 'block', marginBottom: '6px' }}>パスワード</label>
               <input type="password" value={loginForm.password} onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                className="w-full bg-white border border-gray-300 rounded-lg px-4 py-3 mt-1" placeholder="パスワードを入力" autoComplete="current-password" />
+                className="w-full" style={{ padding: '14px 16px', border: '1.5px solid #E9ECEF', borderRadius: '12px', fontSize: '16px', background: '#FAFBFC', outline: 'none' }}
+                placeholder="パスワードを入力" autoComplete="current-password" />
             </div>
             {loginError && <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-2"><span className="text-red-500"><Icons.AlertCircle /></span><p className="text-red-600 text-sm">{loginError}</p></div>}
-            <button type="submit" className="w-full text-white py-3 rounded-lg font-medium" style={{ backgroundColor: '#5bbd56' }}>ログイン</button>
+            <button type="submit" className="w-full text-white font-bold" style={{ padding: '16px', background: 'linear-gradient(135deg, #00B894, #00D2A0)', border: 'none', borderRadius: '12px', fontSize: '16px', cursor: 'pointer', boxShadow: '0 4px 16px rgba(0, 184, 148, 0.3)' }}>
+              ログイン
+            </button>
           </form>
         </div>
       </div>
@@ -585,22 +672,77 @@ function App() {
 
     return (
       <div className="space-y-4">
-        <div className="mb-4">
-          <h2 className="text-xl font-bold text-gray-800">ダッシュボード</h2>
-          <p className="text-gray-500 text-sm">{today.getMonth() + 1}月{today.getDate()}日（{dayNames[today.getDay()]}）</p>
+        {/* グリーティングカード */}
+        <div className="greeting-card">
+          <p style={{ fontSize: '14px', opacity: 0.9, margin: '0 0 4px' }}>{(() => { const h = new Date().getHours(); if (h < 12) return 'おはようございます'; if (h < 18) return 'こんにちは'; return 'おつかれさまです'; })()}</p>
+          <h2 style={{ fontSize: '22px', fontWeight: 700, margin: '0 0 8px' }}>{currentUser?.name}さん</h2>
+          <p style={{ fontSize: '13px', opacity: 0.85, margin: 0 }}>
+            {today.getMonth() + 1}月{today.getDate()}日（{dayNames[today.getDay()]}）・ 今日の予定 <strong style={{ fontSize: '20px', verticalAlign: 'middle' }}>{todayWorks.length}</strong> 件
+          </p>
         </div>
 
+        {/* サマリーカード 2x2 グリッド */}
+        <div className="grid grid-cols-2 gap-3">
+          {(userRole === 'admin' || userRole === 'master') && (
+            <div className="bg-white cursor-pointer" style={{ borderRadius: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', padding: '16px' }} onClick={() => navigate('/invoices')}>
+              <div className="flex items-center gap-2.5 mb-2">
+                <div style={{ width: '36px', height: '36px', background: '#FFEEF0', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="18" height="18" fill="none" stroke="#E74C3C" strokeWidth="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                </div>
+              </div>
+              <p style={{ fontSize: '12px', color: '#B2BEC3', margin: 0 }}>未送信請求</p>
+              <p style={{ fontSize: '28px', fontWeight: 800, color: '#E74C3C', margin: '2px 0 0' }}>{unsentCount}</p>
+            </div>
+          )}
+          {(userRole === 'admin' || userRole === 'master') && (
+            <div className="bg-white cursor-pointer" style={{ borderRadius: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', padding: '16px' }} onClick={() => navigate('/invoices')}>
+              <div className="flex items-center gap-2.5 mb-2">
+                <div style={{ width: '36px', height: '36px', background: '#FFF3E0', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="18" height="18" fill="none" stroke="#E67E22" strokeWidth="2" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                </div>
+              </div>
+              <p style={{ fontSize: '12px', color: '#B2BEC3', margin: 0 }}>未入金</p>
+              <p style={{ fontSize: '28px', fontWeight: 800, color: '#E67E22', margin: '2px 0 0' }}>{unpaidCount}</p>
+            </div>
+          )}
+          <div className="bg-white" style={{ borderRadius: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', padding: '16px' }}>
+            <div className="flex items-center gap-2.5 mb-2">
+              <div style={{ width: '36px', height: '36px', background: '#E8F8F5', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="18" height="18" fill="none" stroke="#00B894" strokeWidth="2" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+              </div>
+            </div>
+            <p style={{ fontSize: '12px', color: '#B2BEC3', margin: 0 }}>今日の作業</p>
+            <p style={{ fontSize: '28px', fontWeight: 800, color: '#00B894', margin: '2px 0 0' }}>{todayWorks.length}</p>
+          </div>
+          <div className="bg-white cursor-pointer" style={{ borderRadius: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', padding: '16px' }} onClick={() => navigate('/inventory')}>
+            <div className="flex items-center gap-2.5 mb-2">
+              <div style={{ width: '36px', height: '36px', background: '#EBF5FB', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="18" height="18" fill="none" stroke="#2980B9" strokeWidth="2" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
+              </div>
+            </div>
+            <p style={{ fontSize: '12px', color: '#B2BEC3', margin: 0 }}>在庫アラート</p>
+            <p style={{ fontSize: '28px', fontWeight: 800, color: generateNotifications.filter(n => n.type === 'inventory').length > 0 ? '#E74C3C' : '#2980B9', margin: '2px 0 0' }}>{generateNotifications.filter(n => n.type === 'inventory').length}</p>
+          </div>
+        </div>
+
+        {/* 通知 */}
         {(() => {
-          // スタッフは請求・入金関連の通知を非表示
-          const filteredNotifications = userRole === 'admin'
+          const filteredNotifications = (userRole === 'admin' || userRole === 'master')
             ? generateNotifications
             : generateNotifications.filter(n => n.type !== 'invoice' && n.type !== 'payment');
           return filteredNotifications.length > 0 && (
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+            <div className="bg-amber-50 border border-amber-200" style={{ borderRadius: '16px', padding: '16px' }}>
               <h3 className="font-bold text-amber-700 flex items-center gap-2 mb-3"><Icons.Bell /> 通知 ({filteredNotifications.length})</h3>
-              <div className="space-y-2 max-h-40 overflow-y-auto">
-                {filteredNotifications.slice(0, 5).map(n => (
-                  <div key={n.id} className={`text-sm p-2 rounded ${n.priority === 'high' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {filteredNotifications.map(n => (
+                  <div key={n.id} onClick={() => {
+                    if (n.corpId) navigate(`/corp/${n.corpId}`);
+                    else if (n.type === 'inventory') navigate('/inventory');
+                    else if (n.type === 'closing') navigate('/monthly-closing');
+                  }} className={`text-sm p-2 rounded-lg cursor-pointer ${n.priority === 'high' ? 'bg-red-100 text-red-700' : n.type === 'inventory' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>
+                    <span style={{ fontSize: '10px', fontWeight: 700, padding: '1px 5px', borderRadius: '3px', marginRight: '6px', background: n.type === 'inventory' ? '#DBEAFE' : n.priority === 'high' ? '#FEE2E2' : '#FEF3C7' }}>
+                      {n.type === 'contract' ? '契約' : n.type === 'invoice' ? '請求' : n.type === 'payment' ? '入金' : n.type === 'work' ? '施工' : n.type === 'inventory' ? '在庫' : n.type === 'closing' ? '月締め' : 'その他'}
+                    </span>
                     <span className="font-medium">{n.title}:</span> {n.message}
                   </div>
                 ))}
@@ -609,8 +751,9 @@ function App() {
           );
         })()}
 
-        {userRole === 'admin' && pendingTimecardRequests.length > 0 && (
-          <div className="bg-orange-50 border-2 border-orange-300 rounded-xl p-4" style={{boxShadow: '0 0 8px rgba(249,115,22,0.2)'}}>
+        {/* タイムカード修正申請 */}
+        {(userRole === 'admin' || userRole === 'master') && pendingTimecardRequests.length > 0 && (
+          <div className="bg-orange-50 border-2 border-orange-300" style={{ borderRadius: '16px', padding: '16px', boxShadow: '0 0 8px rgba(249,115,22,0.2)' }}>
             <h3 className="font-bold text-orange-700 flex items-center gap-2 mb-3">
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
               タイムカード修正申請 ({pendingTimecardRequests.length}件)
@@ -636,44 +779,67 @@ function App() {
           </div>
         )}
 
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-          <div className="flex border-b border-gray-200">
+        {/* 作業予定セクション */}
+        <div className="flex items-center justify-between" style={{ marginBottom: '12px' }}>
+          <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0 }}>作業予定</h3>
+        </div>
+
+        <div className="bg-white" style={{ borderRadius: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
+          <div className="flex" style={{ borderBottom: '2px solid #E9ECEF' }}>
             {[
               { key: 'today', label: `今日 (${todayWorks.length})` },
               { key: 'week', label: `今週 (${thisWeekWorks.length})` },
               { key: 'month', label: `今月 (${thisMonthWorks.length})` }
             ].map(tab => (
               <button key={tab.key} onClick={() => setWorkTab(tab.key)}
-                className={`flex-1 py-3 text-center text-sm font-medium ${workTab === tab.key ? 'text-white' : 'text-gray-500 bg-gray-50'}`}
-                style={workTab === tab.key ? { backgroundColor: '#5bbd56' } : {}}>
+                className="flex-1 text-center" style={{
+                  padding: '12px 8px', fontSize: '13px', fontWeight: 600,
+                  color: workTab === tab.key ? '#00B894' : '#B2BEC3',
+                  borderBottom: workTab === tab.key ? '2px solid #00B894' : '2px solid transparent',
+                  marginBottom: '-2px', background: 'none', border: 'none',
+                  borderBottomWidth: '2px', borderBottomStyle: 'solid',
+                  borderBottomColor: workTab === tab.key ? '#00B894' : 'transparent'
+                }}>
                 {tab.label}
               </button>
             ))}
           </div>
           <div className="p-4 max-h-80 overflow-y-auto">
             {displayWorks.length === 0 ? (
-              <p className="text-gray-400 text-center py-8">予定はありません</p>
+              <p style={{ color: '#B2BEC3', textAlign: 'center', padding: '32px 0' }}>予定はありません</p>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {displayWorks.map((work, i) => {
                   const isToday = work.scheduledDate.toDateString() === today.toDateString();
                   const dateStr = workTab === 'today' ? '' : `${work.scheduledDate.getMonth() + 1}/${work.scheduledDate.getDate()}(${dayNames[work.scheduledDate.getDay()]})`;
+                  const workColors = ['#E8F8F5', '#FFF3E0', '#EBF5FB', '#F4ECF7'];
+                  const workTextColors = ['#00B894', '#E67E22', '#2980B9', '#8E44AD'];
+                  const colorIdx = i % workColors.length;
                   return (
-                    <div key={i} onClick={() => {
-                      navigate(`/sites/${work.id}`);
-                    }} className={`flex items-center justify-between p-3 rounded-lg cursor-pointer hover:bg-gray-100 ${isToday && workTab !== 'today' ? 'bg-green-50 border border-green-200' : 'bg-gray-50'}`}>
-                      <div className="flex-1 min-w-0">
+                    <div key={i} onClick={() => { navigate(`/sites/${work.id}`); }}
+                      style={{ padding: '16px', display: 'flex', gap: '14px', alignItems: 'flex-start', cursor: 'pointer', borderRadius: '12px' }}
+                      className="hover:bg-gray-50">
+                      <div style={{ width: '44px', height: '44px', background: workColors[colorIdx], borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <Icons.Home />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
                         {workTab !== 'today' && (
-                          <div className="flex items-center gap-2">
-                            <span className={`text-xs font-bold px-2 py-0.5 rounded ${isToday ? 'text-white' : 'bg-gray-200 text-gray-600'}`} style={isToday ? { backgroundColor: '#5bbd56' } : {}}>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '20px', background: isToday ? '#00B894' : '#E9ECEF', color: isToday ? 'white' : '#636E72' }}>
                               {dateStr}
                             </span>
-                            {isToday && <span className="text-xs font-bold" style={{ color: '#5bbd56' }}>本日</span>}
+                            {isToday && <span style={{ fontSize: '11px', fontWeight: 700, color: '#00B894' }}>本日</span>}
                           </div>
                         )}
-                        <p className="font-medium text-gray-800 truncate mt-1">{work.corpName}</p>
-                        <p className="text-gray-500 text-sm truncate">{work.name} - {work.workType}</p>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span style={{ fontWeight: 700, fontSize: '14px', color: '#2D3436' }}>{work.name}</span>
+                          <span style={{ display: 'inline-block', padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 500, background: workColors[colorIdx], color: workTextColors[colorIdx] }}>
+                            {work.workType}
+                          </span>
+                        </div>
+                        <p style={{ fontSize: '12px', color: '#636E72', margin: 0 }}>{work.corpName}</p>
                       </div>
+                      <svg width="16" height="16" fill="none" stroke="#B2BEC3" strokeWidth="2" viewBox="0 0 24 24" style={{ flexShrink: 0, marginTop: '4px' }}><polyline points="9 18 15 12 9 6"></polyline></svg>
                     </div>
                   );
                 })}
@@ -682,21 +848,16 @@ function App() {
           </div>
         </div>
 
-        {userRole === 'admin' && (
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-white border border-gray-200 rounded-xl p-4 cursor-pointer" onClick={() => navigate('/invoices')}>
-              <p className="text-gray-500 text-sm">請求未送付</p>
-              <p className={`text-2xl font-bold ${unsentCount > 0 ? 'text-red-500' : 'text-gray-400'}`}>{unsentCount}件</p>
-            </div>
-            <div className="bg-white border border-gray-200 rounded-xl p-4 cursor-pointer" onClick={() => navigate('/invoices')}>
-              <p className="text-gray-500 text-sm">入金待ち</p>
-              <p className={`text-2xl font-bold ${unpaidCount > 0 ? 'text-amber-500' : 'text-gray-400'}`}>{unpaidCount}件</p>
-            </div>
-          </div>
-        )}
+        {/* 月締め日報を作成ボタン（スタッフ向け） */}
+        <button onClick={() => navigate('/monthly-closing')}
+          className="w-full" style={{ padding: '16px', background: 'linear-gradient(135deg, #6C5CE7, #A29BFE)', color: 'white', border: 'none', borderRadius: '16px', fontSize: '15px', fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 16px rgba(108,92,231,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+          <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+          月締め日報を作成
+        </button>
 
-        {userRole === 'admin' && contractAlerts.length > 0 && (
-          <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
+        {/* 契約更新アラート */}
+        {(userRole === 'admin' || userRole === 'master') && contractAlerts.length > 0 && (
+          <div className="bg-orange-50 border border-orange-200" style={{ borderRadius: '16px', padding: '16px' }}>
             <h3 className="font-bold text-orange-700 flex items-center gap-2 mb-2"><Icons.FileContract /> 契約更新アラート</h3>
             {contractAlerts.map(a => (
               <div key={a.id} className="text-sm text-orange-600 py-1">{a.message}</div>
@@ -713,41 +874,123 @@ function App() {
     (c.sites || []).some(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
-  // 法人一覧 (簡略版 - 実際にはもっと長い)
+  // 法人一覧
   const CorporationList = () => {
+    const [sortMode, setSortMode] = useState('name');
+    const [corpPage, setCorpPage] = useState(1);
+    const CORPS_PER_PAGE = 20;
+
+    // ソートロジック
+    const sortedCorporations = [...filteredCorporations].sort((a, b) => {
+      if (sortMode === 'name') return a.name.localeCompare(b.name, 'ja');
+      if (sortMode === 'siteCount') return (b.sites?.length || 0) - (a.sites?.length || 0);
+      if (sortMode === 'nextWork') {
+        const getEarliestNext = (corp) => {
+          let earliest = null;
+          (corp.sites || []).forEach(s => {
+            const nw = getNextScheduledWork(s);
+            if (nw && (!earliest || nw.date < earliest)) earliest = nw.date;
+          });
+          return earliest || new Date('2099-12-31');
+        };
+        return getEarliestNext(a) - getEarliestNext(b);
+      }
+      if (sortMode === 'lastWork') {
+        const getLatestWork = (corp) => {
+          let latest = null;
+          (corp.sites || []).forEach(s => {
+            (s.workLogs || []).forEach(w => {
+              const d = new Date(w.date);
+              if (!latest || d > latest) latest = d;
+            });
+          });
+          return latest || new Date('1970-01-01');
+        };
+        return getLatestWork(b) - getLatestWork(a);
+      }
+      return 0;
+    });
+
+    const totalPages = Math.ceil(sortedCorporations.length / CORPS_PER_PAGE);
+    const pagedCorporations = sortedCorporations.slice((corpPage - 1) * CORPS_PER_PAGE, corpPage * CORPS_PER_PAGE);
+
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mt-3">
-          {filteredCorporations.map((corp) => {
-            const billingColor = getBillingColor(corp.billingCycle);
+      <div>
+        {/* ソート選択 */}
+        <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', flexWrap: 'wrap' }}>
+          {[
+            { key: 'name', label: '名前順' },
+            { key: 'nextWork', label: '次回予定順' },
+            { key: 'lastWork', label: '最終作業順' },
+            { key: 'siteCount', label: '現場数順' }
+          ].map(s => (
+            <button key={s.key} onClick={() => { setSortMode(s.key); setCorpPage(1); }}
+              style={{ padding: '5px 12px', borderRadius: '20px', fontSize: '12px', border: 'none', cursor: 'pointer',
+                background: sortMode === s.key ? '#00B894' : '#F1F3F5', color: sortMode === s.key ? 'white' : '#636E72' }}>
+              {s.label}
+            </button>
+          ))}
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {pagedCorporations.map((corp) => {
+            const sites = corp.sites || [];
+            // 直近の次回予定を取得
+            let earliestNext = null;
+            sites.forEach(s => {
+              const nw = getNextScheduledWork(s);
+              if (nw && (!earliestNext || nw.date < earliestNext.date)) earliestNext = nw;
+            });
             return (
               <div key={corp.id} onClick={() => navigate(`/corporations/${corp.id}`)}
-                className="bg-white border border-gray-200 rounded-xl p-4 cursor-pointer hover:shadow-md transition-all hover:border-green-400">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-gray-400"><Icons.Building /></span>
-                      <h3 className="font-bold text-gray-800 text-lg truncate">{corp.name}</h3>
-                    </div>
-                    {corp.address && (
-                      <div className="flex items-center gap-1 text-gray-500 text-sm mt-1">
-                        <Icons.MapPin /><span className="truncate">{corp.address}</span>
-                      </div>
-                    )}
-                    <div className="flex flex-wrap items-center gap-2 mt-2 text-sm text-gray-500">
-                      {corp.contactPerson && <span className="flex items-center gap-1"><Icons.User />{corp.contactPerson}</span>}
-                      {corp.contact && <span className="flex items-center gap-1"><Icons.Phone />{corp.contact}</span>}
-                    </div>
-                    <div className="flex items-center gap-2 mt-2">
-                      <span className="text-sm font-medium" style={{ color: '#5bbd56' }}>{(corp.sites || []).length}現場</span>
-                      {userRole === 'admin' && <span className={`text-xs px-2 py-0.5 rounded border ${billingColor.bg} ${billingColor.text} ${billingColor.border}`}>{corp.billingCycle}</span>}
+                className="bg-white cursor-pointer" style={{ borderRadius: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
+                <div style={{ padding: '16px 20px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0, color: '#2D3436' }}>{corp.name}</h3>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                      {earliestNext && (
+                        <span style={{ background: earliestNext.isPast ? '#FEE2E2' : '#FFF3E0', color: earliestNext.isPast ? '#DC2626' : '#E67E22',
+                          padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 600 }}>
+                          {earliestNext.isPast ? '未完了' : `次回 ${earliestNext.month}/${earliestNext.day}`}
+                        </span>
+                      )}
+                      <span style={{ background: '#E8F8F5', color: '#00997B', padding: '3px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 600 }}>{sites.length}現場</span>
                     </div>
                   </div>
-                  <div className="text-gray-300"><Icons.ChevronRight /></div>
+                  {corp.address && (
+                    <p style={{ fontSize: '13px', color: '#636E72', margin: '0 0 4px' }}>
+                      <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" style={{ display: 'inline', verticalAlign: 'middle' }}><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                      {' '}{corp.address}
+                    </p>
+                  )}
+                  <p style={{ fontSize: '12px', color: '#B2BEC3', margin: 0 }}>
+                    {corp.contactPerson ? `担当: ${corp.contactPerson}` : ''}{corp.contactPerson && corp.contact ? ' ・ ' : ''}{corp.contact || ''}
+                  </p>
                 </div>
+                {sites.length > 0 && (
+                  <div style={{ background: '#E8F8F5', padding: '8px 20px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                    {sites.slice(0, 3).map((s, i) => (
+                      <span key={i} style={{ fontSize: '12px', color: '#00997B' }}>{s.name}</span>
+                    ))}
+                    {sites.length > 3 && <span style={{ fontSize: '12px', color: '#B2BEC3' }}>+{sites.length - 3}</span>}
+                  </div>
+                )}
               </div>
             );
           })}
         </div>
+
+        {/* ページネーション */}
+        {totalPages > 1 && (
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', marginTop: '16px' }}>
+            <button onClick={() => setCorpPage(p => Math.max(1, p - 1))} disabled={corpPage === 1}
+              style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid #E9ECEF', background: 'white', cursor: corpPage === 1 ? 'default' : 'pointer', opacity: corpPage === 1 ? 0.4 : 1 }}>←</button>
+            <span style={{ fontSize: '13px', color: '#636E72' }}>{corpPage} / {totalPages}</span>
+            <button onClick={() => setCorpPage(p => Math.min(totalPages, p + 1))} disabled={corpPage === totalPages}
+              style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid #E9ECEF', background: 'white', cursor: corpPage === totalPages ? 'default' : 'pointer', opacity: corpPage === totalPages ? 0.4 : 1 }}>→</button>
+          </div>
+        )}
+      </div>
     );
   };
 
@@ -783,76 +1026,138 @@ function App() {
     };
 
     return (
-      <div className="space-y-3">
-        <div className="flex items-center gap-3 mb-4">
-          <button onClick={() => navigate('/corporations')} className="text-gray-400 hover:text-gray-600"><Icons.ChevronLeft /></button>
-          <div className="flex-1">
-            <h2 className="text-xl font-bold text-gray-800 break-words">{selectedCorp?.name}</h2>
-            <p className="text-gray-500 text-sm">{(selectedCorp?.sites || []).length}現場</p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        {/* ヘッダー */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <button onClick={() => navigate('/corporations')} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}>
+            <svg width="22" height="22" fill="none" stroke="#2D3436" strokeWidth="2.5" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg>
+          </button>
+          <div style={{ flex: 1 }}>
+            <h2 style={{ fontSize: '17px', fontWeight: 700, color: '#2D3436', margin: 0 }}>{selectedCorp?.name}</h2>
+            <p style={{ fontSize: '12px', color: '#B2BEC3', margin: 0 }}>{(selectedCorp?.sites || []).length}現場</p>
           </div>
-          <div className="flex items-center gap-2">
-            <button onClick={() => { setModalType('corp'); setEditingItem(selectedCorp); setShowModal(true); }} className="text-gray-400 hover:text-gray-600">
-              <Icons.Edit />
-            </button>
-            <button onClick={() => setShowDeleteConfirm(true)} className="text-red-400 hover:text-red-600">
-              <Icons.Trash />
-            </button>
-          </div>
+          <button onClick={() => { setModalType('corp'); setEditingItem(selectedCorp); setShowModal(true); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '6px', color: '#636E72' }}>
+            <Icons.Edit />
+          </button>
+          <button onClick={() => setShowDeleteConfirm(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '6px', color: '#E74C3C' }}>
+            <Icons.Trash />
+          </button>
         </div>
 
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-            {selectedCorp?.address && (
-              <div className="flex items-center gap-2">
-                <Icons.MapPin className="text-gray-400" /><span className="flex-1">{selectedCorp.address}</span>
-                <a href={getGoogleMapUrl(selectedCorp.address)} target="_blank" rel="noopener noreferrer" className="p-1" style={{ color: '#5bbd56' }}><Icons.Map /></a>
+        {/* 住所カード */}
+        {selectedCorp?.address && (
+          <div className="card-modern">
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+              <div className="address-icon-box">
+                <svg width="18" height="18" fill="none" stroke="#2980B9" strokeWidth="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
               </div>
-            )}
-            {selectedCorp?.contact && <div className="flex items-center gap-2"><Icons.Phone className="text-gray-400" /><span>{selectedCorp.contact}</span></div>}
-            {selectedCorp?.contactPerson && <div className="flex items-center gap-2"><Icons.User className="text-gray-400" /><span>担当: {selectedCorp.contactPerson}</span></div>}
-            {selectedCorp?.memo && <div className="col-span-full flex items-start gap-2"><Icons.FileText className="text-gray-400 mt-0.5" /><span className="text-gray-600 whitespace-pre-wrap">{selectedCorp.memo}</span></div>}
+              <div style={{ flex: 1 }}>
+                <p style={{ fontSize: '14px', margin: '0 0 2px', fontWeight: 600, color: '#2D3436' }}>{selectedCorp.address}</p>
+                <a href={getGoogleMapUrl(selectedCorp.address)} target="_blank" rel="noopener noreferrer" style={{ fontSize: '12px', color: '#00B894', textDecoration: 'none' }}>Google Mapで開く ›</a>
+              </div>
+            </div>
           </div>
-          {userRole === 'admin' && (
-            <div className="mt-3 pt-3 border-t border-gray-200 grid grid-cols-2 md:grid-cols-4 gap-2 text-xs text-gray-500">
-              <div>請求: {selectedCorp?.billingCycle} / {selectedCorp?.billingDay}日</div>
-              {selectedCorp?.billingMonth && <div>請求月: {selectedCorp.billingMonth}</div>}
-              {selectedCorp?.contractAmount > 0 && <div>契約金額: ¥{selectedCorp.contractAmount?.toLocaleString()}</div>}
-              {selectedCorp?.contractType && <div>契約種別: {selectedCorp.contractType}</div>}
+        )}
+
+        {/* 連絡先・基本情報カード */}
+        <div className="card-modern" style={{ padding: 0 }}>
+          {selectedCorp?.contact && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 20px', borderBottom: '1px solid #F0F0F0' }}>
+              <div style={{ width: '32px', height: '32px', background: '#E8F8F5', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Icons.Phone style={{ color: '#00B894' }} />
+              </div>
+              <div>
+                <p style={{ fontSize: '11px', color: '#B2BEC3', margin: 0 }}>電話番号</p>
+                <p style={{ fontSize: '15px', fontWeight: 600, color: '#2D3436', margin: 0 }}>{selectedCorp.contact}</p>
+              </div>
+            </div>
+          )}
+          {selectedCorp?.contactPerson && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 20px', borderBottom: '1px solid #F0F0F0' }}>
+              <div style={{ width: '32px', height: '32px', background: '#EBF5FB', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Icons.User style={{ color: '#2980B9' }} />
+              </div>
+              <div>
+                <p style={{ fontSize: '11px', color: '#B2BEC3', margin: 0 }}>担当者</p>
+                <p style={{ fontSize: '15px', fontWeight: 600, color: '#2D3436', margin: 0 }}>{selectedCorp.contactPerson}</p>
+              </div>
+            </div>
+          )}
+          {(userRole === 'admin' || userRole === 'master') && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 20px', borderBottom: selectedCorp?.memo ? '1px solid #F0F0F0' : 'none' }}>
+              <div style={{ width: '32px', height: '32px', background: '#FFF3E0', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Icons.Yen style={{ color: '#E67E22' }} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <p style={{ fontSize: '11px', color: '#B2BEC3', margin: 0 }}>請求情報</p>
+                <p style={{ fontSize: '14px', fontWeight: 600, color: '#2D3436', margin: 0 }}>
+                  {selectedCorp?.billingCycle} / {selectedCorp?.billingDay}日
+                  {selectedCorp?.billingMonth ? ` ・ 請求月: ${selectedCorp.billingMonth}` : ''}
+                </p>
+                <div style={{ display: 'flex', gap: '16px', marginTop: '4px' }}>
+                  {selectedCorp?.contractAmount > 0 && <span style={{ fontSize: '12px', color: '#636E72' }}>契約金額: ¥{selectedCorp.contractAmount?.toLocaleString()}</span>}
+                  {selectedCorp?.contractType && <span style={{ fontSize: '12px', color: '#636E72' }}>契約種別: {selectedCorp.contractType}</span>}
+                </div>
+              </div>
+            </div>
+          )}
+          {selectedCorp?.memo && (
+            <div style={{ padding: '14px 20px' }}>
+              <p style={{ fontSize: '11px', color: '#B2BEC3', margin: '0 0 4px' }}>メモ</p>
+              <p style={{ fontSize: '13px', color: '#636E72', margin: 0, whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{selectedCorp.memo}</p>
             </div>
           )}
         </div>
 
-        {userRole === 'admin' && (
+        {/* 連絡履歴ボタン */}
+        {(userRole === 'admin' || userRole === 'master') && (
           <button onClick={() => { setModalType('contactLog'); setShowModal(true); }}
-            className="w-full flex items-center justify-center gap-2 bg-white border border-gray-200 rounded-lg p-3 text-gray-600 hover:bg-gray-50">
+            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', background: 'white', border: '1.5px solid #E9ECEF', borderRadius: '12px', padding: '12px', color: '#636E72', fontSize: '14px', fontWeight: 500, cursor: 'pointer' }}>
             <Icons.MessageCircle /> 連絡履歴 ({(selectedCorp?.contactLogs || []).length})
           </button>
         )}
 
-        <div className="flex justify-between items-center mb-2 mt-4">
-          <h3 className="text-gray-600 font-medium flex items-center gap-2"><Icons.Store /> 現場一覧</h3>
+        {/* 現場一覧ヘッダー */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '8px' }}>
+          <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#2D3436', margin: 0 }}>現場一覧</h3>
           <button onClick={() => { setModalType('site'); setEditingItem(null); setShowModal(true); }}
-            className="flex items-center gap-1 text-white px-3 py-1.5 rounded-lg text-sm" style={{ backgroundColor: '#5bbd56' }}>
-            <Icons.Plus /> 現場追加
+            style={{ background: '#00B894', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '20px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            現場追加
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        {/* 現場カード */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {(selectedCorp?.sites || []).map((site) => (
             <div key={site.id} onClick={() => navigate(`/sites/${site.id}`)}
-              className="bg-white border border-gray-200 rounded-xl p-4 cursor-pointer hover:border-green-400">
-              <div className="flex justify-between items-center gap-2">
-                <h3 className="font-bold text-gray-800 min-w-0 break-words">{site.name}</h3>
-                <div className="flex items-center gap-2 shrink-0">
-                  {userRole === 'admin' && (
+              className="card-modern card-clickable" style={{ padding: 0, overflow: 'hidden', cursor: 'pointer' }}>
+              <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '14px' }}>
+                <div style={{ width: '44px', height: '44px', background: '#E8F8F5', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <svg width="20" height="20" fill="none" stroke="#00B894" strokeWidth="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <h4 style={{ fontSize: '15px', fontWeight: 700, color: '#2D3436', margin: 0 }}>{site.name}</h4>
+                    {(() => { const nw = getNextScheduledWork(site); if (!nw) return null; return (
+                      <span style={{ background: nw.isPast ? '#FEE2E2' : '#EBF5FB', color: nw.isPast ? '#DC2626' : '#2980B9',
+                        padding: '1px 7px', borderRadius: '10px', fontSize: '10px', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                        {nw.isPast ? '未完了' : `次回${nw.month}/${nw.day}`}
+                      </span>
+                    ); })()}
+                  </div>
+                  {site.address && <p style={{ fontSize: '12px', color: '#636E72', margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{site.address}</p>}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                  {(userRole === 'admin' || userRole === 'master') && (
                     <button
                       onClick={(e) => { e.stopPropagation(); setDeletingSite(site); setShowSiteDeleteConfirm(true); }}
-                      className="text-red-400 hover:text-red-600"
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: '#E74C3C', opacity: 0.5 }}
                     >
                       <Icons.Trash />
                     </button>
                   )}
-                  <Icons.ChevronRight />
+                  <svg width="16" height="16" fill="none" stroke="#B2BEC3" strokeWidth="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"></polyline></svg>
                 </div>
               </div>
             </div>
@@ -891,25 +1196,32 @@ function App() {
   // 現場詳細（簡略版）
   const SiteDetail = () => {
     const [activeTab, setActiveTab] = useState('info');
+    const [tlPage, setTlPage] = React.useState(1);
 
     return (
       <div className="space-y-4">
-        <div className="flex items-center gap-3 mb-4">
-          <button onClick={() => { setShowKeybox(false); navigate(`/corporations/${selectedCorp?.id}`); }} className="text-gray-400"><Icons.ChevronLeft /></button>
-          <div className="flex-1">
-            <p className="text-gray-500 text-sm truncate">{selectedCorp?.name}</p>
-            <h2 className="text-xl font-bold text-gray-800 break-words">{selectedSite?.name}</h2>
+        {/* ヘッダー */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <button onClick={() => { setShowKeybox(false); navigate(`/corporations/${selectedCorp?.id}`); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}>
+            <svg width="22" height="22" fill="none" stroke="#2D3436" strokeWidth="2.5" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg>
+          </button>
+          <div style={{ flex: 1 }}>
+            <h2 style={{ fontSize: '17px', fontWeight: 700, color: '#2D3436', margin: 0 }}>{selectedSite?.name}</h2>
+            <p style={{ fontSize: '12px', color: '#B2BEC3', margin: 0 }}>{selectedCorp?.name}</p>
           </div>
-          <button onClick={() => { setModalType('site'); setEditingItem(selectedSite); setShowModal(true); }} className="text-gray-400"><Icons.Edit /></button>
+          <button onClick={() => { setModalType('site'); setEditingItem(selectedSite); setShowModal(true); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '6px', color: '#636E72' }}><Icons.Edit /></button>
         </div>
 
         <div
-          className={`border-2 rounded-2xl p-5 cursor-pointer transition-all ${selectedSite?.keybox ? '' : 'bg-gray-50 border-gray-200'}`}
-          style={selectedSite?.keybox ? { backgroundColor: 'rgba(91, 189, 86, 0.1)', borderColor: '#5bbd56' } : {}}
+          className="cursor-pointer transition-all"
+          style={{
+            borderRadius: '16px', padding: '20px',
+            background: selectedSite?.keybox ? '#E8F8F5' : '#FAFBFC',
+            border: selectedSite?.keybox ? '2px solid #00B894' : '2px solid #E9ECEF'
+          }}
           onClick={async () => {
             if (selectedSite?.keybox && !showKeybox) {
               setShowKeybox(true);
-              // キーボックス閲覧ログを記録
               try {
                 await api.call('keybox-log', 'POST', { siteId: selectedSite.id, siteName: selectedSite.name });
               } catch (e) {
@@ -918,25 +1230,30 @@ function App() {
             }
           }}>
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-full flex items-center justify-center text-white" style={{ backgroundColor: selectedSite?.keybox ? '#5bbd56' : '#9ca3af' }}><Icons.Key /></div>
+            <div style={{ width: '56px', height: '56px', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', background: selectedSite?.keybox ? '#00B894' : '#B2BEC3' }}><Icons.Key /></div>
             <div>
-              <p className="text-sm" style={{ color: selectedSite?.keybox ? '#5bbd56' : '#9ca3af' }}>キーボックス暗証番号</p>
+              <p style={{ fontSize: '13px', color: selectedSite?.keybox ? '#00B894' : '#B2BEC3', margin: 0 }}>キーボックス暗証番号</p>
               {selectedSite?.keybox ? (
                 showKeybox ? (
-                  <><p className={`font-black ${selectedSite.keybox.length > 4 ? 'text-3xl tracking-[0.15em]' : 'text-4xl tracking-[0.3em]'}`} style={{ color: '#5bbd56' }}>{selectedSite.keybox}</p>
-                  {selectedSite?.keyboxLocation && <p className="text-gray-600 text-sm">{selectedSite.keyboxLocation}</p>}</>
+                  <><p className={`font-black ${selectedSite.keybox.length > 4 ? 'text-3xl tracking-[0.15em]' : 'text-4xl tracking-[0.3em]'}`} style={{ color: '#00B894', margin: '4px 0 0' }}>{selectedSite.keybox}</p>
+                  {selectedSite?.keyboxLocation && <p style={{ color: '#636E72', fontSize: '13px', margin: '4px 0 0' }}>{selectedSite.keyboxLocation}</p>}</>
                 ) : (
-                  <p className="font-medium text-lg" style={{ color: '#5bbd56' }}>タップして表示 <Icons.Eye className="inline w-5 h-5" /></p>
+                  <p style={{ fontWeight: 600, fontSize: '16px', color: '#00B894', margin: '4px 0 0' }}>タップして表示 <Icons.Eye className="inline w-5 h-5" /></p>
                 )
-              ) : <p className="text-gray-400">未登録</p>}
+              ) : <p style={{ color: '#B2BEC3', margin: '4px 0 0' }}>未登録</p>}
             </div>
           </div>
         </div>
 
-        <div className="flex gap-2 border-b border-gray-200 overflow-x-auto">
-          {[{ key: 'info', label: '基本情報' }, { key: 'plan', label: '年間計画' }, { key: 'logs', label: '作業履歴' }, { key: 'photos', label: '写真' }, { key: 'docs', label: '書類' }].map(tab => (
+        <div className="flex gap-1 overflow-x-auto" style={{ borderBottom: '2px solid #E9ECEF' }}>
+          {[{ key: 'info', label: '基本情報' }, { key: 'plan', label: '年間計画' }, { key: 'timeline', label: '履歴' }, { key: 'logs', label: '作業履歴' }, { key: 'photos', label: '写真' }, { key: 'docs', label: '書類' }].map(tab => (
             <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-              className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px whitespace-nowrap ${activeTab === tab.key ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500'}`}>
+              style={{
+                padding: '10px 16px', fontSize: '13px', fontWeight: 600, whiteSpace: 'nowrap', background: 'none', border: 'none',
+                color: activeTab === tab.key ? '#00B894' : '#B2BEC3',
+                borderBottom: `2px solid ${activeTab === tab.key ? '#00B894' : 'transparent'}`,
+                marginBottom: '-2px'
+              }}>
               {tab.label}
             </button>
           ))}
@@ -944,76 +1261,113 @@ function App() {
 
         {activeTab === 'info' && (
           <div className="space-y-4">
+            {/* アドレスカード（モックアップ準拠） */}
             {selectedSite?.address && (
-              <div className="flex items-center gap-2 text-gray-600">
-                <Icons.MapPin /><span className="flex-1">{selectedSite.address}</span>
-                <a href={getGoogleMapUrl(selectedSite.address)} target="_blank" className="p-1" style={{ color: '#5bbd56' }}><Icons.Map /></a>
+              <div className="address-card">
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                  <div className="address-icon-box">
+                    <svg width="18" height="18" fill="none" stroke="#2980B9" strokeWidth="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                  </div>
+                  <div>
+                    <p style={{ fontSize: '14px', margin: '0 0 2px', fontWeight: 600, color: '#2D3436' }}>{selectedSite.address}</p>
+                    <a href={getGoogleMapUrl(selectedSite.address)} target="_blank" style={{ fontSize: '12px', color: '#00B894', textDecoration: 'none', cursor: 'pointer' }}>Google Mapで開く ›</a>
+                  </div>
+                </div>
               </div>
             )}
-            <div>
-              <p className="text-gray-400 text-sm mb-1">対象害虫</p>
-              <div className="flex flex-wrap gap-1">
-                {(selectedSite?.pests || []).map((p, i) => <span key={i} className="bg-red-50 text-red-600 text-sm px-2 py-1 rounded border border-red-200">{p}</span>)}
+
+            {/* タグセクション（モックアップ準拠） */}
+            <div className="card-modern">
+              <div style={{ marginBottom: '16px' }}>
+                <p style={{ fontSize: '12px', fontWeight: 600, color: '#B2BEC3', margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>対象害虫</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {(selectedSite?.pests || []).map((p, i) => <span key={i} className="tag tag-red">{p}</span>)}
+                  {(selectedSite?.pests || []).length === 0 && <span style={{ fontSize: '13px', color: '#B2BEC3' }}>未登録</span>}
+                </div>
+              </div>
+              <div style={{ marginBottom: '16px' }}>
+                <p style={{ fontSize: '12px', fontWeight: 600, color: '#B2BEC3', margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>作業内容</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {(selectedSite?.workTypes || []).map((t, i) => <span key={i} className="tag tag-blue">{t}</span>)}
+                  {(selectedSite?.workTypes || []).length === 0 && <span style={{ fontSize: '13px', color: '#B2BEC3' }}>未登録</span>}
+                </div>
+              </div>
+              <div style={{ marginBottom: '16px' }}>
+                <p style={{ fontSize: '12px', fontWeight: 600, color: '#B2BEC3', margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>作業箇所</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {(selectedSite?.workAreas || []).length > 0 ? (
+                    selectedSite.workAreas.map((a, i) => <span key={i} className="tag tag-purple">{a}</span>)
+                  ) : (
+                    <span style={{ fontSize: '13px', color: '#B2BEC3' }}>未登録</span>
+                  )}
+                </div>
+              </div>
+              <div>
+                <p style={{ fontSize: '12px', fontWeight: 600, color: '#B2BEC3', margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>請求月</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {(selectedSite?.billingMonths || []).length > 0 ? (
+                    selectedSite.billingMonths.sort((a, b) => a - b).map((m, i) => <span key={i} className="tag tag-orange">{m}月</span>)
+                  ) : (
+                    <span style={{ fontSize: '13px', color: '#B2BEC3' }}>法人設定に準拠</span>
+                  )}
+                </div>
               </div>
             </div>
-            <div>
-              <p className="text-gray-400 text-sm mb-1">作業内容</p>
-              <div className="flex flex-wrap gap-1">
-                {(selectedSite?.workTypes || []).map((t, i) => <span key={i} className="bg-blue-50 text-blue-600 text-sm px-2 py-1 rounded border border-blue-200">{t}</span>)}
-              </div>
-            </div>
-            <div>
-              <p className="text-gray-400 text-sm mb-1">作業箇所</p>
-              <div className="flex flex-wrap gap-1">
-                {(selectedSite?.workAreas || []).length > 0 ? (
-                  selectedSite.workAreas.map((a, i) => <span key={i} className="bg-purple-50 text-purple-600 text-sm px-2 py-1 rounded border border-purple-200">{a}</span>)
-                ) : (
-                  <span className="text-gray-400 text-sm">未登録</span>
-                )}
-              </div>
-            </div>
+
+            {/* メモカード（モックアップ準拠） */}
             {selectedSite?.memo && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                <p className="text-gray-400 text-sm mb-1">メモ</p>
-                <p className="text-gray-700 whitespace-pre-wrap">{selectedSite.memo}</p>
+              <div className="memo-card">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                  <svg width="16" height="16" fill="none" stroke="#F9A825" strokeWidth="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                  <span style={{ fontSize: '13px', fontWeight: 600, color: '#F57F17' }}>メモ</span>
+                </div>
+                <p style={{ fontSize: '13px', color: '#5D4037', margin: 0, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{selectedSite.memo}</p>
               </div>
             )}
-            <div>
-              <p className="text-gray-400 text-sm mb-1">請求月</p>
-              <div className="flex flex-wrap gap-1">
-                {(selectedSite?.billingMonths || []).length > 0 ? (
-                  selectedSite.billingMonths.sort((a, b) => a - b).map((m, i) => <span key={i} className="bg-orange-50 text-orange-600 text-sm px-2 py-1 rounded border border-orange-200">{m}月</span>)
-                ) : (
-                  <span className="text-gray-400 text-sm">法人設定に準拠</span>
-                )}
-              </div>
-            </div>
           </div>
         )}
 
         {activeTab === 'plan' && (
           <div className="space-y-3">
-            {userRole === 'admin' && (
+            {(userRole === 'admin' || userRole === 'master') && (
               <button onClick={() => { setModalType('yearlyPlan'); setShowModal(true); }}
-                className="w-full flex items-center justify-center gap-2 text-white py-2 rounded-lg" style={{ backgroundColor: '#5bbd56' }}>
+                className="w-full flex items-center justify-center gap-2 text-white py-2" style={{ background: 'linear-gradient(135deg, #00B894, #00D2A0)', borderRadius: '12px', border: 'none', fontWeight: 600 }}>
                 <Icons.Edit /> 年間計画を編集
               </button>
             )}
-            <div className="bg-white border border-gray-200 rounded-xl overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead><tr className="bg-gray-50">{months.map(m => <th key={m} className="px-2 py-2 text-center min-w-[50px]">{m}月</th>)}</tr></thead>
+            <div className="card-modern" style={{ padding: 0, overflow: 'auto' }}>
+              <table className="table-modern w-full">
+                <thead><tr>{months.map(m => <th key={m} className="px-2 py-2 text-center min-w-[50px]">{m}月</th>)}</tr></thead>
                 <tbody><tr>
                   {months.map(m => {
                     const plan = selectedSite?.yearlyPlan?.[m];
                     return (
-                      <td key={m} className="px-1 py-2 text-center border-t">
+                      <td key={m} className="px-1 py-2 text-center" style={{ borderTop: '1px solid #E9ECEF' }}>
                         {plan?.scheduled ? (
                           <div>
-                            <div className="w-7 h-7 mx-auto rounded-full flex items-center justify-center text-white text-xs font-bold" style={{ backgroundColor: '#5bbd56' }}>{plan.date}</div>
-                            <div className="text-xs mt-1 text-gray-500 truncate">{plan.workType}</div>
+                            <div className="w-7 h-7 mx-auto rounded-full flex items-center justify-center text-white text-xs font-bold"
+                              style={{ background: plan.completed ? '#27AE60' : '#00B894', opacity: plan.completed ? 0.7 : 1 }}>{plan.date}</div>
+                            <div className="text-xs mt-1 truncate" style={{ color: '#636E72' }}>{plan.workType}</div>
+                            <button onClick={async (e) => {
+                              e.stopPropagation();
+                              const newVal = !plan.completed;
+                              await api.toggleYearlyPlanComplete(selectedSite.id, m, newVal);
+                              // ローカルステートも更新
+                              const updatedCorps = corporations.map(c => ({
+                                ...c, sites: (c.sites || []).map(s => s.id === selectedSite.id ? {
+                                  ...s, yearlyPlan: { ...s.yearlyPlan, [m]: { ...s.yearlyPlan[m], completed: newVal } }
+                                } : s)
+                              }));
+                              setCorporations(updatedCorps);
+                            }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', marginTop: '2px' }}>
+                              {plan.completed
+                                ? <svg width="16" height="16" viewBox="0 0 24 24" fill="#27AE60" stroke="none"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01" fill="none" stroke="white" strokeWidth="2"/></svg>
+                                : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#B2BEC3" strokeWidth="2"><circle cx="12" cy="12" r="10"/></svg>
+                              }
+                            </button>
                           </div>
                         ) : (
-                          <div className="w-7 h-7 mx-auto rounded-full border-2 border-dashed border-gray-200" />
+                          <div className="w-7 h-7 mx-auto rounded-full" style={{ border: '2px dashed #E9ECEF' }} />
                         )}
                       </td>
                   );
@@ -1027,21 +1381,30 @@ function App() {
         {activeTab === 'logs' && (
           <div className="space-y-3">
             <button onClick={() => { setModalType('workLog'); setEditingItem(null); setShowModal(true); }}
-              className="w-full flex items-center justify-center gap-2 bg-white border-2 border-dashed border-gray-300 rounded-lg p-3 text-gray-500 hover:border-green-400 hover:text-green-600">
+              className="w-full flex items-center justify-center gap-2 bg-white" style={{ border: '2px dashed #E9ECEF', borderRadius: '12px', padding: '12px', color: '#636E72' }}>
               <Icons.Plus /> 作業報告を追加
             </button>
             {(selectedSite?.workLogs || []).length === 0 ? (
-              <p className="text-center text-gray-400 py-8">作業履歴がありません</p>
+              <p className="text-center py-8" style={{ color: '#B2BEC3' }}>作業履歴がありません</p>
             ) : (
               <div className="space-y-3">
                 {[...(selectedSite?.workLogs || [])].sort((a, b) => new Date(b.date) - new Date(a.date)).map(log => (
                   <div key={log.id} className="bg-white border border-gray-200 rounded-xl p-4">
                     <div className="flex justify-between items-start mb-2">
                       <div>
-                        <span className="text-sm font-medium px-2 py-0.5 rounded" style={{ backgroundColor: '#5bbd56', color: 'white' }}>{formatDate(log.date)}</span>
+                        <span className="text-sm font-medium px-2 py-0.5 rounded" style={{ backgroundColor: '#00B894', color: 'white' }}>{formatDate(log.date)}</span>
                         <span className="ml-2 text-gray-600">{log.workType}</span>
                       </div>
-                      <span className="text-gray-400 text-sm">{log.staff}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-400 text-sm">{log.staff}</span>
+                        <button onClick={() => { setModalType('workLog'); setEditingItem(log); setShowModal(true); }}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: '#636E72' }}><Icons.Edit /></button>
+                        <button onClick={async () => {
+                          if (!confirm('この作業ログを削除しますか？')) return;
+                          await api.deleteWorkLog(log.id);
+                          loadData();
+                        }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: '#E74C3C', opacity: 0.6 }}><Icons.Trash /></button>
+                      </div>
                     </div>
                     <div className="space-y-1 text-sm">
                       <p><span className="text-gray-400">状況:</span> <span className={log.condition === '良好' ? 'text-green-600' : log.condition === '要注意' ? 'text-amber-600' : 'text-red-600'}>{log.condition}</span></p>
@@ -1055,6 +1418,60 @@ function App() {
             )}
           </div>
         )}
+
+        {activeTab === 'timeline' && (() => {
+          // 全履歴を統合してタイムラインに
+          const items = [];
+          (selectedSite?.workLogs || []).forEach(w => items.push({ type: 'work', date: w.date, data: w }));
+          (selectedSite?.contactLogs || selectedCorp?.contactLogs || []).forEach(c => items.push({ type: 'contact', date: c.date || c.contact_date, data: c }));
+          (selectedSite?.photos || []).forEach(p => items.push({ type: 'photo', date: p.date || p.photo_date, data: p }));
+          items.sort((a, b) => new Date(b.date) - new Date(a.date));
+          const TL_PER_PAGE = 20;
+          const pagedItems = items.slice(0, tlPage * TL_PER_PAGE);
+          return (
+            <div className="space-y-0" style={{ position: 'relative', paddingLeft: '24px' }}>
+              <div style={{ position: 'absolute', left: '8px', top: '0', bottom: '0', width: '2px', background: '#E9ECEF' }} />
+              {items.length === 0 && <p className="text-center py-8" style={{ color: '#B2BEC3' }}>履歴がありません</p>}
+              {pagedItems.map((item, i) => (
+                <div key={i} style={{ position: 'relative', paddingBottom: '16px' }}>
+                  <div style={{ position: 'absolute', left: '-20px', top: '4px', width: '12px', height: '12px', borderRadius: '50%',
+                    background: item.type === 'work' ? '#2980B9' : item.type === 'contact' ? '#27AE60' : '#8E44AD',
+                    border: '2px solid white', boxShadow: '0 0 0 2px #E9ECEF' }} />
+                  <div className="bg-white border border-gray-200 rounded-lg p-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span style={{ fontSize: '11px', fontWeight: 600, color: 'white', padding: '1px 8px', borderRadius: '10px',
+                        background: item.type === 'work' ? '#2980B9' : item.type === 'contact' ? '#27AE60' : '#8E44AD' }}>
+                        {item.type === 'work' ? '作業' : item.type === 'contact' ? '連絡' : '写真'}
+                      </span>
+                      <span className="text-xs text-gray-400">{formatDate(item.date)}</span>
+                    </div>
+                    {item.type === 'work' && (
+                      <div className="text-sm"><p className="text-gray-700">{item.data.workType}{item.data.condition ? ` - ${item.data.condition}` : ''}</p>
+                        {item.data.note && <p className="text-gray-500 text-xs mt-1">{item.data.note}</p>}</div>
+                    )}
+                    {item.type === 'contact' && (
+                      <div className="text-sm"><p className="text-gray-700">{item.data.content || item.data.notes}</p>
+                        {item.data.staff && <p className="text-gray-400 text-xs mt-1">担当: {item.data.staff}</p>}</div>
+                    )}
+                    {item.type === 'photo' && (
+                      <div className="flex items-center gap-2">
+                        <img src={item.data.url} alt="" style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '8px', cursor: 'pointer' }}
+                          onClick={() => { setLightboxPhoto(item.data); setLightboxIndex((selectedSite?.photos || []).indexOf(item.data)); }} />
+                        {item.data.note && <span className="text-sm text-gray-500">{item.data.note}</span>}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {pagedItems.length < items.length && (
+                <button onClick={() => setTlPage(p => p + 1)}
+                  style={{ width: '100%', padding: '10px', background: '#F8F9FA', border: '1px solid #E9ECEF', borderRadius: '8px', color: '#636E72', cursor: 'pointer', fontSize: '13px' }}>
+                  もっと見る ({items.length - pagedItems.length}件)
+                </button>
+              )}
+            </div>
+          );
+        })()}
 
         {activeTab === 'photos' && (
           <div className="space-y-3">
@@ -1255,13 +1672,13 @@ function App() {
 
     return (
       <div className="space-y-4">
-        <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2"><Icons.Calculator /> 請求管理</h2>
+        <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#2D3436' }} className=" flex items-center gap-2"><Icons.Calculator /> 請求管理</h2>
 
         <div className="flex gap-2 overflow-x-auto pb-2">
           {[{ key: 'thisMonth', label: `今月 (${thisMonthBillingCorps.length})` }, { key: 'all', label: `全て (${corporations.length})` }, { key: '毎月', label: '毎月' }, { key: '半年', label: '半年' }, { key: '年間', label: '年間' }].map(f => (
             <button key={f.key} onClick={() => setFilter(f.key)}
               className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap ${filter === f.key ? 'text-white' : 'bg-gray-100 text-gray-600'}`}
-              style={filter === f.key ? { backgroundColor: '#5bbd56' } : {}}>
+              style={filter === f.key ? { backgroundColor: '#00B894' } : {}}>
               {f.label}
             </button>
           ))}
@@ -1382,12 +1799,12 @@ function App() {
         <div className="flex gap-2">
           <button onClick={() => setLogsType('login')}
             className={`px-4 py-2 rounded-lg text-sm font-medium ${logsType === 'login' ? 'text-white' : 'bg-gray-100 text-gray-600'}`}
-            style={logsType === 'login' ? { backgroundColor: '#5bbd56' } : {}}>
+            style={logsType === 'login' ? { backgroundColor: '#00B894' } : {}}>
             ログイン履歴
           </button>
           <button onClick={() => setLogsType('keybox')}
             className={`px-4 py-2 rounded-lg text-sm font-medium ${logsType === 'keybox' ? 'text-white' : 'bg-gray-100 text-gray-600'}`}
-            style={logsType === 'keybox' ? { backgroundColor: '#5bbd56' } : {}}>
+            style={logsType === 'keybox' ? { backgroundColor: '#00B894' } : {}}>
             キーボックス閲覧履歴
           </button>
         </div>
@@ -1678,7 +2095,7 @@ function App() {
 
     return (
       <div className="space-y-4">
-        <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2"><Icons.Settings /> 設定</h2>
+        <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#2D3436' }} className=" flex items-center gap-2"><Icons.Settings /> 設定</h2>
 
         <div className="flex gap-2 border-b border-gray-200 mb-4 overflow-x-auto">
           {[{ key: 'users', label: 'ユーザー' }, { key: 'master', label: 'マスタ' }, { key: 'import', label: 'インポート' }, { key: 'export', label: 'エクスポート' }, ...(currentUser?.role === 'admin' ? [{ key: 'logs', label: '履歴' }] : [])].map(tab => (
@@ -1696,7 +2113,7 @@ function App() {
               setUserForm({ name: '', username: '', password: '', role: 'staff' }); 
               setShowUserModal(true); 
             }}
-              className="w-full flex items-center justify-center gap-2 text-white py-2 rounded-lg" style={{ backgroundColor: '#5bbd56' }}>
+              className="w-full flex items-center justify-center gap-2 text-white py-2 rounded-lg" style={{ background: '#00B894' }}>
               <Icons.Plus /> ユーザー追加
             </button>
             {users.map(user => (
@@ -1733,7 +2150,7 @@ function App() {
               </div>
               <form onSubmit={(e) => { e.preventDefault(); addMaster('pest', localNewPest, setLocalNewPest); }} className="flex gap-2">
                 <input type="text" placeholder="新しい害虫を追加" value={localNewPest} onChange={e => setLocalNewPest(e.target.value)} className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm" />
-                <button type="submit" className="px-3 py-2 rounded-lg text-white text-sm" style={{ backgroundColor: '#5bbd56' }}>追加</button>
+                <button type="submit" className="px-3 py-2 rounded-lg text-white text-sm" style={{ background: '#00B894' }}>追加</button>
               </form>
             </div>
             <div className="bg-white border border-gray-200 rounded-xl p-4">
@@ -1748,7 +2165,7 @@ function App() {
               </div>
               <form onSubmit={(e) => { e.preventDefault(); addMaster('workType', localNewWork, setLocalNewWork); }} className="flex gap-2">
                 <input type="text" placeholder="新しい作業を追加" value={localNewWork} onChange={e => setLocalNewWork(e.target.value)} className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm" />
-                <button type="submit" className="px-3 py-2 rounded-lg text-white text-sm" style={{ backgroundColor: '#5bbd56' }}>追加</button>
+                <button type="submit" className="px-3 py-2 rounded-lg text-white text-sm" style={{ background: '#00B894' }}>追加</button>
               </form>
             </div>
             <div className="bg-white border border-gray-200 rounded-xl p-4">
@@ -1763,7 +2180,7 @@ function App() {
               </div>
               <form onSubmit={(e) => { e.preventDefault(); addMaster('workArea', localNewArea, setLocalNewArea); }} className="flex gap-2">
                 <input type="text" placeholder="新しい作業箇所を追加" value={localNewArea} onChange={e => setLocalNewArea(e.target.value)} className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm" />
-                <button type="submit" className="px-3 py-2 rounded-lg text-white text-sm" style={{ backgroundColor: '#5bbd56' }}>追加</button>
+                <button type="submit" className="px-3 py-2 rounded-lg text-white text-sm" style={{ background: '#00B894' }}>追加</button>
               </form>
             </div>
             <div className="bg-white border border-gray-200 rounded-xl p-4 md:col-span-3">
@@ -1803,7 +2220,7 @@ function App() {
                   </div>
                   <form onSubmit={addProduct} className="flex gap-2">
                     <input type="text" placeholder="新しい商品を追加" value={localNewProduct} onChange={e => setLocalNewProduct(e.target.value)} className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm" />
-                    <button type="submit" className="px-3 py-2 rounded-lg text-white text-sm" style={{ backgroundColor: '#5bbd56' }}>追加</button>
+                    <button type="submit" className="px-3 py-2 rounded-lg text-white text-sm" style={{ background: '#00B894' }}>追加</button>
                   </form>
                 </>
               )}
@@ -1954,7 +2371,7 @@ function App() {
                 </div>
                 <div className="flex gap-3 mt-6">
                   <button type="button" onClick={() => setShowUserModal(false)} className="flex-1 bg-gray-100 py-2 rounded-lg">キャンセル</button>
-                  <button type="submit" className="flex-1 text-white py-2 rounded-lg" style={{ backgroundColor: '#5bbd56' }}>保存</button>
+                  <button type="submit" className="flex-1 text-white py-2 rounded-lg" style={{ background: '#00B894' }}>保存</button>
                 </div>
               </form>
             </div>
@@ -1986,7 +2403,7 @@ function App() {
       <div className="space-y-4">
         <div className="flex justify-between items-center mb-4">
           <button onClick={prevMonth} className="p-2 hover:bg-gray-100 rounded-lg"><Icons.ChevronLeft /></button>
-          <h2 className="text-xl font-bold text-gray-800">{year}年{month + 1}月</h2>
+          <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#2D3436' }} className="">{year}年{month + 1}月</h2>
           <button onClick={nextMonth} className="p-2 hover:bg-gray-100 rounded-lg"><Icons.ChevronRight /></button>
         </div>
 
@@ -2027,7 +2444,7 @@ function App() {
                 navigate(`/sites/${work.id}`);
               }} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100">
                 <div>
-                  <span className="text-sm font-medium mr-2 px-2 py-0.5 rounded" style={{ backgroundColor: '#5bbd56', color: 'white' }}>{work.date}日</span>
+                  <span className="text-sm font-medium mr-2 px-2 py-0.5 rounded" style={{ backgroundColor: '#00B894', color: 'white' }}>{work.date}日</span>
                   <span className="text-gray-700">{work.corpName}</span>
                   <span className="text-gray-500 text-sm ml-2">{work.name}</span>
                 </div>
@@ -2074,9 +2491,9 @@ function App() {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-800">日報</h2>
+          <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#2D3436' }} className="">日報</h2>
           <button onClick={() => navigate('/daily-reports/new')}
-            className="flex items-center gap-1 text-white px-4 py-2 rounded-lg text-sm font-medium" style={{ backgroundColor: '#5bbd56' }}>
+            className="flex items-center gap-1 text-white px-4 py-2 rounded-lg text-sm font-medium" style={{ background: '#00B894' }}>
             <Icons.Plus /> 新規作成
           </button>
         </div>
@@ -2094,15 +2511,50 @@ function App() {
           <div className="space-y-2">
             {reports.map(report => {
               const st = statusLabel(report.status);
+              const isOwn = !report.user_name || report.user_name === currentUser?.name;
               return (
-                <div key={report.id} onClick={() => setViewingReport(report)}
-                  className="bg-white border border-gray-200 rounded-xl p-4 cursor-pointer hover:bg-gray-50">
-                  <div className="flex justify-between items-start">
+                <div key={report.id} className="bg-white border border-gray-200 rounded-xl p-4 cursor-pointer hover:bg-gray-50">
+                  <div className="flex justify-between items-start" onClick={() => setViewingReport(report)}>
                     <div>
                       <p className="font-bold text-gray-800">{report.report_date}</p>
+                      {report.user_name && (userRole === 'admin' || userRole === 'master') && (
+                        <p className="text-xs text-blue-500 font-medium">{report.user_name}</p>
+                      )}
                       <p className="text-sm text-gray-500">{report.details?.length || 0}件の作業</p>
                     </div>
-                    <span className={`text-xs px-2 py-1 rounded ${st.color}`}>{st.label}</span>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs px-2 py-1 rounded ${st.color}`}>{st.label}</span>
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center mt-2 pt-2 border-t border-gray-100">
+                    <div className="flex gap-2">
+                      <button onClick={(e) => { e.stopPropagation(); navigate(`/daily-reports/${report.id}`); }}
+                        className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700" style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+                        <Icons.Edit /> 編集
+                      </button>
+                      <button onClick={async (e) => {
+                        e.stopPropagation();
+                        if (!report.id) {
+                          console.error('Report object missing id:', report);
+                          alert('削除に失敗しました: 日報IDが取得できません。ページを再読み込みしてください。');
+                          return;
+                        }
+                        if (!confirm('この日報を削除しますか？')) return;
+                        try {
+                          await api.deleteDailyReport(report.id);
+                          loadReports();
+                        } catch (err) {
+                          alert('削除に失敗しました: ' + err.message);
+                        }
+                      }}
+                        className="flex items-center gap-1 text-xs text-red-400 hover:text-red-600" style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+                        <Icons.Trash /> 削除
+                      </button>
+                    </div>
+                    <button onClick={(e) => { e.stopPropagation(); navigate('/daily-reports/new', { state: { template: report } }); }}
+                      className="flex items-center gap-1 text-xs text-gray-400 hover:text-green-600" style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+                      <Icons.Copy /> コピー
+                    </button>
                   </div>
                 </div>
               );
@@ -2134,10 +2586,12 @@ function App() {
                     if (!confirm('この日報を削除しますか？')) return;
                     try {
                       await api.deleteDailyReport(viewingReport.id);
+                      alert('日報を削除しました');
                       setViewingReport(null);
                       loadReports();
                     } catch (e) {
-                      alert('削除に失敗しました: ' + e.message);
+                      console.error('Delete error:', e);
+                      alert('削除に失敗しました: ' + (e.message || 'エラーが発生しました'));
                     }
                   }} className="text-sm px-3 py-1 bg-red-100 text-red-600 rounded">削除</button>
                   <button onClick={() => setViewingReport(null)} className="text-gray-400 hover:text-gray-600">
@@ -2220,6 +2674,7 @@ function App() {
     const path = location.pathname;
     const reportId = path.split('/')[2];
     const isNew = reportId === 'new';
+    const isValidId = isNew || (reportId && !isNaN(reportId) && parseInt(reportId) > 0);
 
     const [loading, setLoading] = useState(!isNew);
     const [saving, setSaving] = useState(false);
@@ -2241,9 +2696,30 @@ function App() {
     const [activeDetailIndex, setActiveDetailIndex] = useState(null);
 
     useEffect(() => {
+      if (!isValidId) {
+        navigate('/daily-reports');
+        return;
+      }
       loadVehicles();
       if (!isNew) {
         loadReport();
+      } else if (location.state?.template) {
+        // テンプレートからコピー
+        const t = location.state.template;
+        setFormData(prev => ({
+          ...prev,
+          vehicle: t.vehicle || '',
+          contactNotes: '',
+          remarks: '',
+          details: t.details?.length > 0 ? t.details.map(d => ({
+            startTime: d.start_time?.slice(0, 5) || d.startTime || '',
+            endTime: d.end_time?.slice(0, 5) || d.endTime || '',
+            siteId: d.site_id || d.siteId || null,
+            siteName: d.site_name || d.siteName || '',
+            workerCount: d.worker_count || d.workerCount || 1,
+            companions: d.companions || ''
+          })) : prev.details
+        }));
       }
     }, [reportId]);
 
@@ -2359,7 +2835,7 @@ function App() {
       <div className="space-y-4 pb-20">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate('/daily-reports')} className="text-gray-500"><Icons.ChevronLeft /></button>
-          <h2 className="text-xl font-bold text-gray-800">{isNew ? '日報作成' : '日報編集'}</h2>
+          <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#2D3436' }} className="">{isNew ? '日報作成' : '日報編集'}</h2>
         </div>
 
         <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-4">
@@ -2372,7 +2848,7 @@ function App() {
           <div>
             <div className="flex justify-between items-center mb-2">
               <label className="text-sm font-medium text-gray-700">作業明細</label>
-              <button onClick={addDetail} className="text-sm px-3 py-1 rounded" style={{ backgroundColor: '#5bbd56', color: 'white' }}>
+              <button onClick={addDetail} className="text-sm px-3 py-1 rounded" style={{ backgroundColor: '#00B894', color: 'white' }}>
                 <Icons.Plus className="inline w-4 h-4" /> 追加
               </button>
             </div>
@@ -2512,7 +2988,7 @@ function App() {
             {saving ? '保存中...' : '下書き保存'}
           </button>
           <button onClick={() => handleSave('submitted')} disabled={saving}
-            className="flex-1 text-white py-3 rounded-lg font-medium" style={{ backgroundColor: '#5bbd56' }}>
+            className="flex-1 text-white py-3 rounded-lg font-medium" style={{ background: '#00B894' }}>
             {saving ? '保存中...' : '提出'}
           </button>
         </div>
@@ -2546,15 +3022,30 @@ function App() {
       let cancelled = false;
 
       const load = async () => {
+        // 今日のタイムカードを取得
         try {
           const todayData = await api.getTodayTimecard();
           if (!cancelled) setTodayCard(todayData);
-        } catch (e) { console.error(e); }
+        } catch (e) {
+          console.error('Today timecard error:', e);
+        }
 
+        // 月次データを取得
         setLoading(true);
         try {
           const monthData = await api.getTimecards({ year_month: selectedMonth });
-          if (!cancelled) setMonthCards(monthData);
+          if (!cancelled) {
+            setMonthCards(monthData);
+            // todayCardがnullの場合、月次データから今日の記録を探してフォールバック
+            const todayStr = new Date().toISOString().slice(0, 10);
+            if (!cancelled) {
+              setTodayCard(prev => {
+                if (prev && prev.clock_in) return prev;
+                const todayFromMonth = (monthData || []).find(c => c.work_date === todayStr);
+                return todayFromMonth || prev;
+              });
+            }
+          }
         } catch (e) { console.error(e); }
         if (!cancelled) setLoading(false);
       };
@@ -2566,8 +3057,21 @@ function App() {
     const loadTodayCard = async () => {
       try {
         const data = await api.getTodayTimecard();
-        setTodayCard(data);
-      } catch (e) { console.error(e); }
+        if (data && (data.clock_in || data.id)) {
+          setTodayCard(data);
+        } else {
+          // APIが空データを返した場合、月次データから今日の記録を探す
+          const todayStr = new Date().toISOString().slice(0, 10);
+          const fallback = monthCards.find(c => c.work_date === todayStr);
+          setTodayCard(fallback || data);
+        }
+      } catch (e) {
+        console.error('loadTodayCard error:', e);
+        // エラー時も月次データからフォールバック
+        const todayStr = new Date().toISOString().slice(0, 10);
+        const fallback = monthCards.find(c => c.work_date === todayStr);
+        if (fallback) setTodayCard(fallback);
+      }
     };
 
     const loadMonthCards = async () => {
@@ -2609,21 +3113,23 @@ function App() {
 
     const handleClockIn = async () => {
       try {
-        await api.clockIn({ type: 'auto' });
+        const result = await api.clockIn({ type: 'auto' });
+        alert('出勤を記録しました: ' + (result.time ? result.time.slice(0, 5) : ''));
         await loadTodayCard();
         await loadMonthCards();
       } catch (e) {
-        alert(e.message);
+        alert('出勤エラー: ' + e.message);
       }
     };
 
     const handleClockOut = async () => {
       try {
-        await api.clockOut({ type: 'auto' });
+        const result = await api.clockOut({ type: 'auto' });
+        alert('退勤を記録しました: ' + (result.time ? result.time.slice(0, 5) : ''));
         await loadTodayCard();
         await loadMonthCards();
       } catch (e) {
-        alert(e.message);
+        alert('退勤エラー: ' + e.message);
       }
     };
 
@@ -2631,31 +3137,37 @@ function App() {
 
     return (
       <div className="space-y-4">
-        <h2 className="text-xl font-bold text-gray-800">タイムカード</h2>
+        <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#2D3436' }} className="">タイムカード</h2>
 
-        <div className="bg-white border border-gray-200 rounded-xl p-6 text-center">
-          <p className="text-4xl font-bold text-gray-800 mb-2">
+        <div className="bg-white text-center" style={{ borderRadius: '16px', padding: '24px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+          <p style={{ fontSize: '36px', fontWeight: 800, color: '#2D3436', marginBottom: '8px' }}>
             {currentTime.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
           </p>
-          <p className="text-gray-500 mb-4">
+          <p style={{ color: '#636E72', marginBottom: '16px' }}>
             {currentTime.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}
           </p>
 
           <div className="flex gap-3 justify-center mb-4">
             {!todayCard?.clock_in ? (
               <button onClick={handleClockIn}
-                className="px-8 py-4 rounded-xl text-white text-lg font-bold" style={{ backgroundColor: '#5bbd56' }}>
+                className="text-white text-lg font-bold" style={{ padding: '16px 32px', borderRadius: '16px', background: 'linear-gradient(135deg, #00B894, #00D2A0)', border: 'none', boxShadow: '0 4px 16px rgba(0, 184, 148, 0.3)' }}>
                 出勤
               </button>
             ) : !todayCard?.clock_out ? (
               <button onClick={handleClockOut}
-                className="px-8 py-4 rounded-xl text-white text-lg font-bold bg-orange-500">
+                className="text-white text-lg font-bold" style={{ padding: '16px 32px', borderRadius: '16px', background: 'linear-gradient(135deg, #E67E22, #F39C12)', border: 'none', boxShadow: '0 4px 16px rgba(230, 126, 34, 0.3)' }}>
                 退勤
               </button>
             ) : (
-              <p className="text-green-600 font-medium">本日の打刻完了</p>
+              <p style={{ color: '#00B894', fontWeight: 600 }}>本日の打刻完了</p>
             )}
           </div>
+
+          {todayCard?.is_overnight && (
+            <p className="text-center text-xs mb-2" style={{ color: '#E67E22' }}>
+              ※ {todayCard.work_date} の出勤分（日跨ぎ）
+            </p>
+          )}
 
           <div className="flex justify-center gap-8 text-sm">
             <div>
@@ -2740,7 +3252,7 @@ function App() {
                     loadTodayCard();
                     loadMonthCards();
                   } catch (e) { alert(e.message); }
-                }} className="flex-1 text-white py-2 rounded-lg" style={{ backgroundColor: '#5bbd56' }}>保存</button>
+                }} className="flex-1 text-white py-2 rounded-lg" style={{ background: '#00B894' }}>保存</button>
               </div>
               <button onClick={async () => {
                 if (confirm('このタイムカードを削除しますか？')) {
@@ -2842,13 +3354,13 @@ function App() {
   const AdminMenuView = () => {
     return (
       <div className="space-y-4">
-        <h2 className="text-xl font-bold text-gray-800">メニュー</h2>
+        <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#2D3436' }} className="">メニュー</h2>
 
         <div className="space-y-3">
           <button onClick={() => navigate('/settings')}
             className="w-full bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-4 text-left hover:bg-gray-50">
             <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: 'rgba(91, 189, 86, 0.1)' }}>
-              <Icons.Settings style={{ color: '#5bbd56' }} />
+              <Icons.Settings style={{ color: '#00B894' }} />
             </div>
             <div>
               <p className="font-bold text-gray-800">設定</p>
@@ -2860,7 +3372,7 @@ function App() {
           <button onClick={() => navigate('/admin/daily-reports')}
             className="w-full bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-4 text-left hover:bg-gray-50">
             <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: 'rgba(91, 189, 86, 0.1)' }}>
-              <Icons.ClipboardList style={{ color: '#5bbd56' }} />
+              <Icons.ClipboardList style={{ color: '#00B894' }} />
             </div>
             <div>
               <p className="font-bold text-gray-800">日報管理</p>
@@ -2872,7 +3384,7 @@ function App() {
           <button onClick={() => navigate('/admin/timecards')}
             className="w-full bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-4 text-left hover:bg-gray-50">
             <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: 'rgba(91, 189, 86, 0.1)' }}>
-              <Icons.Clock style={{ color: '#5bbd56' }} />
+              <Icons.Clock style={{ color: '#00B894' }} />
             </div>
             <div>
               <p className="font-bold text-gray-800">タイムカード管理</p>
@@ -2881,11 +3393,23 @@ function App() {
             <Icons.ChevronRight className="ml-auto text-gray-400" />
           </button>
 
+          <button onClick={() => navigate('/monthly-closing')}
+            className="w-full bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-4 text-left hover:bg-gray-50">
+            <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: 'rgba(91, 189, 86, 0.1)' }}>
+              <Icons.Calculator style={{ color: '#00B894' }} />
+            </div>
+            <div>
+              <p className="font-bold text-gray-800">月締め日報管理</p>
+              <p className="text-sm text-gray-500">日報の月次集計・印刷出力</p>
+            </div>
+            <Icons.ChevronRight className="ml-auto text-gray-400" />
+          </button>
+
           {(userRole === 'master' || userRole === 'admin') && (
             <button onClick={() => navigate('/admin/audit-logs')}
               className="w-full bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-4 text-left hover:bg-gray-50">
               <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: 'rgba(91, 189, 86, 0.1)' }}>
-                <Icons.FileText style={{ color: '#5bbd56' }} />
+                <Icons.FileText style={{ color: '#00B894' }} />
               </div>
               <div>
                 <p className="font-bold text-gray-800">操作履歴</p>
@@ -2954,7 +3478,7 @@ function App() {
       <div className="space-y-4">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate('/menu')} className="text-gray-500"><Icons.ChevronLeft /></button>
-          <h2 className="text-xl font-bold text-gray-800">日報管理</h2>
+          <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#2D3436' }} className="">日報管理</h2>
         </div>
 
         <div className="bg-white border border-gray-200 rounded-xl p-4 flex flex-wrap gap-3 items-center">
@@ -3045,7 +3569,7 @@ function App() {
               </div>
               <div className="flex gap-2 mt-4">
                 <button onClick={() => setEditingHours(null)} className="flex-1 bg-gray-200 py-2 rounded-lg">キャンセル</button>
-                <button onClick={handleSaveHours} className="flex-1 text-white py-2 rounded-lg" style={{ backgroundColor: '#5bbd56' }}>保存</button>
+                <button onClick={handleSaveHours} className="flex-1 text-white py-2 rounded-lg" style={{ background: '#00B894' }}>保存</button>
               </div>
             </div>
           </div>
@@ -3073,10 +3597,12 @@ function App() {
                     if (!confirm('この日報を削除しますか？')) return;
                     try {
                       await api.deleteDailyReport(viewingReport.id);
+                      alert('日報を削除しました');
                       setViewingReport(null);
                       loadReports();
                     } catch (e) {
-                      alert('削除に失敗しました: ' + e.message);
+                      console.error('Delete error:', e);
+                      alert('削除に失敗しました: ' + (e.message || 'エラーが発生しました'));
                     }
                   }} className="text-sm px-3 py-1 bg-red-100 text-red-600 rounded">削除</button>
                   <button onClick={() => setViewingReport(null)} className="text-gray-400 hover:text-gray-600">
@@ -3259,7 +3785,7 @@ function App() {
       <div className="space-y-4">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate('/menu')} className="text-gray-500"><Icons.ChevronLeft /></button>
-          <h2 className="text-xl font-bold text-gray-800">タイムカード管理</h2>
+          <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#2D3436' }} className="">タイムカード管理</h2>
         </div>
 
         {/* タブ */}
@@ -3477,7 +4003,7 @@ function App() {
       <div className="space-y-4">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate('/menu')} className="text-gray-500"><Icons.ChevronLeft /></button>
-          <h2 className="text-xl font-bold text-gray-800">操作履歴</h2>
+          <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#2D3436' }} className="">操作履歴</h2>
         </div>
 
         <div className="bg-white border border-gray-200 rounded-xl p-4 flex flex-wrap gap-3 items-center">
@@ -3530,6 +4056,493 @@ function App() {
             </div>
           </div>
         )}
+      </div>
+    );
+  };
+
+  // ========== 月次締めレポート ==========
+  const MonthlyClosingReport = () => {
+    const now = new Date();
+    const [selectedYear, setSelectedYear] = useState(now.getFullYear());
+    const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1);
+    const [selectedUserId, setSelectedUserId] = useState(null);
+    const [reportData, setReportData] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [users, setUsers] = useState([]);
+    const [isPrintView, setIsPrintView] = useState(false);
+    const [printData, setPrintData] = useState(null);
+
+    // スタッフ用：営業売上入力
+    const [salesEntries, setSalesEntries] = useState([]);
+    const [submitting, setSubmitting] = useState(false);
+    const [existingSubmission, setExistingSubmission] = useState(null);
+
+    // 管理者用：提出一覧
+    const [submissions, setSubmissions] = useState([]);
+    const [viewingSubmission, setViewingSubmission] = useState(null);
+
+    const isAdmin = userRole === 'admin' || userRole === 'master';
+
+    const fetchReport = async (year, month, userId) => {
+      setLoading(true);
+      try {
+        const basePath = window.location.pathname.replace(/\/[^\/]*$/, '/');
+        let url = `${basePath}${API_BASE}?action=monthly-closing-report&year=${year}&month=${month}`;
+        if (userId) url += `&user_id=${userId}`;
+        const res = await fetch(url, { credentials: 'include' });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        setReportData(data);
+        if (data.users && data.users.length > 0) {
+          setUsers(data.users);
+          if (!userId && !selectedUserId) {
+            setSelectedUserId(data.userId);
+          }
+        }
+
+        // 日報の現場データから売上エントリを初期化
+        if (data.details && data.details.length > 0) {
+          const entries = data.details.map(d => ({
+            date: d.report_date,
+            siteName: d.site_name || '',
+            salesContent: '',
+            salesAmount: '',
+          }));
+          setSalesEntries(entries);
+        } else {
+          setSalesEntries([]);
+        }
+
+        // 既存提出データを確認
+        try {
+          const subs = await api.getMonthlyClosingSubmissions({ year, month });
+          if (isAdmin) {
+            setSubmissions(subs || []);
+          }
+          const mySub = (subs || []).find(s => s.user_id == (userId || data.userId));
+          if (mySub) {
+            setExistingSubmission(mySub);
+            // 売上データを復元
+            if (mySub.sales_data && mySub.sales_data.length > 0) {
+              setSalesEntries(mySub.sales_data);
+            }
+          } else {
+            setExistingSubmission(null);
+          }
+        } catch (e) {}
+      } catch (e) {
+        console.error(e);
+        alert('レポートの取得に失敗しました');
+      }
+      setLoading(false);
+    };
+
+    useEffect(() => {
+      fetchReport(selectedYear, selectedMonth, selectedUserId);
+    }, [selectedYear, selectedMonth, selectedUserId]);
+
+    const formatDate = (dateStr) => {
+      if (!dateStr) return '';
+      const d = new Date(dateStr);
+      return `${d.getMonth() + 1}/${d.getDate()}`;
+    };
+
+    const formatPeriod = () => {
+      if (!reportData) return '';
+      const s = new Date(reportData.periodStart);
+      const e = new Date(reportData.periodEnd);
+      return `${s.getFullYear()}年${s.getMonth() + 1}月${s.getDate()}日 〜 ${e.getFullYear()}年${e.getMonth() + 1}月${e.getDate()}日`;
+    };
+
+    // 売上エントリの更新
+    const updateSalesEntry = (index, field, value) => {
+      const newEntries = [...salesEntries];
+      newEntries[index] = { ...newEntries[index], [field]: value };
+      setSalesEntries(newEntries);
+    };
+
+    // 売上行を追加（手動追加用）
+    const addSalesEntry = () => {
+      setSalesEntries([...salesEntries, { date: '', siteName: '', salesContent: '', salesAmount: '' }]);
+    };
+
+    // 売上行を削除
+    const removeSalesEntry = (index) => {
+      setSalesEntries(salesEntries.filter((_, i) => i !== index));
+    };
+
+    // 月締め日報を保存（下書き or 提出）
+    const handleSave = async (status = 'submitted') => {
+      if (!reportData) return;
+      const isDraft = status === 'draft';
+      if (!isDraft && !confirm(existingSubmission && existingSubmission.status !== 'draft' ? '月締め日報を再提出しますか？' : '月締め日報を提出しますか？')) return;
+      setSubmitting(true);
+      try {
+        const result = await api.submitMonthlyClosing({
+          year: selectedYear,
+          month: selectedMonth,
+          periodStart: reportData.periodStart,
+          periodEnd: reportData.periodEnd,
+          attendanceDays: reportData.attendanceDays,
+          overtimeHours: reportData.overtimeHours,
+          nightHours: reportData.nightHours,
+          constructionPoints: reportData.constructionPoints,
+          salesData: salesEntries,
+          status: status
+        });
+        alert(result.message || (isDraft ? '下書き保存しました' : '月締め日報を提出しました'));
+        fetchReport(selectedYear, selectedMonth, selectedUserId);
+      } catch (e) {
+        alert((isDraft ? '保存' : '提出') + 'に失敗しました: ' + e.message);
+      }
+      setSubmitting(false);
+    };
+
+    // 管理者：確認済みにする
+    const handleReview = async (subId) => {
+      if (!confirm('この月締め日報を確認済みにしますか？')) return;
+      try {
+        await api.updateMonthlyClosingSubmission(subId, { status: 'reviewed' });
+        alert('確認済みにしました');
+        fetchReport(selectedYear, selectedMonth, selectedUserId);
+      } catch (e) {
+        alert('エラー: ' + e.message);
+      }
+    };
+
+    // 印刷用ビュー
+    const handlePrint = (data) => {
+      setPrintData(data || { ...reportData, salesData: salesEntries });
+      setIsPrintView(true);
+    };
+
+    if (isPrintView && printData) {
+      const pd = printData;
+      const sdEntries = pd.salesData || pd.sales_data || salesEntries;
+      return (
+        <div style={{ fontFamily: '"Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif', fontSize: '14px', lineHeight: '1.4', padding: '20px', maxWidth: '800px', margin: '0 auto', background: 'white' }}>
+          <style dangerouslySetInnerHTML={{ __html: `
+            @media print {
+              body { margin: 0; }
+              .no-print { display: none !important; }
+              @page { margin: 10mm; }
+              nav, header { display: none !important; }
+            }
+          `}} />
+          <h1 style={{ textAlign: 'center', fontSize: '20px', marginBottom: '20px', letterSpacing: '0.5em' }}>作業・営業日報締め</h1>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px' }}>
+            <div><span>氏名：</span><span style={{ borderBottom: '1px solid #000', padding: '0 30px' }}>{pd.userName || pd.user_name}</span></div>
+            <div><span>期間：{pd.periodStart ? `${formatDate(pd.periodStart)} 〜 ${formatDate(pd.periodEnd)}` : formatPeriod()}</span></div>
+          </div>
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px' }}>
+            <tbody>
+              <tr>
+                <td style={{ border: '1px solid #000', padding: '8px', background: '#f5f5f5', fontWeight: 'bold', width: '25%' }}>出勤日数</td>
+                <td style={{ border: '1px solid #000', padding: '8px', width: '25%' }}>{pd.attendanceDays || pd.attendance_days} 日</td>
+                <td style={{ border: '1px solid #000', padding: '8px', background: '#f5f5f5', fontWeight: 'bold', width: '25%' }}>残業時間</td>
+                <td style={{ border: '1px solid #000', padding: '8px', width: '25%' }}>{pd.overtimeHours || pd.overtime_hours} 時間</td>
+              </tr>
+              <tr>
+                <td style={{ border: '1px solid #000', padding: '8px', background: '#f5f5f5', fontWeight: 'bold' }}>夜勤時間</td>
+                <td style={{ border: '1px solid #000', padding: '8px' }}>{pd.nightHours || pd.night_hours} 時間</td>
+                <td style={{ border: '1px solid #000', padding: '8px', background: '#f5f5f5', fontWeight: 'bold' }}>工事ポイント</td>
+                <td style={{ border: '1px solid #000', padding: '8px' }}>{pd.constructionPoints || pd.construction_points} P</td>
+              </tr>
+            </tbody>
+          </table>
+          <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '10px', borderBottom: '2px solid #000', paddingBottom: '5px' }}>営業売上</h3>
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px' }}>
+            <thead>
+              <tr style={{ background: '#f5f5f5' }}>
+                <th style={{ border: '1px solid #000', padding: '6px', fontSize: '12px' }}>得意先名</th>
+                <th style={{ border: '1px solid #000', padding: '6px', fontSize: '12px', width: '25%' }}>売上金額</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sdEntries && sdEntries.length > 0 ? sdEntries.map((s, i) => (
+                <React.Fragment key={i}>
+                  <tr>
+                    <td style={{ border: '1px solid #000', padding: '6px', fontSize: '12px' }}>{s.siteName}</td>
+                    <td style={{ border: '1px solid #000', padding: '6px', fontSize: '12px', textAlign: 'right' }}>{s.salesAmount ? `¥${Number(s.salesAmount).toLocaleString()}` : ''}</td>
+                  </tr>
+                  {s.salesContent && (
+                    <tr>
+                      <td colSpan="2" style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '11px', color: '#666' }}>売上内容: {s.salesContent}</td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              )) : (
+                <tr><td colSpan="2" style={{ border: '1px solid #000', padding: '8px', textAlign: 'center', color: '#999' }}>データなし</td></tr>
+              )}
+              {sdEntries && sdEntries.some(s => s.salesAmount) && (
+                <tr style={{ background: '#f5f5f5' }}>
+                  <td style={{ border: '1px solid #000', padding: '8px', fontWeight: 'bold', textAlign: 'center' }}>合計</td>
+                  <td style={{ border: '1px solid #000', padding: '8px', fontWeight: 'bold', textAlign: 'right' }}>¥{sdEntries.reduce((sum, s) => sum + (Number(s.salesAmount) || 0), 0).toLocaleString()}</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+          <div className="no-print" style={{ marginTop: '20px', display: 'flex', justifyContent: 'center', gap: '12px' }}>
+            <button onClick={() => { setIsPrintView(false); setPrintData(null); }} style={{ padding: '10px 24px', background: '#666', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>← 戻る</button>
+            <button onClick={() => window.print()} style={{ padding: '10px 24px', background: '#00B894', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>印刷する</button>
+          </div>
+        </div>
+      );
+    }
+
+    // 管理者：提出詳細ビュー
+    if (isAdmin && viewingSubmission) {
+      const sub = viewingSubmission;
+      return (
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <button onClick={() => setViewingSubmission(null)} className="text-gray-500"><Icons.ChevronLeft /></button>
+            <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#2D3436' }}>{sub.user_name}の月締め日報</h2>
+          </div>
+          <div className="card-modern">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm text-gray-500">{sub.year}年{sub.month}月</span>
+              <span style={{ fontSize: '11px', fontWeight: 700, padding: '3px 10px', borderRadius: '20px', background: sub.status === 'reviewed' ? '#E8F8F5' : '#FFF3E0', color: sub.status === 'reviewed' ? '#00B894' : '#E67E22' }}>
+                {sub.status === 'reviewed' ? '確認済み' : '未確認'}
+              </span>
+            </div>
+            <p className="text-xs text-gray-400">{formatDate(sub.period_start)} 〜 {formatDate(sub.period_end)}</p>
+          </div>
+          <div className="card-modern">
+            <div className="grid grid-cols-2 gap-3">
+              <div style={{ background: '#E8F8F5', borderRadius: '12px', padding: '12px' }}>
+                <p className="text-xs text-gray-500">出勤日数</p>
+                <p className="text-2xl font-bold" style={{ color: '#00B894' }}>{sub.attendance_days}<span className="text-sm font-normal text-gray-500 ml-1">日</span></p>
+              </div>
+              <div style={{ background: '#EBF5FB', borderRadius: '12px', padding: '12px' }}>
+                <p className="text-xs text-gray-500">残業時間</p>
+                <p className="text-2xl font-bold" style={{ color: '#2980B9' }}>{sub.overtime_hours}<span className="text-sm font-normal text-gray-500 ml-1">h</span></p>
+              </div>
+              <div style={{ background: '#F4ECF7', borderRadius: '12px', padding: '12px' }}>
+                <p className="text-xs text-gray-500">夜勤時間</p>
+                <p className="text-2xl font-bold" style={{ color: '#8E44AD' }}>{sub.night_hours}<span className="text-sm font-normal text-gray-500 ml-1">h</span></p>
+              </div>
+              <div style={{ background: '#FFF3E0', borderRadius: '12px', padding: '12px' }}>
+                <p className="text-xs text-gray-500">工事ポイント</p>
+                <p className="text-2xl font-bold" style={{ color: '#E67E22' }}>{sub.construction_points}<span className="text-sm font-normal text-gray-500 ml-1">P</span></p>
+              </div>
+            </div>
+          </div>
+          {/* 営業売上 */}
+          <div className="card-modern">
+            <h3 className="font-bold text-gray-800 mb-3">営業売上</h3>
+            {sub.sales_data && sub.sales_data.length > 0 ? (
+              <div style={{ overflowX: 'auto' }}>
+                <table className="table-modern" style={{ minWidth: '300px' }}>
+                  <thead><tr><th>得意先名</th><th>売上内容</th><th style={{ textAlign: 'right' }}>売上金額</th></tr></thead>
+                  <tbody>
+                    {sub.sales_data.map((s, i) => (
+                      <tr key={i}>
+                        <td>{s.siteName}</td>
+                        <td className="text-gray-500 text-xs">{s.salesContent || '-'}</td>
+                        <td style={{ textAlign: 'right', fontWeight: 600 }}>{s.salesAmount ? `¥${Number(s.salesAmount).toLocaleString()}` : '-'}</td>
+                      </tr>
+                    ))}
+                    <tr style={{ background: '#f9fafb' }}>
+                      <td colSpan="2" style={{ fontWeight: 700, textAlign: 'center' }}>合計</td>
+                      <td style={{ textAlign: 'right', fontWeight: 700, color: '#E74C3C' }}>¥{sub.sales_data.reduce((sum, s) => sum + (Number(s.salesAmount) || 0), 0).toLocaleString()}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-gray-400 text-sm text-center py-4">売上データなし</p>
+            )}
+          </div>
+          <div className="flex gap-3">
+            {sub.status !== 'reviewed' && (
+              <button onClick={() => handleReview(sub.id)} className="btn-primary flex-1 flex items-center justify-center gap-2">
+                <Icons.Check /> 確認済みにする
+              </button>
+            )}
+            <button onClick={() => handlePrint(sub)} className="flex-1 flex items-center justify-center gap-2" style={{ padding: '14px', background: 'white', border: '2px solid #00B894', color: '#00B894', borderRadius: '12px', fontWeight: 700, cursor: 'pointer' }}>
+              <Icons.Download /> 印刷
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // 通常ビュー
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-3">
+          <button onClick={() => navigate(isAdmin ? '/menu' : '/')} className="text-gray-500"><Icons.ChevronLeft /></button>
+          <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#2D3436' }}>作業・営業日報締め</h2>
+        </div>
+
+        {/* 期間選択 */}
+        <div className="card-modern">
+          <div className="flex gap-3 items-end flex-wrap">
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">年</label>
+              <select className="select-modern" value={selectedYear} onChange={e => setSelectedYear(parseInt(e.target.value))}>
+                {[now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1].map(y => (
+                  <option key={y} value={y}>{y}年</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">月</label>
+              <select className="select-modern" value={selectedMonth} onChange={e => setSelectedMonth(parseInt(e.target.value))}>
+                {Array.from({length: 12}, (_, i) => i + 1).map(m => (
+                  <option key={m} value={m}>{m}月</option>
+                ))}
+              </select>
+            </div>
+            {isAdmin && users.length > 0 && (
+              <div>
+                <label className="text-xs text-gray-500 mb-1 block">スタッフ</label>
+                <select className="select-modern" value={selectedUserId || ''} onChange={e => setSelectedUserId(parseInt(e.target.value))}>
+                  {users.map(u => (
+                    <option key={u.id} value={u.id}>{u.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+          <p className="text-xs text-gray-400 mt-2">締め期間: 前月21日 〜 当月20日</p>
+        </div>
+
+        {loading ? (
+          <div className="flex justify-center py-12"><Icons.Loader /></div>
+        ) : reportData ? (
+          <>
+            {/* 管理者用：提出一覧 */}
+            {isAdmin && submissions.length > 0 && (
+              <div className="card-modern" style={{ border: '2px solid #6C5CE7' }}>
+                <h3 className="font-bold flex items-center gap-2 mb-3" style={{ color: '#6C5CE7' }}>
+                  <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                  提出済み月締め日報 ({submissions.length}件)
+                </h3>
+                <div className="space-y-2">
+                  {submissions.map(sub => (
+                    <div key={sub.id} onClick={() => setViewingSubmission(sub)}
+                      className="flex items-center justify-between p-3 rounded-lg cursor-pointer hover:bg-gray-50"
+                      style={{ border: '1px solid #E9ECEF' }}>
+                      <div>
+                        <p className="font-bold text-sm text-gray-800">{sub.user_name}</p>
+                        <p className="text-xs text-gray-400">提出: {new Date(sub.submitted_at).toLocaleDateString('ja-JP')}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span style={{ fontSize: '11px', fontWeight: 700, padding: '3px 10px', borderRadius: '20px', background: sub.status === 'reviewed' ? '#E8F8F5' : sub.status === 'draft' ? '#F8F9FA' : '#FFF3E0', color: sub.status === 'reviewed' ? '#00B894' : sub.status === 'draft' ? '#636E72' : '#E67E22' }}>
+                          {sub.status === 'reviewed' ? '確認済み' : sub.status === 'draft' ? '下書き' : '未確認'}
+                        </span>
+                        <Icons.ChevronRight />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 提出状態 */}
+            {existingSubmission && (
+              <div style={{ padding: '12px 16px', borderRadius: '12px', background: existingSubmission.status === 'reviewed' ? '#E8F8F5' : existingSubmission.status === 'draft' ? '#F8F9FA' : '#FFF3E0', border: `1px solid ${existingSubmission.status === 'reviewed' ? '#00B894' : existingSubmission.status === 'draft' ? '#B2BEC3' : '#E67E22'}` }}>
+                <p style={{ fontSize: '13px', fontWeight: 600, color: existingSubmission.status === 'reviewed' ? '#00B894' : existingSubmission.status === 'draft' ? '#636E72' : '#E67E22' }}>
+                  {existingSubmission.status === 'reviewed' ? '✓ 管理者確認済み' : existingSubmission.status === 'draft' ? '下書き保存中' : '提出済み（管理者確認待ち）'}
+                  <span className="text-xs font-normal ml-2">保存日: {new Date(existingSubmission.submitted_at).toLocaleDateString('ja-JP')}</span>
+                </p>
+              </div>
+            )}
+
+            {/* サマリーカード */}
+            <div className="card-modern">
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="font-bold text-gray-800">{reportData.userName}</h3>
+                <span className="text-xs text-gray-400">{formatPeriod()}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div style={{ background: '#E8F8F5', borderRadius: '12px', padding: '12px' }}>
+                  <p className="text-xs text-gray-500">出勤日数</p>
+                  <p className="text-2xl font-bold" style={{ color: '#00B894' }}>{reportData.attendanceDays}<span className="text-sm font-normal text-gray-500 ml-1">日</span></p>
+                </div>
+                <div style={{ background: '#EBF5FB', borderRadius: '12px', padding: '12px' }}>
+                  <p className="text-xs text-gray-500">残業時間</p>
+                  <p className="text-2xl font-bold" style={{ color: '#2980B9' }}>{reportData.overtimeHours}<span className="text-sm font-normal text-gray-500 ml-1">h</span></p>
+                </div>
+                <div style={{ background: '#F4ECF7', borderRadius: '12px', padding: '12px' }}>
+                  <p className="text-xs text-gray-500">夜勤時間</p>
+                  <p className="text-2xl font-bold" style={{ color: '#8E44AD' }}>{reportData.nightHours}<span className="text-sm font-normal text-gray-500 ml-1">h</span></p>
+                </div>
+                <div style={{ background: '#FFF3E0', borderRadius: '12px', padding: '12px' }}>
+                  <p className="text-xs text-gray-500">工事ポイント</p>
+                  <p className="text-2xl font-bold" style={{ color: '#E67E22' }}>{reportData.constructionPoints}<span className="text-sm font-normal text-gray-500 ml-1">P</span></p>
+                </div>
+              </div>
+            </div>
+
+            {/* 営業売上入力 */}
+            <div className="card-modern">
+              <h3 className="font-bold text-gray-800 mb-1">営業売上</h3>
+              <p className="text-xs text-gray-400 mb-3">日報の現場データを自動取得しています。売上金額・内容を入力してください。</p>
+              {salesEntries.length > 0 ? (
+                <div className="space-y-3">
+                  {salesEntries.map((entry, i) => (
+                    <div key={i} style={{ border: '1px solid #E9ECEF', borderRadius: '12px', padding: '12px', position: 'relative' }}>
+                      {entry.date && <span className="text-xs text-gray-400">{formatDate(entry.date)}</span>}
+                      <button onClick={() => removeSalesEntry(i)} style={{ position: 'absolute', top: '8px', right: '8px', background: 'none', border: 'none', color: '#E74C3C', cursor: 'pointer', fontSize: '18px' }}>&times;</button>
+                      <div className="mb-2">
+                        <label className="text-xs text-gray-500 block mb-1">得意先名</label>
+                        <input type="text" value={entry.siteName} onChange={e => updateSalesEntry(i, 'siteName', e.target.value)}
+                          className="w-full" style={{ padding: '10px 12px', border: '1.5px solid #E9ECEF', borderRadius: '8px', fontSize: '14px', background: '#FAFBFC' }} />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-xs text-gray-500 block mb-1">売上内容</label>
+                          <input type="text" value={entry.salesContent} onChange={e => updateSalesEntry(i, 'salesContent', e.target.value)}
+                            placeholder="例: 定期点検" className="w-full" style={{ padding: '10px 12px', border: '1.5px solid #E9ECEF', borderRadius: '8px', fontSize: '14px', background: '#FAFBFC' }} />
+                        </div>
+                        <div>
+                          <label className="text-xs text-gray-500 block mb-1">売上金額</label>
+                          <input type="number" value={entry.salesAmount} onChange={e => updateSalesEntry(i, 'salesAmount', e.target.value)}
+                            placeholder="0" className="w-full" style={{ padding: '10px 12px', border: '1.5px solid #E9ECEF', borderRadius: '8px', fontSize: '14px', background: '#FAFBFC', textAlign: 'right' }} />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {/* 合計 */}
+                  {salesEntries.some(s => s.salesAmount) && (
+                    <div style={{ background: '#F8F9FA', borderRadius: '12px', padding: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span className="font-bold text-gray-600">売上合計</span>
+                      <span className="text-xl font-bold" style={{ color: '#E74C3C' }}>¥{salesEntries.reduce((sum, s) => sum + (Number(s.salesAmount) || 0), 0).toLocaleString()}</span>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-gray-400 text-sm text-center py-4">日報の現場データがありません</p>
+              )}
+              {/* 行追加ボタン */}
+              <button onClick={addSalesEntry} style={{ width: '100%', marginTop: '12px', padding: '10px', background: 'white', border: '2px dashed #B2BEC3', borderRadius: '8px', color: '#636E72', fontWeight: 600, cursor: 'pointer', fontSize: '13px' }}>
+                + 売上行を追加
+              </button>
+            </div>
+
+            {/* 下書き保存・提出・印刷ボタン */}
+            <div className="space-y-3">
+              {!isAdmin && (
+                <>
+                  <button onClick={() => handleSave('draft')} disabled={submitting}
+                    className="w-full" style={{ padding: '14px', background: submitting ? '#B2BEC3' : 'white', color: '#636E72', border: '2px solid #B2BEC3', borderRadius: '12px', fontSize: '15px', fontWeight: 700, cursor: submitting ? 'not-allowed' : 'pointer' }}>
+                    {submitting ? '保存中...' : '下書き保存'}
+                  </button>
+                  <button onClick={() => handleSave('submitted')} disabled={submitting}
+                    className="w-full" style={{ padding: '16px', background: submitting ? '#B2BEC3' : 'linear-gradient(135deg, #6C5CE7, #A29BFE)', color: 'white', border: 'none', borderRadius: '12px', fontSize: '15px', fontWeight: 700, cursor: submitting ? 'not-allowed' : 'pointer', boxShadow: '0 4px 16px rgba(108,92,231,0.3)' }}>
+                    {submitting ? '提出中...' : existingSubmission && existingSubmission.status !== 'draft' ? '月締め日報を再提出' : '月締め日報を提出'}
+                  </button>
+                </>
+              )}
+              <button onClick={() => handlePrint()} className="w-full flex items-center justify-center gap-2" style={{ padding: '14px', background: 'white', border: '2px solid #00B894', color: '#00B894', borderRadius: '12px', fontWeight: 700, cursor: 'pointer' }}>
+                <Icons.Download /> 印刷・PDF出力
+              </button>
+            </div>
+          </>
+        ) : null}
       </div>
     );
   };
@@ -3763,101 +4776,84 @@ function App() {
 
     return (
       <div className="space-y-4">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-xl font-bold text-gray-800">在庫管理</h2>
-            <p className="text-gray-500 text-sm">{branches.length}営業所 / {products.length}製品</p>
-          </div>
-          <div className="flex gap-2">
-            <button onClick={() => { setStockModalType('in'); setShowStockModal(true); }}
-              className="flex items-center gap-1 bg-green-500 text-white px-3 py-2 rounded-lg text-sm">
-              <Icons.Plus /> 入庫
-            </button>
-            <button onClick={() => { setStockModalType('out'); setShowStockModal(true); }}
-              className="flex items-center gap-1 bg-red-500 text-white px-3 py-2 rounded-lg text-sm">
-              <Icons.Download /> 出庫
-            </button>
-            <button onClick={() => setShowTransferModal(true)}
-              className="flex items-center gap-1 bg-purple-500 text-white px-3 py-2 rounded-lg text-sm">
-              <Icons.ChevronRight /> 移動
-            </button>
-          </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+          <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: '#2D3436' }}>在庫管理</h2>
+          <button onClick={() => { setStockModalType('in'); setShowStockModal(true); }}
+            style={{ background: '#00B894', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '20px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            入出庫
+          </button>
         </div>
 
-        {/* タブ */}
-        <div className="flex gap-2 border-b border-gray-200">
+        {/* サブタブ */}
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
           {[
-            { key: 'stock', label: '在庫一覧' },
-            { key: 'history', label: '入出庫履歴' }
+            { key: 'stock', label: '在庫' },
+            { key: 'history', label: '履歴' }
           ].map(tab => (
             <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-              className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${activeTab === tab.key ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500'}`}>
+              style={{
+                flex: 1, padding: '10px', border: activeTab === tab.key ? 'none' : '1px solid #E9ECEF',
+                borderRadius: '8px', fontWeight: 700, fontSize: '13px', cursor: 'pointer',
+                background: activeTab === tab.key ? '#00B894' : 'white',
+                color: activeTab === tab.key ? 'white' : '#636E72'
+              }}>
               {tab.label}
             </button>
           ))}
         </div>
 
         {/* フィルター */}
-        <div className="flex gap-3 flex-wrap">
+        <div style={{ display: 'flex', gap: '8px' }}>
           <select value={selectedBranch} onChange={(e) => setSelectedBranch(e.target.value)}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm">
+            className="select-modern" style={{ flex: 1 }}>
             <option value="">全営業所</option>
             {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
           </select>
           <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm">
-            <option value="">全資材</option>
+            className="select-modern" style={{ flex: 1 }}>
+            <option value="">全カテゴリ</option>
             {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-          <select value={selectedProduct} onChange={(e) => setSelectedProduct(e.target.value)}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm">
-            <option value="">全商品</option>
-            {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
         </div>
 
         {activeTab === 'stock' && (
-          <div className="bg-white border border-gray-200 rounded-xl">
+          <div>
             {selectedBranch ? (
-              // 単一営業所表示
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-gray-50 border-b">
-                      <th className="text-left px-4 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => toggleSort('name')}>
-                        製品名 {sortKey === 'name' && (sortOrder === 'asc' ? '▲' : '▼')}
-                      </th>
-                      <th className="text-center px-4 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => toggleSort('quantity')}>
-                        在庫数 {sortKey === 'quantity' && (sortOrder === 'asc' ? '▲' : '▼')}
-                      </th>
-                      <th className="text-center px-4 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => toggleSort('alert')}>
-                        アラート {sortKey === 'alert' && (sortOrder === 'asc' ? '▲' : '▼')}
-                      </th>
-                      <th className="text-center px-4 py-3 font-medium text-gray-600">単位</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sortedStock.map(item => (
-                      <tr key={`${item.branch_id}-${item.product_id}`}
-                        onClick={() => {
-                          setStockForm({ branchId: item.branch_id.toString(), productId: item.product_id.toString(), quantity: '', note: '', alertThreshold: (item.min_stock || 0).toString() });
-                          setStockModalType('adjust');
-                          setShowStockModal(true);
-                        }}
-                        className="border-b hover:bg-blue-50 cursor-pointer">
-                        <td className="px-4 py-3 font-medium">{item.product_name}</td>
-                        <td className={`px-4 py-3 text-center font-bold ${item.quantity <= item.min_stock && item.min_stock > 0 ? 'text-red-600' : 'text-gray-800'}`}>
-                          {item.quantity}
-                          {item.quantity <= item.min_stock && item.min_stock > 0 && (
-                            <span className="ml-1 text-xs bg-red-100 text-red-600 px-1 rounded">不足</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-center text-gray-500">{item.min_stock || 0}</td>
-                        <td className="px-4 py-3 text-center text-gray-500">{item.unit}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              // 単一営業所表示（カード形式+プログレスバー）
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {sortedStock.map(item => {
+                  const isLow = item.quantity <= item.min_stock && item.min_stock > 0;
+                  const maxQty = Math.max(item.min_stock * 3, item.quantity, 100);
+                  const pct = Math.min((item.quantity / maxQty) * 100, 100);
+                  return (
+                    <div key={`${item.branch_id}-${item.product_id}`}
+                      onClick={() => {
+                        setStockForm({ branchId: item.branch_id.toString(), productId: item.product_id.toString(), quantity: '', note: '', alertThreshold: (item.min_stock || 0).toString() });
+                        setStockModalType('adjust');
+                        setShowStockModal(true);
+                      }}
+                      className="card-modern card-clickable cursor-pointer"
+                      style={isLow ? { border: '2px solid #FFEEF0' } : {}}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <h4 style={{ fontSize: '14px', fontWeight: 700, margin: 0 }}>{item.product_name}</h4>
+                            {isLow && <span className="stock-alert-badge">低在庫</span>}
+                          </div>
+                          <p style={{ fontSize: '12px', color: '#B2BEC3', margin: '2px 0 0' }}>{item.category_name || '資材'} ・ 単位: {item.unit}</p>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <p style={{ fontSize: '28px', fontWeight: 800, color: isLow ? '#E74C3C' : '#00B894', margin: 0, lineHeight: 1 }}>{item.quantity}</p>
+                          <p style={{ fontSize: '11px', color: '#B2BEC3', margin: 0 }}>在庫数</p>
+                        </div>
+                      </div>
+                      <div className="progress-bar">
+                        <div className={`progress-bar-fill${isLow ? '-danger' : ''}`} style={{ width: `${pct}%` }}></div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               // 全営業所クロス表示
@@ -4137,7 +5133,11 @@ function App() {
             await api.createSite({ ...formData, corporationId: selectedCorp.id });
           }
         } else if (modalType === 'workLog') {
-          await api.createWorkLog({ ...formData, siteId: selectedSite.id });
+          if (editingItem?.id) {
+            await api.updateWorkLog(editingItem.id, formData);
+          } else {
+            await api.createWorkLog({ ...formData, siteId: selectedSite.id });
+          }
         } else if (modalType === 'contactLog') {
           await api.createContactLog({ ...formData, corporationId: selectedCorp.id });
         } else if (modalType === 'photo') {
@@ -4310,7 +5310,7 @@ function App() {
                   <div className="flex justify-between items-center mb-2">
                     <p className="font-medium text-gray-700">現場情報</p>
                     <button type="button" onClick={() => setNewSites([...newSites, { name: '', address: '', keybox: '', keyboxLocation: '' }])}
-                      className="text-sm px-2 py-1 rounded text-white" style={{ backgroundColor: '#5bbd56' }}><Icons.Plus /> 追加</button>
+                      className="text-sm px-2 py-1 rounded text-white" style={{ background: '#00B894' }}><Icons.Plus /> 追加</button>
                   </div>
                   {newSites.map((site, i) => (
                     <div key={i} className="bg-gray-50 rounded-lg p-3 mb-2">
@@ -4329,7 +5329,7 @@ function App() {
               )}
               <div className="flex gap-3 mt-6">
                 <button type="button" onClick={() => setShowModal(false)} className="flex-1 bg-gray-100 py-2 rounded-lg" disabled={saving}>キャンセル</button>
-                <button type="submit" className="flex-1 text-white py-2 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#5bbd56' }} disabled={saving}>
+                <button type="submit" className="flex-1 text-white py-2 rounded-lg flex items-center justify-center" style={{ background: '#00B894' }} disabled={saving}>
                   {saving ? <Icons.Loader /> : '保存'}
                 </button>
               </div>
@@ -4378,7 +5378,7 @@ function App() {
                 <button type="button" onClick={() => { document.querySelector('[name="site-address"]').value = selectedCorp?.address || ''; }} className="text-xs px-2 border border-gray-300 rounded text-gray-500">コピー</button>
               </div>
               <div className="p-3 rounded-lg" style={{ backgroundColor: 'rgba(91, 189, 86, 0.1)' }}>
-                <p className="text-sm font-medium mb-2" style={{ color: '#5bbd56' }}>キーボックス</p>
+                <p className="text-sm font-medium mb-2" style={{ color: '#00B894' }}>キーボックス</p>
                 <div className="grid grid-cols-2 gap-2">
                   <input type="text" name="site-keybox" placeholder="暗証番号" defaultValue={editingItem?.keybox || ''} className="border border-gray-300 rounded-lg px-3 py-2" />
                   <input type="text" name="site-keyboxLocation" placeholder="場所" defaultValue={editingItem?.keyboxLocation || ''} className="border border-gray-300 rounded-lg px-3 py-2" />
@@ -4437,7 +5437,7 @@ function App() {
               )}
               <div className="flex gap-3 mt-6">
                 <button type="button" onClick={() => setShowModal(false)} className="flex-1 bg-gray-100 py-2 rounded-lg" disabled={saving}>キャンセル</button>
-                <button type="submit" className="flex-1 text-white py-2 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#5bbd56' }} disabled={saving}>
+                <button type="submit" className="flex-1 text-white py-2 rounded-lg flex items-center justify-center" style={{ background: '#00B894' }} disabled={saving}>
                   {saving ? <Icons.Loader /> : '保存'}
                 </button>
               </div>
@@ -4562,6 +5562,7 @@ function App() {
               <input type="date" name="photo-date" defaultValue={new Date().toISOString().split('T')[0]} className="w-full border border-gray-300 rounded-lg px-3 py-2" style={{ backgroundColor: '#ffffff', WebkitAppearance: 'none' }} />
               <input type="text" name="photo-note" placeholder="メモ（任意・全写真共通）" className="w-full border border-gray-300 rounded-lg px-3 py-2" />
               <div className="flex gap-3 mt-4">
+                {formData.uploadProgress && <p className="text-sm text-green-600 text-center font-medium">{formData.uploadProgress}</p>}
                 <button type="button" onClick={() => { setShowModal(false); setFormData({ ...formData, selectedPhotos: [] }); }} className="flex-1 bg-gray-100 py-2 rounded-lg">キャンセル</button>
                 <button type="button" onClick={async () => {
                   const photos = formData.selectedPhotos || [];
@@ -4570,11 +5571,12 @@ function App() {
                   try {
                     const photoDate = document.querySelector('[name="photo-date"]').value;
                     const photoNote = document.querySelector('[name="photo-note"]').value;
-                    // 順次アップロード
-                    for (const photo of photos) {
+                    // 順次アップロード（進捗表示）
+                    for (let pi = 0; pi < photos.length; pi++) {
+                      setFormData(prev => ({ ...prev, uploadProgress: `${pi + 1}/${photos.length}枚アップロード中...` }));
                       await api.createPhoto({
                         siteId: selectedSite.id,
-                        imageData: photo.imageData,
+                        imageData: photos[pi].imageData,
                         date: photoDate,
                         note: photoNote
                       });
@@ -4587,7 +5589,7 @@ function App() {
                   } finally {
                     setSaving(false);
                   }
-                }} className="flex-1 text-white py-2 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#5bbd56' }} disabled={saving}>
+                }} className="flex-1 text-white py-2 rounded-lg flex items-center justify-center" style={{ background: '#00B894' }} disabled={saving}>
                   {saving ? <Icons.Loader className="animate-spin" /> : `アップロード${formData.selectedPhotos?.length > 0 ? ` (${formData.selectedPhotos.length}枚)` : ''}`}
                 </button>
               </div>
@@ -4793,7 +5795,7 @@ function App() {
           {modalType !== 'corp' && modalType !== 'site' && modalType !== 'photo' && (
             <div className="flex gap-3 mt-6">
               <button type="button" onClick={() => setShowModal(false)} className="flex-1 bg-gray-100 py-2 rounded-lg" disabled={saving}>キャンセル</button>
-              <button type="button" onClick={handleSave} className="flex-1 text-white py-2 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#5bbd56' }} disabled={saving}>
+              <button type="button" onClick={handleSave} className="flex-1 text-white py-2 rounded-lg flex items-center justify-center" style={{ background: '#00B894' }} disabled={saving}>
                 {saving ? <Icons.Loader /> : '保存'}
               </button>
             </div>
@@ -4804,35 +5806,100 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200 px-4 py-3 sticky top-0 z-40 shadow-sm">
+    <div className="min-h-screen" style={{ background: '#F5F6FA' }}>
+      <header className="bg-white sticky top-0 z-40" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)', padding: '12px 20px' }}>
         <div className="flex justify-between items-center max-w-5xl mx-auto">
-          <h1 className="font-bold text-lg" style={{ color: '#5bbd56' }}>CSM業務管理</h1>
-          <div className="flex items-center gap-3">
-            <span className="text-gray-600 text-sm">{currentUser?.name}</span>
-            <button onClick={handleLogout} className="text-gray-400 hover:text-gray-600"><Icons.LogOut /></button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ width: '36px', height: '36px', background: '#00B894', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ color: 'white', fontWeight: 800, fontSize: '12px' }}>CSM</span>
+            </div>
+            <span style={{ fontWeight: 700, fontSize: '17px', color: '#2D3436' }}>CSM業務管理</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span style={{ color: '#636E72', fontSize: '13px' }}>{currentUser?.name}</span>
+            <div onClick={() => setShowNotificationPanel(!showNotificationPanel)} style={{ position: 'relative', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+              <svg width="22" height="22" fill="none" stroke="#636E72" strokeWidth="2" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+              {(() => {
+                const visibleNotifs = (userRole === 'admin' || userRole === 'master')
+                  ? generateNotifications
+                  : generateNotifications.filter(n => n.type !== 'invoice' && n.type !== 'payment' && n.type !== 'contract');
+                return visibleNotifs.length > 0 && (
+                  <div style={{ position: 'absolute', top: '4px', right: '4px', minWidth: '18px', height: '18px', background: '#E74C3C', borderRadius: '9px', border: '2px solid white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <span style={{ color: 'white', fontSize: '10px', fontWeight: 700 }}>{visibleNotifs.length}</span>
+                  </div>
+                );
+              })()}
+            </div>
+            <button onClick={handleLogout} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#B2BEC3', padding: '4px' }}><Icons.LogOut /></button>
           </div>
         </div>
       </header>
+
+      {/* 通知パネル（ドロップダウン） */}
+      {showNotificationPanel && (() => {
+        const panelNotifs = (userRole === 'admin' || userRole === 'master')
+          ? generateNotifications
+          : generateNotifications.filter(n => n.type !== 'invoice' && n.type !== 'payment' && n.type !== 'contract');
+        return (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 50 }} onClick={() => setShowNotificationPanel(false)}>
+          <div onClick={(e) => e.stopPropagation()} style={{ position: 'fixed', top: '60px', right: '12px', width: 'calc(100% - 24px)', maxWidth: '400px', maxHeight: '70vh', background: 'white', borderRadius: '16px', boxShadow: '0 8px 32px rgba(0,0,0,0.15)', zIndex: 51, overflow: 'hidden' }}>
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid #E9ECEF', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: '#2D3436' }}>通知 ({panelNotifs.length})</h3>
+              <button onClick={() => setShowNotificationPanel(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#B2BEC3', fontSize: '20px' }}>&times;</button>
+            </div>
+            <div style={{ maxHeight: 'calc(70vh - 60px)', overflowY: 'auto', padding: '12px' }}>
+              {panelNotifs.length === 0 ? (
+                <p style={{ color: '#B2BEC3', textAlign: 'center', padding: '24px 0' }}>通知はありません</p>
+              ) : (
+                <div className="space-y-2">
+                  {panelNotifs.map(n => (
+                    <div key={n.id} onClick={() => {
+                      setShowNotificationPanel(false);
+                      if (n.corpId) navigate(`/corp/${n.corpId}`);
+                      else if (n.type === 'inventory') navigate('/inventory');
+                    else if (n.type === 'closing') navigate('/monthly-closing');
+                    }} className={`text-sm p-3 rounded-lg cursor-pointer ${n.priority === 'high' ? 'bg-red-50 border border-red-200' : n.type === 'inventory' ? 'bg-blue-50 border border-blue-200' : n.type === 'closing' ? 'bg-purple-50 border border-purple-200' : 'bg-amber-50 border border-amber-200'}`}>
+                      <div className="flex items-center gap-2">
+                        <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: n.priority === 'high' ? '#FEE2E2' : n.type === 'inventory' ? '#DBEAFE' : n.type === 'closing' ? '#F3E8FF' : '#FEF3C7', color: n.priority === 'high' ? '#DC2626' : n.type === 'inventory' ? '#2563EB' : n.type === 'closing' ? '#7C3AED' : '#D97706' }}>
+                          {n.type === 'contract' ? '契約' : n.type === 'invoice' ? '請求' : n.type === 'payment' ? '入金' : n.type === 'work' ? '施工' : n.type === 'inventory' ? '在庫' : n.type === 'closing' ? '月締め' : 'その他'}
+                        </span>
+                        <span className="font-medium" style={{ color: '#2D3436' }}>{n.title}</span>
+                      </div>
+                      <p style={{ margin: '4px 0 0', color: '#636E72', fontSize: '12px' }}>{n.message}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+        );
+      })()}
 
       <main className="max-w-5xl mx-auto p-4 pb-24">
         {currentView === 'dashboard' && <Dashboard />}
         {currentView === 'corporations' && (
           <>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center mb-4">
-                <div>
-                  <h2 className="text-xl font-bold text-gray-800">顧客一覧</h2>
-                  <p className="text-gray-500 text-sm">{corporations.length}社 / {totalSites}現場</p>
-                </div>
-                <button onClick={() => { setModalType('corp'); setEditingItem(null); setShowModal(true); }}
-                  className="flex items-center gap-1 text-white px-4 py-2 rounded-lg text-sm font-medium" style={{ backgroundColor: '#5bbd56' }}>
-                  <Icons.Plus /> 法人追加
-                </button>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: '#2D3436' }}>顧客管理</h2>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '13px', color: '#636E72' }}>{corporations.length}社</span>
+                <span style={{ fontSize: '13px', color: '#B2BEC3' }}>・</span>
+                <span style={{ fontSize: '13px', color: '#636E72' }}>{totalSites}現場</span>
               </div>
-              <input type="text" placeholder="法人名・現場名で検索..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-white border border-gray-300 rounded-lg px-4 py-3 mb-4" autoComplete="off" />
             </div>
+            {/* 検索バー */}
+            <div style={{ position: 'relative', marginBottom: '16px' }}>
+              <svg width="18" height="18" fill="none" stroke="#B2BEC3" strokeWidth="2" viewBox="0 0 24 24" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)' }}><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+              <input type="text" placeholder="企業名・現場名で検索" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+                style={{ width: '100%', padding: '14px 16px 14px 42px', border: '1.5px solid #E9ECEF', borderRadius: '12px', fontSize: '16px', background: 'white', outline: 'none' }} autoComplete="off" />
+            </div>
+            {/* 法人追加ボタン（破線スタイル） */}
+            <button onClick={() => { setModalType('corp'); setEditingItem(null); setShowModal(true); }}
+              style={{ width: '100%', padding: '14px', background: 'white', border: '2px dashed #00B894', borderRadius: '16px', color: '#00B894', fontWeight: 700, fontSize: '14px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '4px' }}>
+              <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              新規法人を追加
+            </button>
             <CorporationList />
           </>
         )}
@@ -4849,43 +5916,62 @@ function App() {
         {currentView === 'adminTimecards' && <TimecardAdminView />}
         {currentView === 'adminAuditLogs' && <AuditLogView />}
         {currentView === 'inventory' && <InventoryView />}
+        {currentView === 'monthlyClosing' && <MonthlyClosingReport />}
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-20">
+      <nav className="fixed bottom-0 left-0 right-0 bg-white z-20" style={{ borderTop: '1px solid #E9ECEF', padding: '8px 0 24px' }}>
         <div className="max-w-5xl mx-auto flex">
-          <button onClick={() => navigate('/')} className={`flex-1 py-3 text-center ${currentView === 'dashboard' ? '' : 'text-gray-400'}`} style={currentView === 'dashboard' ? { color: '#5bbd56' } : {}}>
-            <div className="flex justify-center mb-1"><Icons.Home /></div><p className="text-xs">ホーム</p>
-          </button>
-          <button onClick={() => navigate('/corporations')}
-            className={`flex-1 py-3 text-center ${['corporations', 'sites', 'site'].includes(currentView) ? '' : 'text-gray-400'}`}
-            style={['corporations', 'sites', 'site'].includes(currentView) ? { color: '#5bbd56' } : {}}>
-            <div className="flex justify-center mb-1"><Icons.Building /></div><p className="text-xs">顧客</p>
-          </button>
-          <button onClick={() => navigate('/calendar')} className={`flex-1 py-3 text-center ${currentView === 'calendar' ? '' : 'text-gray-400'}`} style={currentView === 'calendar' ? { color: '#5bbd56' } : {}}>
-            <div className="flex justify-center mb-1"><Icons.Calendar /></div><p className="text-xs">カレンダー</p>
-          </button>
-          <button onClick={() => navigate('/inventory')} className={`flex-1 py-3 text-center ${currentView === 'inventory' ? '' : 'text-gray-400'}`} style={currentView === 'inventory' ? { color: '#5bbd56' } : {}}>
-            <div className="flex justify-center mb-1"><Icons.Package /></div><p className="text-xs">在庫</p>
-          </button>
-          {userRole === 'admin' ? (
-            <>
-              <button onClick={() => navigate('/invoices')} className={`flex-1 py-3 text-center ${currentView === 'invoices' ? '' : 'text-gray-400'}`} style={currentView === 'invoices' ? { color: '#5bbd56' } : {}}>
-                <div className="flex justify-center mb-1"><Icons.Calculator /></div><p className="text-xs">請求</p>
+          {(() => {
+            const isActive = (views) => Array.isArray(views) ? views.includes(currentView) : currentView === views;
+            const NavItem = ({ onClick, active, label, strokeIcon, fillIcon }) => (
+              <button onClick={onClick} style={{ flex: 1, textAlign: 'center', color: active ? '#00B894' : '#B2BEC3', fontSize: '10px', background: 'none', border: 'none', cursor: 'pointer', padding: '0' }}>
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '2px' }}>
+                  {active ? fillIcon : strokeIcon}
+                </div>
+                <div>{label}</div>
               </button>
-              <button onClick={() => navigate('/menu')} className={`flex-1 py-3 text-center ${['menu', 'settings', 'adminDailyReports', 'adminTimecards'].includes(currentView) ? '' : 'text-gray-400'}`} style={['menu', 'settings', 'adminDailyReports', 'adminTimecards'].includes(currentView) ? { color: '#5bbd56' } : {}}>
-                <div className="flex justify-center mb-1"><Icons.Menu /></div><p className="text-xs">メニュー</p>
-              </button>
-            </>
-          ) : (
-            <>
-              <button onClick={() => navigate('/daily-reports')} className={`flex-1 py-3 text-center ${['dailyReports', 'dailyReportForm'].includes(currentView) ? '' : 'text-gray-400'}`} style={['dailyReports', 'dailyReportForm'].includes(currentView) ? { color: '#5bbd56' } : {}}>
-                <div className="flex justify-center mb-1"><Icons.ClipboardList /></div><p className="text-xs">日報</p>
-              </button>
-              <button onClick={() => navigate('/timecard')} className={`flex-1 py-3 text-center ${currentView === 'timecard' ? '' : 'text-gray-400'}`} style={currentView === 'timecard' ? { color: '#5bbd56' } : {}}>
-                <div className="flex justify-center mb-1"><Icons.Clock /></div><p className="text-xs">打刻</p>
-              </button>
-            </>
-          )}
+            );
+            const homeActive = isActive('dashboard');
+            const custActive = isActive(['corporations', 'sites', 'site']);
+            const calActive = isActive('calendar');
+            const invActive = isActive('inventory');
+            const isAdmin = userRole === 'admin' || userRole === 'master';
+            return (
+              <>
+                <NavItem onClick={() => navigate('/')} active={homeActive} label="ホーム"
+                  strokeIcon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>}
+                  fillIcon={<svg width="24" height="24" viewBox="0 0 24 24" fill="#00B894" stroke="none"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>} />
+                <NavItem onClick={() => navigate('/corporations')} active={custActive} label="顧客"
+                  strokeIcon={<svg width="24" height="24" viewBox="0 0 512 512" fill="currentColor"><path d="M450.498,155.424h-22.157v137.153h22.157c15.036,0,27.213-12.185,27.213-27.213v-82.719C477.711,167.61,465.534,155.424,450.498,155.424z"/><path d="M438.841,0h-29.699H73.159c-21.463,0-38.87,17.407-38.87,38.87v434.253c0,21.471,17.407,38.877,38.87,38.877h297.114c21.464,0,38.87-17.406,38.87-38.877V137.146h41.356c15.036,0,27.213-12.179,27.213-27.207V38.87C477.711,17.407,460.305,0,438.841,0z M163.199,187.502c0-33.784,27.384-61.17,61.176-61.17c33.792,0,61.17,27.385,61.17,61.17v17.357c0,33.784-27.378,61.17-61.17,61.17c-33.792,0-61.176-27.386-61.176-61.17V187.502z M224.376,382.168H112.615c0-50.842,29.828-92.734,86.826-102.091c7.857,2.615,16.213,4.079,24.934,4.079c8.721,0,17.078-1.464,24.935-4.079c57.006,9.357,86.826,51.249,86.826,102.091H224.376z"/></svg>}
+                  fillIcon={<svg width="24" height="24" viewBox="0 0 512 512" fill="#00B894"><path d="M450.498,155.424h-22.157v137.153h22.157c15.036,0,27.213-12.185,27.213-27.213v-82.719C477.711,167.61,465.534,155.424,450.498,155.424z"/><path d="M438.841,0h-29.699H73.159c-21.463,0-38.87,17.407-38.87,38.87v434.253c0,21.471,17.407,38.877,38.87,38.877h297.114c21.464,0,38.87-17.406,38.87-38.877V137.146h41.356c15.036,0,27.213-12.179,27.213-27.207V38.87C477.711,17.407,460.305,0,438.841,0z M163.199,187.502c0-33.784,27.384-61.17,61.176-61.17c33.792,0,61.17,27.385,61.17,61.17v17.357c0,33.784-27.378,61.17-61.17,61.17c-33.792,0-61.176-27.386-61.176-61.17V187.502z M224.376,382.168H112.615c0-50.842,29.828-92.734,86.826-102.091c7.857,2.615,16.213,4.079,24.934,4.079c8.721,0,17.078-1.464,24.935-4.079c57.006,9.357,86.826,51.249,86.826,102.091H224.376z"/></svg>} />
+                <NavItem onClick={() => navigate('/calendar')} active={calActive} label="カレンダー"
+                  strokeIcon={<svg width="24" height="24" viewBox="0 0 512 512" fill="currentColor"><path d="M164.893,89.791c13.875,0,25.126-11.243,25.126-25.134V25.118C190.019,11.252,178.768,0,164.893,0s-25.135,11.252-25.135,25.118v39.538C139.758,78.548,151.018,89.791,164.893,89.791z"/><path d="M350.184,89.791c13.867,0,25.126-11.243,25.126-25.134V25.118C375.31,11.252,364.05,0,350.184,0c-13.875,0-25.134,11.252-25.134,25.118v39.538C325.049,78.548,336.309,89.791,350.184,89.791z"/><path d="M437.25,35.807h-39.865v28.849c0,26.04-21.169,47.218-47.201,47.218c-26.031,0-47.209-21.178-47.209-47.218V35.807h-90.881v28.849c0,26.04-21.178,47.218-47.2,47.218c-26.032,0-47.209-21.178-47.209-47.218V35.807H74.75c-38.977,0-70.575,31.599-70.575,70.575v335.043C4.175,480.401,35.773,512,74.75,512H437.25c38.976,0,70.575-31.599,70.575-70.575V106.382C507.825,67.406,476.226,35.807,437.25,35.807z M473.484,441.425c0,19.978-16.256,36.235-36.235,36.235H74.75c-19.979,0-36.235-16.257-36.235-36.235V150.984h434.969V441.425z"/><circle cx="206.724" cy="414.312" r="25.755"/><circle cx="206.724" cy="315.751" r="25.755"/><circle cx="108.176" cy="414.312" r="25.755"/><circle cx="108.176" cy="315.751" r="25.755"/><circle cx="403.823" cy="217.208" r="25.755"/><circle cx="305.276" cy="217.208" r="25.755"/><circle cx="305.276" cy="315.751" r="25.755"/><circle cx="403.823" cy="315.751" r="25.755"/><circle cx="305.276" cy="414.312" r="25.755"/><circle cx="206.724" cy="217.208" r="25.755"/></svg>}
+                  fillIcon={<svg width="24" height="24" viewBox="0 0 512 512" fill="#00B894"><path d="M164.893,89.791c13.875,0,25.126-11.243,25.126-25.134V25.118C190.019,11.252,178.768,0,164.893,0s-25.135,11.252-25.135,25.118v39.538C139.758,78.548,151.018,89.791,164.893,89.791z"/><path d="M350.184,89.791c13.867,0,25.126-11.243,25.126-25.134V25.118C375.31,11.252,364.05,0,350.184,0c-13.875,0-25.134,11.252-25.134,25.118v39.538C325.049,78.548,336.309,89.791,350.184,89.791z"/><path d="M437.25,35.807h-39.865v28.849c0,26.04-21.169,47.218-47.201,47.218c-26.031,0-47.209-21.178-47.209-47.218V35.807h-90.881v28.849c0,26.04-21.178,47.218-47.2,47.218c-26.032,0-47.209-21.178-47.209-47.218V35.807H74.75c-38.977,0-70.575,31.599-70.575,70.575v335.043C4.175,480.401,35.773,512,74.75,512H437.25c38.976,0,70.575-31.599,70.575-70.575V106.382C507.825,67.406,476.226,35.807,437.25,35.807z M473.484,441.425c0,19.978-16.256,36.235-36.235,36.235H74.75c-19.979,0-36.235-16.257-36.235-36.235V150.984h434.969V441.425z"/><circle cx="206.724" cy="414.312" r="25.755"/><circle cx="206.724" cy="315.751" r="25.755"/><circle cx="108.176" cy="414.312" r="25.755"/><circle cx="108.176" cy="315.751" r="25.755"/><circle cx="403.823" cy="217.208" r="25.755"/><circle cx="305.276" cy="217.208" r="25.755"/><circle cx="305.276" cy="315.751" r="25.755"/><circle cx="403.823" cy="315.751" r="25.755"/><circle cx="305.276" cy="414.312" r="25.755"/><circle cx="206.724" cy="217.208" r="25.755"/></svg>} />
+                <NavItem onClick={() => navigate('/inventory')} active={invActive} label="在庫"
+                  strokeIcon={<svg width="24" height="24" viewBox="0 0 512 512" fill="currentColor"><path d="M41.798,367.828V83.599h136.539v66.877h94.748V83.599h136.539v98.536c15.189,5.943,29.276,14.532,41.798,25.479V41.801H0v367.826h249.427c-10.955-12.523-19.544-26.614-25.483-41.798H41.798z"/><path d="M503.642,421.497l-45.052-45.056c11.238-18.703,17.03-39.806,17.005-60.894c0.033-30.173-11.58-60.558-34.631-83.597c-23.022-23.038-53.411-34.647-83.601-34.631c-30.181-0.016-60.571,11.592-83.604,34.631c-23.034,23.038-34.659,53.424-34.622,83.597c-0.03,30.198,11.588,60.591,34.622,83.613c23.033,23.047,53.423,34.656,83.604,34.631c21.063,0.025,42.178-5.763,60.873-17.005l45.068,45.056c11.131,11.144,29.206,11.144,40.337,0C514.786,450.707,514.786,432.632,503.642,421.497z M408.698,366.889c-14.246,14.213-32.68,21.226-51.334,21.258c-18.65-0.032-37.096-7.045-51.317-21.258c-14.226-14.246-21.243-32.68-21.271-51.342c0.028-18.646,7.046-37.088,21.258-51.318c14.234-14.22,32.68-21.225,51.33-21.266c18.654,0.041,37.088,7.046,51.334,21.266c14.209,14.23,21.221,32.671,21.258,51.318C429.919,334.21,422.907,352.643,408.698,366.889z"/></svg>}
+                  fillIcon={<svg width="24" height="24" viewBox="0 0 512 512" fill="#00B894"><path d="M41.798,367.828V83.599h136.539v66.877h94.748V83.599h136.539v98.536c15.189,5.943,29.276,14.532,41.798,25.479V41.801H0v367.826h249.427c-10.955-12.523-19.544-26.614-25.483-41.798H41.798z"/><path d="M503.642,421.497l-45.052-45.056c11.238-18.703,17.03-39.806,17.005-60.894c0.033-30.173-11.58-60.558-34.631-83.597c-23.022-23.038-53.411-34.647-83.601-34.631c-30.181-0.016-60.571,11.592-83.604,34.631c-23.034,23.038-34.659,53.424-34.622,83.597c-0.03,30.198,11.588,60.591,34.622,83.613c23.033,23.047,53.423,34.656,83.604,34.631c21.063,0.025,42.178-5.763,60.873-17.005l45.068,45.056c11.131,11.144,29.206,11.144,40.337,0C514.786,450.707,514.786,432.632,503.642,421.497z M408.698,366.889c-14.246,14.213-32.68,21.226-51.334,21.258c-18.65-0.032-37.096-7.045-51.317-21.258c-14.226-14.246-21.243-32.68-21.271-51.342c0.028-18.646,7.046-37.088,21.258-51.318c14.234-14.22,32.68-21.225,51.33-21.266c18.654,0.041,37.088,7.046,51.334,21.266c14.209,14.23,21.221,32.671,21.258,51.318C429.919,334.21,422.907,352.643,408.698,366.889z"/></svg>} />
+                {isAdmin ? (
+                  <>
+                    <NavItem onClick={() => navigate('/invoices')} active={isActive('invoices')} label="請求"
+                      strokeIcon={<svg width="24" height="24" viewBox="0 0 512 512" fill="currentColor"><path d="M198.774,0L53.391,145.375V512h405.219V0H198.774z M425.003,478.386H87.005V164.991H218.39V33.607h206.613V478.386z"/><rect x="157.393" y="238.08" width="197.206" height="25.896"/><rect x="157.393" y="308.795" width="197.206" height="25.896"/><rect x="157.393" y="379.51" width="197.206" height="25.896"/></svg>}
+                      fillIcon={<svg width="24" height="24" viewBox="0 0 512 512" fill="#00B894"><path d="M198.774,0L53.391,145.375V512h405.219V0H198.774z M425.003,478.386H87.005V164.991H218.39V33.607h206.613V478.386z"/><rect x="157.393" y="238.08" width="197.206" height="25.896"/><rect x="157.393" y="308.795" width="197.206" height="25.896"/><rect x="157.393" y="379.51" width="197.206" height="25.896"/></svg>} />
+                    <NavItem onClick={() => navigate('/menu')} active={isActive(['menu', 'settings', 'adminDailyReports', 'adminTimecards', 'adminAuditLogs', 'monthlyClosing'])} label="メニュー"
+                      strokeIcon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>}
+                      fillIcon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#00B894" strokeWidth="2.5"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>} />
+                  </>
+                ) : (
+                  <>
+                    <NavItem onClick={() => navigate('/daily-reports')} active={isActive(['dailyReports', 'dailyReportForm'])} label="日報"
+                      strokeIcon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>}
+                      fillIcon={<svg width="24" height="24" viewBox="0 0 24 24" fill="#00B894" stroke="none"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1" fill="#00B894"></rect></svg>} />
+                    <NavItem onClick={() => navigate('/timecard')} active={isActive('timecard')} label="打刻"
+                      strokeIcon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>}
+                      fillIcon={<svg width="24" height="24" viewBox="0 0 24 24" fill="#00B894" stroke="none"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14" fill="none" stroke="white" strokeWidth="2"></polyline></svg>} />
+                  </>
+                )}
+              </>
+            );
+          })()}
         </div>
       </nav>
 

@@ -97,6 +97,62 @@ try {
         try { $db->query($sql); } catch (Exception $e) {}
     }
 
+    // timecards: id=0問題の自動修復（PRIMARY KEY/AUTO_INCREMENT未設定の場合）
+    try {
+        $hasAutoInc = $db->fetch(
+            "SELECT AUTO_INCREMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'timecards'"
+        );
+        if (!$hasAutoInc || !$hasAutoInc['AUTO_INCREMENT']) {
+            // id=0のレコードに正しいIDを振る
+            $maxId = $db->fetch("SELECT MAX(id) as max_id FROM timecards")['max_id'] ?? 0;
+            $zeroRecords = $db->fetchAll("SELECT user_id, work_date FROM timecards WHERE id = 0 ORDER BY work_date, user_id");
+            $newId = max(1, $maxId + 1);
+            foreach ($zeroRecords as $rec) {
+                $db->query(
+                    "UPDATE timecards SET id = ? WHERE id = 0 AND user_id = ? AND work_date = ? LIMIT 1",
+                    [$newId, $rec['user_id'], $rec['work_date']]
+                );
+                $newId++;
+            }
+            // PRIMARY KEYが無ければ追加
+            $pkCheck = $db->fetchAll("SHOW INDEX FROM timecards WHERE Key_name = 'PRIMARY'");
+            if (empty($pkCheck)) {
+                $db->query("ALTER TABLE timecards ADD PRIMARY KEY (id)");
+            }
+            $db->query("ALTER TABLE timecards MODIFY id INT(11) NOT NULL AUTO_INCREMENT");
+            error_log("timecards: Fixed " . count($zeroRecords) . " records with id=0, added AUTO_INCREMENT");
+        }
+    } catch (Exception $e) {
+        error_log("timecards auto-fix error: " . $e->getMessage());
+    }
+
+    // daily_reports: 同様のid=0問題の自動修復
+    try {
+        $hasAutoInc2 = $db->fetch(
+            "SELECT AUTO_INCREMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'daily_reports'"
+        );
+        if (!$hasAutoInc2 || !$hasAutoInc2['AUTO_INCREMENT']) {
+            $maxId2 = $db->fetch("SELECT MAX(id) as max_id FROM daily_reports")['max_id'] ?? 0;
+            $zeroRecords2 = $db->fetchAll("SELECT user_id, report_date FROM daily_reports WHERE id = 0 ORDER BY report_date, user_id");
+            $newId2 = max(1, $maxId2 + 1);
+            foreach ($zeroRecords2 as $rec) {
+                $db->query(
+                    "UPDATE daily_reports SET id = ? WHERE id = 0 AND user_id = ? AND report_date = ? LIMIT 1",
+                    [$newId2, $rec['user_id'], $rec['report_date']]
+                );
+                $newId2++;
+            }
+            $pkCheck2 = $db->fetchAll("SHOW INDEX FROM daily_reports WHERE Key_name = 'PRIMARY'");
+            if (empty($pkCheck2)) {
+                $db->query("ALTER TABLE daily_reports ADD PRIMARY KEY (id)");
+            }
+            $db->query("ALTER TABLE daily_reports MODIFY id INT(11) NOT NULL AUTO_INCREMENT");
+            error_log("daily_reports: Fixed " . count($zeroRecords2) . " records with id=0, added AUTO_INCREMENT");
+        }
+    } catch (Exception $e) {
+        error_log("daily_reports auto-fix error: " . $e->getMessage());
+    }
+
     // ログインログテーブル
     $db->query("CREATE TABLE IF NOT EXISTS login_logs (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -1847,9 +1903,10 @@ switch ($request) {
             }
 
             if ($existing) {
+                // id=0バグ対策: idではなく user_id + work_date で特定して更新
                 $db->update(
-                    "UPDATE timecards SET clock_in = ?, clock_in_type = ?, clock_in_ip = ? WHERE id = ?",
-                    [$clockIn, $clockInType, $clientIp, $existing['id']]
+                    "UPDATE timecards SET clock_in = ?, clock_in_type = ?, clock_in_ip = ? WHERE user_id = ? AND work_date = ? LIMIT 1",
+                    [$clockIn, $clockInType, $clientIp, $_SESSION['user_id'], $workDate]
                 );
             } else {
                 $db->insert(
@@ -1914,9 +1971,10 @@ switch ($request) {
                 error('既に退勤打刻済みです');
             }
 
+            // id=0バグ対策: idではなく user_id + work_date で特定して更新
             $db->update(
-                "UPDATE timecards SET clock_out = ?, clock_out_type = ?, clock_out_ip = ? WHERE id = ?",
-                [$clockOut, $clockOutType, $clientIp, $existing['id']]
+                "UPDATE timecards SET clock_out = ?, clock_out_type = ?, clock_out_ip = ? WHERE user_id = ? AND work_date = ? LIMIT 1",
+                [$clockOut, $clockOutType, $clientIp, $_SESSION['user_id'], $existing['work_date']]
             );
 
             logAudit('clock_out', 'timecard', $_SESSION['user_id'], $_SESSION['name'] ?? '', [
@@ -2671,15 +2729,16 @@ switch ($request) {
                 } catch (Exception $e) {}
 
                 if ($existing) {
+                    // id=0バグ対策: user_id + work_date で特定して更新
                     if ($hasTypeColumn) {
                         $db->update(
-                            "UPDATE timecards SET clock_in = ?, clock_out = ?, clock_in_type = 'corrected', clock_out_type = 'corrected' WHERE id = ?",
-                            [$request['clock_in'], $request['clock_out'], $existing['id']]
+                            "UPDATE timecards SET clock_in = ?, clock_out = ?, clock_in_type = 'corrected', clock_out_type = 'corrected' WHERE user_id = ? AND work_date = ? LIMIT 1",
+                            [$request['clock_in'], $request['clock_out'], $request['user_id'], $request['work_date']]
                         );
                     } else {
                         $db->update(
-                            "UPDATE timecards SET clock_in = ?, clock_out = ? WHERE id = ?",
-                            [$request['clock_in'], $request['clock_out'], $existing['id']]
+                            "UPDATE timecards SET clock_in = ?, clock_out = ? WHERE user_id = ? AND work_date = ? LIMIT 1",
+                            [$request['clock_in'], $request['clock_out'], $request['user_id'], $request['work_date']]
                         );
                     }
                 } else {

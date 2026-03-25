@@ -88,6 +88,10 @@ try {
     $tcMigrations = [
         "ALTER TABLE timecards ADD COLUMN clock_in_type VARCHAR(20) DEFAULT 'auto'",
         "ALTER TABLE timecards ADD COLUMN clock_out_type VARCHAR(20) DEFAULT 'auto'",
+        "ALTER TABLE timecards ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP",
+        "ALTER TABLE timecards ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+        "ALTER TABLE timecards ADD COLUMN clock_in_ip VARCHAR(45) NULL",
+        "ALTER TABLE timecards ADD COLUMN clock_out_ip VARCHAR(45) NULL",
     ];
     foreach ($tcMigrations as $sql) {
         try { $db->query($sql); } catch (Exception $e) {}
@@ -1830,6 +1834,7 @@ switch ($request) {
             $workDate = date('Y-m-d');
             $clockIn = date('H:i:s');
             $clockInType = 'auto';
+            $clientIp = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? 'unknown';
 
             // 既存チェック
             $existing = $db->fetch(
@@ -1843,15 +1848,22 @@ switch ($request) {
 
             if ($existing) {
                 $db->update(
-                    "UPDATE timecards SET clock_in = ?, clock_in_type = ? WHERE id = ?",
-                    [$clockIn, $clockInType, $existing['id']]
+                    "UPDATE timecards SET clock_in = ?, clock_in_type = ?, clock_in_ip = ? WHERE id = ?",
+                    [$clockIn, $clockInType, $clientIp, $existing['id']]
                 );
             } else {
                 $db->insert(
-                    "INSERT INTO timecards (user_id, work_date, clock_in, clock_in_type) VALUES (?, ?, ?, ?)",
-                    [$_SESSION['user_id'], $workDate, $clockIn, $clockInType]
+                    "INSERT INTO timecards (user_id, work_date, clock_in, clock_in_type, clock_in_ip) VALUES (?, ?, ?, ?, ?)",
+                    [$_SESSION['user_id'], $workDate, $clockIn, $clockInType, $clientIp]
                 );
             }
+
+            logAudit('clock_in', 'timecard', $_SESSION['user_id'], $_SESSION['name'] ?? '', [
+                'work_date' => $workDate,
+                'clock_in' => $clockIn,
+                'ip' => $clientIp,
+                'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? ''
+            ]);
 
             respond(['message' => '出勤を記録しました', 'time' => $clockIn]);
         }
@@ -1864,6 +1876,7 @@ switch ($request) {
             $workDate = date('Y-m-d');
             $clockOut = date('H:i:s');
             $clockOutType = 'auto';
+            $clientIp = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? 'unknown';
 
             // まず当日のレコードを検索
             $existing = $db->fetch(
@@ -1902,9 +1915,18 @@ switch ($request) {
             }
 
             $db->update(
-                "UPDATE timecards SET clock_out = ?, clock_out_type = ? WHERE id = ?",
-                [$clockOut, $clockOutType, $existing['id']]
+                "UPDATE timecards SET clock_out = ?, clock_out_type = ?, clock_out_ip = ? WHERE id = ?",
+                [$clockOut, $clockOutType, $clientIp, $existing['id']]
             );
+
+            logAudit('clock_out', 'timecard', $_SESSION['user_id'], $_SESSION['name'] ?? '', [
+                'work_date' => $existing['work_date'],
+                'clock_out' => $clockOut,
+                'clock_in' => $existing['clock_in'],
+                'ip' => $clientIp,
+                'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? '',
+                'is_overnight' => ($existing['work_date'] !== $workDate)
+            ]);
 
             respond([
                 'message' => '退勤を記録しました',
@@ -1975,16 +1997,30 @@ switch ($request) {
             $clockOut = $input['clockOut'] ?? null;
             $memo = $input['memo'] ?? '';
 
+            // 変更前の値を取得（監査用）
+            $oldTimecard = $db->fetch("SELECT clock_in, clock_out, work_date FROM timecards WHERE id = ?", [$id]);
+
             $db->update(
                 "UPDATE timecards SET clock_in = ?, clock_out = ?, clock_in_type = 'manual', clock_out_type = 'manual', memo = ? WHERE id = ?",
                 [$clockIn, $clockOut, $memo, $id]
             );
 
+            logAudit('edit', 'timecard', $timecard['user_id'], '', [
+                'timecard_id' => $id,
+                'work_date' => $oldTimecard['work_date'] ?? '',
+                'old_clock_in' => $oldTimecard['clock_in'] ?? '',
+                'old_clock_out' => $oldTimecard['clock_out'] ?? '',
+                'new_clock_in' => $clockIn,
+                'new_clock_out' => $clockOut,
+                'edited_by' => $_SESSION['user_id'],
+                'edited_by_name' => $_SESSION['name'] ?? ''
+            ]);
+
             respond(['message' => 'タイムカードを更新しました']);
         } elseif ($method === 'DELETE') {
             // 管理者のみ削除可能
             checkAdmin();
-            $timecard = $db->fetch("SELECT user_id, work_date FROM timecards WHERE id = ?", [$id]);
+            $timecard = $db->fetch("SELECT user_id, work_date, clock_in, clock_out FROM timecards WHERE id = ?", [$id]);
             if (!$timecard) {
                 error('タイムカードが見つかりません', 404);
             }
@@ -1998,6 +2034,16 @@ switch ($request) {
             }
 
             $db->delete("DELETE FROM timecards WHERE id = ?", [$id]);
+
+            logAudit('delete', 'timecard', $timecard['user_id'], '', [
+                'timecard_id' => $id,
+                'work_date' => $timecard['work_date'],
+                'clock_in' => $timecard['clock_in'],
+                'clock_out' => $timecard['clock_out'],
+                'deleted_by' => $_SESSION['user_id'],
+                'deleted_by_name' => $_SESSION['name'] ?? ''
+            ]);
+
             respond(['message' => 'タイムカードを削除しました']);
         }
         break;
@@ -2649,6 +2695,16 @@ switch ($request) {
                         );
                     }
                 }
+
+                logAudit('approve_correction', 'timecard', $request['user_id'], '', [
+                    'request_id' => $id,
+                    'work_date' => $request['work_date'],
+                    'new_clock_in' => $request['clock_in'],
+                    'new_clock_out' => $request['clock_out'],
+                    'reason' => $request['reason'] ?? '',
+                    'approved_by' => $_SESSION['user_id'],
+                    'approved_by_name' => $_SESSION['name'] ?? ''
+                ]);
 
                 respond(['message' => '申請を承認しました']);
             } catch (Exception $e) {

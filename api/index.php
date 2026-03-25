@@ -804,12 +804,12 @@ switch ($request) {
             if (!empty($input['sites'])) {
                 foreach ($input['sites'] as $site) {
                     if (empty($site['name'])) continue;
-                    
+
                     $siteId = $db->insert(
                         "INSERT INTO sites (corporation_id, name, address, keybox, keybox_location, memo) VALUES (?, ?, ?, ?, ?, ?)",
                         [$id, $site['name'], $site['address'] ?? '', $site['keybox'] ?? '', $site['keyboxLocation'] ?? '', $site['memo'] ?? '']
                     );
-                    
+
                     if (!empty($site['pests'])) {
                         foreach ($site['pests'] as $pest) {
                             $db->insert("INSERT INTO site_pests (site_id, pest_name) VALUES (?, ?)", [$siteId, $pest]);
@@ -825,6 +825,7 @@ switch ($request) {
                             $db->insert("INSERT INTO site_work_areas (site_id, work_area) VALUES (?, ?)", [$siteId, $wa]);
                         }
                     }
+                    logAudit('create', 'site', $siteId, $site['name'], json_encode(['corporation' => $name], JSON_UNESCAPED_UNICODE));
                 }
             }
 
@@ -835,16 +836,16 @@ switch ($request) {
 
     case 'corporation':
         checkAuth();
-        $id = (int)($_GET['id'] ?? 0);
-        if ($id <= 0) {
+        $id = $_GET['id'] ?? '';
+        // id=0も有効なIDとして扱う（AUTO_INCREMENTがないテーブルで発生）
+        if ($id === '' || (!is_numeric($id))) {
             error('Invalid corporation ID', 400);
         }
+        $id = (int)$id;
 
         if ($method === 'PUT') {
-            checkAuth(); // スタッフも法人編集可能
-
             $db->update(
-                "UPDATE corporations SET name = ?, address = ?, contact = ?, contact_person = ?, 
+                "UPDATE corporations SET name = ?, address = ?, contact = ?, contact_person = ?,
                  billing_cycle = ?, billing_day = ?, billing_month = ?, memo = ?,
                  contract_start = ?, contract_end = ?, contract_amount = ?, contract_type = ? WHERE id = ?",
                 [
@@ -866,10 +867,27 @@ switch ($request) {
             logAudit('update', 'corporation', $id, $input['name'] ?? '');
             respond(['message' => 'Corporation updated']);
         } elseif ($method === 'DELETE') {
-            checkAdmin(); // 法人削除は管理者以上のみ
+            // スタッフも法人削除可能
             $corp = $db->fetch("SELECT name FROM corporations WHERE id = ?", [$id]);
+            if (!$corp) {
+                error('法人が見つかりません', 404);
+            }
+            // 関連する現場も削除
+            $sites = $db->fetchAll("SELECT id, name FROM sites WHERE corporation_id = ?", [$id]);
+            foreach ($sites as $site) {
+                $db->delete("DELETE FROM site_pests WHERE site_id = ?", [$site['id']]);
+                $db->delete("DELETE FROM site_work_types WHERE site_id = ?", [$site['id']]);
+                $db->delete("DELETE FROM site_work_areas WHERE site_id = ?", [$site['id']]);
+                $db->delete("DELETE FROM site_billing_months WHERE site_id = ?", [$site['id']]);
+                $db->delete("DELETE FROM yearly_plans WHERE site_id = ?", [$site['id']]);
+                $db->delete("DELETE FROM work_logs WHERE site_id = ?", [$site['id']]);
+                $db->delete("DELETE FROM photos WHERE site_id = ?", [$site['id']]);
+                try { $db->delete("DELETE FROM site_documents WHERE site_id = ?", [$site['id']]); } catch (Exception $e) {}
+                logAudit('delete', 'site', $site['id'], $site['name'], json_encode(['reason' => '法人削除に伴うカスケード削除'], JSON_UNESCAPED_UNICODE));
+            }
+            $db->delete("DELETE FROM sites WHERE corporation_id = ?", [$id]);
             $db->delete("DELETE FROM corporations WHERE id = ?", [$id]);
-            logAudit('delete', 'corporation', $id, $corp['name'] ?? 'Unknown');
+            logAudit('delete', 'corporation', $id, $corp['name']);
             respond(['message' => 'Corporation deleted']);
         }
         break;
@@ -918,10 +936,11 @@ switch ($request) {
         
     case 'site':
         checkAuth();
-        $id = (int)($_GET['id'] ?? 0);
-        if ($id <= 0) {
+        $id = $_GET['id'] ?? '';
+        if ($id === '' || !is_numeric($id)) {
             error('Invalid site ID', 400);
         }
+        $id = (int)$id;
 
         if ($method === 'PUT') {
             // 現場の存在確認
@@ -971,10 +990,22 @@ switch ($request) {
             logAudit('update', 'site', $id, $input['name'] ?? '');
             respond(['message' => 'Site updated']);
         } elseif ($method === 'DELETE') {
-            checkAdmin();
+            // スタッフも現場削除可能
             $site = $db->fetch("SELECT name FROM sites WHERE id = ?", [$id]);
+            if (!$site) {
+                error('現場が見つかりません', 404);
+            }
+            // 関連データも削除
+            $db->delete("DELETE FROM site_pests WHERE site_id = ?", [$id]);
+            $db->delete("DELETE FROM site_work_types WHERE site_id = ?", [$id]);
+            $db->delete("DELETE FROM site_work_areas WHERE site_id = ?", [$id]);
+            $db->delete("DELETE FROM site_billing_months WHERE site_id = ?", [$id]);
+            $db->delete("DELETE FROM yearly_plans WHERE site_id = ?", [$id]);
+            $db->delete("DELETE FROM work_logs WHERE site_id = ?", [$id]);
+            $db->delete("DELETE FROM photos WHERE site_id = ?", [$id]);
+            try { $db->delete("DELETE FROM site_documents WHERE site_id = ?", [$id]); } catch (Exception $e) {}
             $db->delete("DELETE FROM sites WHERE id = ?", [$id]);
-            logAudit('delete', 'site', $id, $site['name'] ?? 'Unknown');
+            logAudit('delete', 'site', $id, $site['name']);
             respond(['message' => 'Site deleted']);
         }
         break;
@@ -1116,9 +1147,10 @@ switch ($request) {
             );
             respond(['message' => '作業ログを更新しました']);
         } elseif ($method === 'DELETE') {
-            checkAdmin(); // 作業ログ削除は管理者以上のみ
             if ($id <= 0) error('IDを指定してください', 400);
+            $log = $db->fetch("SELECT wl.*, s.name as site_name FROM work_logs wl LEFT JOIN sites s ON wl.site_id = s.id WHERE wl.id = ?", [$id]);
             $db->delete("DELETE FROM work_logs WHERE id = ?", [$id]);
+            logAudit('delete', 'work_log', $id, $log['site_name'] ?? 'Unknown');
             respond(['message' => '作業ログを削除しました']);
         }
         break;
@@ -1350,17 +1382,19 @@ switch ($request) {
     // ========== 連絡履歴 ==========
     case 'contact-logs':
         checkAuth();
-        
+
         if ($method === 'POST') {
-            checkAdmin();
-            
+            // スタッフも対応履歴作成可能
             $corpId = $input['corporationId'] ?? 0;
-            
+
             $id = $db->insert(
                 "INSERT INTO contact_logs (corporation_id, contact_date, contact_type, content, staff) VALUES (?, ?, ?, ?, ?)",
                 [$corpId, $input['date'] ?? date('Y-m-d'), $input['type'] ?? '電話', $input['content'] ?? '', $_SESSION['name'] ?? '']
             );
-            
+
+            // 法人名を取得して操作履歴に記録
+            $corp = $db->fetch("SELECT name FROM corporations WHERE id = ?", [$corpId]);
+            logAudit('create', 'contact_log', $id, $corp['name'] ?? '', json_encode(['type' => $input['type'] ?? '電話'], JSON_UNESCAPED_UNICODE));
             respond(['id' => $id, 'message' => 'Contact log created']);
         }
         break;
@@ -1604,21 +1638,35 @@ switch ($request) {
 
             // 既存チェック
             $existing = $db->fetch(
-                "SELECT id FROM daily_reports WHERE user_id = ? AND report_date = ?",
+                "SELECT id, status FROM daily_reports WHERE user_id = ? AND report_date = ?",
                 [$_SESSION['user_id'], $reportDate]
             );
 
-            if ($existing) {
-                error('この日付の日報は既に存在します。編集から更新してください。');
+            // 既存が下書きの場合は更新、提出済みの場合はエラー
+            if ($existing && $existing['status'] !== 'draft') {
+                error('この日付の日報は既に提出済みです。編集から更新してください。');
             }
 
-            // 日報作成（トランザクションで保護）
+            // 日報作成/更新（トランザクションで保護）
             $db->beginTransaction();
             try {
-                $reportId = $db->insert(
-                    "INSERT INTO daily_reports (user_id, report_date, vehicle, expenses, contact_notes, remarks, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                    [$_SESSION['user_id'], $reportDate, $vehicle, $expenses, $contactNotes, $remarks, $status]
-                );
+                if ($existing) {
+                    // 既存の下書きを更新
+                    $reportId = $existing['id'];
+                    $db->update(
+                        "UPDATE daily_reports SET vehicle = ?, expenses = ?, contact_notes = ?, remarks = ?, status = ?, updated_at = NOW() WHERE id = ?",
+                        [$vehicle, $expenses, $contactNotes, $remarks, $status, $reportId]
+                    );
+                    // 既存の明細と時間を削除して再作成
+                    $db->delete("DELETE FROM daily_report_details WHERE report_id = ?", [$reportId]);
+                    $db->delete("DELETE FROM daily_report_hours WHERE report_id = ?", [$reportId]);
+                } else {
+                    // 新規作成
+                    $reportId = $db->insert(
+                        "INSERT INTO daily_reports (user_id, report_date, vehicle, expenses, contact_notes, remarks, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        [$_SESSION['user_id'], $reportDate, $vehicle, $expenses, $contactNotes, $remarks, $status]
+                    );
+                }
 
                 // 作業明細を追加（空の時刻はNULLに変換）
                 foreach ($details as $i => $detail) {
@@ -1649,10 +1697,12 @@ switch ($request) {
                 );
 
                 $db->commit();
-                respond(['id' => $reportId, 'message' => '日報を作成しました']);
+                $msg = $existing ? '日報を更新しました' : '日報を作成しました';
+                logAudit($existing ? 'update' : 'create', 'daily_report', $reportId, $reportDate);
+                respond(['id' => $reportId, 'message' => $msg]);
             } catch (Exception $e) {
                 $db->rollBack();
-                error('日報の作成に失敗しました: ' . $e->getMessage(), 500);
+                error('日報の保存に失敗しました: ' . $e->getMessage(), 500);
             }
         }
         break;

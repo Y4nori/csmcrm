@@ -1,4 +1,7 @@
 <?php
+// 出力バッファリング開始（PHPのwarning/noticeがJSON出力を壊すのを防止）
+ob_start();
+
 require_once 'config.php';
 require_once 'Database.php';
 
@@ -10,6 +13,23 @@ if (DEBUG_MODE) {
     error_reporting(0);
     ini_set('display_errors', 0);
 }
+
+// 致命的エラーのハンドリング（fatalエラーでもJSONを返す）
+register_shutdown_function(function() {
+    $error = error_get_last();
+    if ($error && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
+        // バッファをクリアして正しいJSONのみ返す
+        while (ob_get_level()) ob_end_clean();
+        http_response_code(500);
+        header('Content-Type: application/json; charset=utf-8');
+        if (defined('DEBUG_MODE') && DEBUG_MODE) {
+            echo json_encode(['error' => 'Fatal Error: ' . $error['message']], JSON_UNESCAPED_UNICODE);
+        } else {
+            error_log('Fatal error: ' . $error['message'] . ' in ' . $error['file'] . ':' . $error['line']);
+            echo json_encode(['error' => 'Internal Server Error'], JSON_UNESCAPED_UNICODE);
+        }
+    }
+});
 
 // CORS設定
 header('Access-Control-Allow-Origin: ' . ALLOWED_ORIGIN);
@@ -48,6 +68,7 @@ $input = json_decode(file_get_contents('php://input'), true) ?? [];
 
 // グローバル例外ハンドラ（未キャッチ例外でもJSONレスポンスを返す）
 set_exception_handler(function($e) {
+    while (ob_get_level()) ob_end_clean();
     http_response_code(500);
     header('Content-Type: application/json; charset=utf-8');
     if (DEBUG_MODE) {
@@ -218,8 +239,9 @@ try {
     error_log("Migration error: " . $e->getMessage());
 }
 
-// レスポンス関数
+// レスポンス関数（バッファをクリアしてクリーンなJSONのみ返す）
 function respond($data, $status = 200) {
+    while (ob_get_level()) ob_end_clean();
     http_response_code($status);
     echo json_encode($data, JSON_UNESCAPED_UNICODE);
     exit;

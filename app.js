@@ -82,10 +82,15 @@ const api = {
     // 401エラーをコンソールに出さないよう、200で返してチェック
     const basePath = window.location.pathname.replace(/\/[^\/]*$/, '/');
     const url = `${basePath}api/index.php?action=check-auth`;
-    const res = await fetch(url, { credentials: 'include' });
-    const data = await res.json();
-    if (data.authenticated === false) return null;
-    return data;
+    try {
+      const res = await fetch(url, { credentials: 'include' });
+      const data = await res.json();
+      if (data.authenticated === false) return null;
+      return data;
+    } catch (e) {
+      console.warn('Auth check failed:', e);
+      return null;
+    }
   },
   
   getCorps: () => api.call('corporations'),
@@ -403,21 +408,24 @@ function App() {
     try {
       setLoginError('');
 
-      // ログイン時にキャッシュをクリア
-      if ('caches' in window) {
-        const cacheNames = await caches.keys();
-        await Promise.all(cacheNames.map(name => caches.delete(name)));
-      }
-      // LocalStorageのキャッシュデータをクリア（認証情報以外）
-      const keysToKeep = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && !key.startsWith('cache_')) {
-          keysToKeep.push({ key, value: localStorage.getItem(key) });
+      // ログイン時にキャッシュをクリア（失敗しても続行）
+      try {
+        if ('caches' in window) {
+          const cacheNames = await caches.keys();
+          await Promise.all(cacheNames.map(name => caches.delete(name)));
         }
+        const keysToKeep = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && !key.startsWith('cache_')) {
+            keysToKeep.push({ key, value: localStorage.getItem(key) });
+          }
+        }
+        localStorage.clear();
+        keysToKeep.forEach(item => localStorage.setItem(item.key, item.value));
+      } catch (cacheErr) {
+        console.warn('Cache clear failed:', cacheErr);
       }
-      localStorage.clear();
-      keysToKeep.forEach(item => localStorage.setItem(item.key, item.value));
 
       const user = await api.login(loginForm.username, loginForm.password);
       setCurrentUser(user);
@@ -425,10 +433,12 @@ function App() {
       await loadData(user.role);
     } catch (e) {
       const msg = e.message || '';
-      if (msg.includes('Internal Server Error')) {
-        setLoginError('サーバーエラー: ' + msg);
+      if (msg.includes('Internal Server Error') || msg.includes('サーバーエラー') || msg.includes('レスポンスの解析')) {
+        setLoginError('サーバーエラーが発生しました。しばらくしてから再試行してください。');
       } else if (msg.includes('429') || msg.includes('上限')) {
         setLoginError(msg);
+      } else if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('network')) {
+        setLoginError('ネットワークエラー: サーバーに接続できません');
       } else {
         setLoginError('ユーザー名またはパスワードが間違っています');
       }

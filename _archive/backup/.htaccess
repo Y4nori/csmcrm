@@ -1,9 +1,0 @@
-<IfModule mod_headers.c>
-    <FilesMatch "\.(html|htm)$">
-        Header set Cache-Control "no-cache, must-revalidate"
-    </FilesMatch>
-    <FilesMatch "\.js$">
-        Header set Cache-Control "no-cache, must-revalidate"
-    </FilesMatch>
-</IfModule>
-FileETag MTime Size

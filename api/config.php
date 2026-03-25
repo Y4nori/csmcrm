@@ -27,7 +27,7 @@ define('SESSION_LIFETIME', 86400); // 24時間
 define('ALLOWED_ORIGIN', '*');
 
 // エラー表示（本番環境ではfalse）
-define('DEBUG_MODE', false);
+define('DEBUG_MODE', true);
 
 // タイムゾーン
 date_default_timezone_set('Asia/Tokyo');

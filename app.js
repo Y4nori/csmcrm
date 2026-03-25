@@ -433,8 +433,9 @@ function App() {
       await loadData(user.role);
     } catch (e) {
       const msg = e.message || '';
+      console.error('Login error:', msg);
       if (msg.includes('Internal Server Error') || msg.includes('サーバーエラー') || msg.includes('レスポンスの解析')) {
-        setLoginError('サーバーエラーが発生しました。しばらくしてから再試行してください。');
+        setLoginError('サーバーエラー: ' + msg);
       } else if (msg.includes('429') || msg.includes('上限')) {
         setLoginError(msg);
       } else if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('network')) {

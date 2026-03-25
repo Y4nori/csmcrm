@@ -16,10 +16,13 @@ class Database {
             ];
             $this->pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
         } catch (PDOException $e) {
+            http_response_code(500);
+            header('Content-Type: application/json; charset=utf-8');
             if (DEBUG_MODE) {
-                die("Database connection failed: " . $e->getMessage());
+                die(json_encode(['error' => 'Database connection failed: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE));
             } else {
-                die("Database connection failed");
+                error_log('Database connection failed: ' . $e->getMessage());
+                die(json_encode(['error' => 'Database connection failed'], JSON_UNESCAPED_UNICODE));
             }
         }
     }

@@ -3133,7 +3133,12 @@ function App() {
       }
     };
 
+    const [punching, setPunching] = useState(false);
+
     const handleClockIn = async () => {
+      if (punching) return;
+      if (!confirm('出勤を打刻しますか？')) return;
+      setPunching(true);
       try {
         const result = await api.clockIn({ type: 'auto' });
         alert('出勤を記録しました: ' + (result.time ? result.time.slice(0, 5) : ''));
@@ -3142,9 +3147,13 @@ function App() {
       } catch (e) {
         alert('出勤エラー: ' + e.message);
       }
+      setPunching(false);
     };
 
     const handleClockOut = async () => {
+      if (punching) return;
+      if (!confirm('退勤を打刻しますか？')) return;
+      setPunching(true);
       try {
         const result = await api.clockOut({ type: 'auto' });
         alert('退勤を記録しました: ' + (result.time ? result.time.slice(0, 5) : ''));
@@ -3153,6 +3162,7 @@ function App() {
       } catch (e) {
         alert('退勤エラー: ' + e.message);
       }
+      setPunching(false);
     };
 
     const formatTime = (time) => time ? time.slice(0, 5) : '--:--';
@@ -3171,14 +3181,14 @@ function App() {
 
           <div className="flex gap-3 justify-center mb-4">
             {!todayCard?.clock_in ? (
-              <button onClick={handleClockIn}
-                className="text-white text-lg font-bold" style={{ padding: '16px 32px', borderRadius: '16px', background: 'linear-gradient(135deg, #00B894, #00D2A0)', border: 'none', boxShadow: '0 4px 16px rgba(0, 184, 148, 0.3)' }}>
-                出勤
+              <button onClick={handleClockIn} disabled={punching}
+                className="text-white text-lg font-bold" style={{ padding: '16px 32px', borderRadius: '16px', background: punching ? '#ccc' : 'linear-gradient(135deg, #00B894, #00D2A0)', border: 'none', boxShadow: '0 4px 16px rgba(0, 184, 148, 0.3)', opacity: punching ? 0.6 : 1 }}>
+                {punching ? '処理中...' : '出勤'}
               </button>
             ) : !todayCard?.clock_out ? (
-              <button onClick={handleClockOut}
-                className="text-white text-lg font-bold" style={{ padding: '16px 32px', borderRadius: '16px', background: 'linear-gradient(135deg, #E67E22, #F39C12)', border: 'none', boxShadow: '0 4px 16px rgba(230, 126, 34, 0.3)' }}>
-                退勤
+              <button onClick={handleClockOut} disabled={punching}
+                className="text-white text-lg font-bold" style={{ padding: '16px 32px', borderRadius: '16px', background: punching ? '#ccc' : 'linear-gradient(135deg, #E67E22, #F39C12)', border: 'none', boxShadow: '0 4px 16px rgba(230, 126, 34, 0.3)', opacity: punching ? 0.6 : 1 }}>
+                {punching ? '処理中...' : '退勤'}
               </button>
             ) : (
               <p style={{ color: '#00B894', fontWeight: 600 }}>本日の打刻完了</p>

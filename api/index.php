@@ -1506,47 +1506,54 @@ switch ($request) {
                 error('この日付の日報は既に存在します。編集から更新してください。');
             }
 
-            // 日報作成
-            $reportId = $db->insert(
-                "INSERT INTO daily_reports (user_id, report_date, vehicle, expenses, contact_notes, remarks, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                [$_SESSION['user_id'], $reportDate, $vehicle, $expenses, $contactNotes, $remarks, $status]
-            );
+            // 日報作成（トランザクションで保護）
+            $db->beginTransaction();
+            try {
+                $reportId = $db->insert(
+                    "INSERT INTO daily_reports (user_id, report_date, vehicle, expenses, contact_notes, remarks, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    [$_SESSION['user_id'], $reportDate, $vehicle, $expenses, $contactNotes, $remarks, $status]
+                );
 
-            // 作業明細を追加（空の時刻はNULLに変換）
-            foreach ($details as $i => $detail) {
-                $startTime = !empty($detail['startTime']) ? $detail['startTime'] : null;
-                $endTime = !empty($detail['endTime']) ? $detail['endTime'] : null;
-                $siteName = $detail['siteName'] ?? '';
+                // 作業明細を追加（空の時刻はNULLに変換）
+                foreach ($details as $i => $detail) {
+                    $startTime = !empty($detail['startTime']) ? $detail['startTime'] : null;
+                    $endTime = !empty($detail['endTime']) ? $detail['endTime'] : null;
+                    $siteName = $detail['siteName'] ?? '';
 
-                // 全て空ならスキップ
-                if (!$startTime && !$endTime && empty($siteName)) {
-                    continue;
+                    // 全て空ならスキップ
+                    if (!$startTime && !$endTime && empty($siteName)) {
+                        continue;
+                    }
+
+                    $db->insert(
+                        "INSERT INTO daily_report_details (report_id, start_time, end_time, site_id, site_name, worker_count, companions, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                        [$reportId, $startTime, $endTime, $detail['siteId'] ?: null, $siteName, $detail['workerCount'] ?? 1, $detail['companions'] ?? '', $i]
+                    );
                 }
 
+                // 時間集計レコードを作成（負の値は0に補正）
+                $regularHours = max(0, floatval($input['regularHours'] ?? 0));
+                $nightHours = max(0, floatval($input['nightHours'] ?? 0));
+                $constructionPoints = max(0, floatval($input['constructionPoints'] ?? 0));
+                $otherHours = max(0, floatval($input['otherHours'] ?? 0));
+
                 $db->insert(
-                    "INSERT INTO daily_report_details (report_id, start_time, end_time, site_id, site_name, worker_count, companions, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                    [$reportId, $startTime, $endTime, $detail['siteId'] ?: null, $siteName, $detail['workerCount'] ?? 1, $detail['companions'] ?? '', $i]
+                    "INSERT INTO daily_report_hours (report_id, regular_hours, night_hours, construction_points, other_hours) VALUES (?, ?, ?, ?, ?)",
+                    [$reportId, $regularHours, $nightHours, $constructionPoints, $otherHours]
                 );
+
+                $db->commit();
+                respond(['id' => $reportId, 'message' => '日報を作成しました']);
+            } catch (Exception $e) {
+                $db->rollBack();
+                error('日報の作成に失敗しました: ' . $e->getMessage(), 500);
             }
-
-            // 時間集計レコードを作成（負の値は0に補正）
-            $regularHours = max(0, floatval($input['regularHours'] ?? 0));
-            $nightHours = max(0, floatval($input['nightHours'] ?? 0));
-            $constructionPoints = max(0, floatval($input['constructionPoints'] ?? 0));
-            $otherHours = max(0, floatval($input['otherHours'] ?? 0));
-
-            $db->insert(
-                "INSERT INTO daily_report_hours (report_id, regular_hours, night_hours, construction_points, other_hours) VALUES (?, ?, ?, ?, ?)",
-                [$reportId, $regularHours, $nightHours, $constructionPoints, $otherHours]
-            );
-
-            respond(['id' => $reportId, 'message' => '日報を作成しました']);
         }
         break;
 
     case 'daily-report':
         checkAuth();
-        if (!isset($_GET['id']) || $_GET['id'] === '') {
+        if (!isset($_GET['id']) || $_GET['id'] === '' || (int)$_GET['id'] <= 0) {
             error('Invalid daily report ID', 400);
         }
         $id = (int)$_GET['id'];
@@ -1604,44 +1611,52 @@ switch ($request) {
             $status = $input['status'] ?? 'draft';
             $details = $input['details'] ?? [];
 
-            $db->update(
-                "UPDATE daily_reports SET vehicle = ?, expenses = ?, contact_notes = ?, remarks = ?, status = ? WHERE id = ?",
-                [$vehicle, $expenses, $contactNotes, $remarks, $status, $id]
-            );
+            // 日報更新（トランザクションで保護 - 明細削除→再作成の間のデータ消失を防止）
+            $db->beginTransaction();
+            try {
+                $db->update(
+                    "UPDATE daily_reports SET vehicle = ?, expenses = ?, contact_notes = ?, remarks = ?, status = ? WHERE id = ?",
+                    [$vehicle, $expenses, $contactNotes, $remarks, $status, $id]
+                );
 
-            // 作業明細を削除して再作成（空の時刻はNULLに変換）
-            $db->delete("DELETE FROM daily_report_details WHERE report_id = ?", [$id]);
-            foreach ($details as $i => $detail) {
-                $startTime = !empty($detail['startTime']) ? $detail['startTime'] : null;
-                $endTime = !empty($detail['endTime']) ? $detail['endTime'] : null;
-                $siteName = $detail['siteName'] ?? '';
+                // 作業明細を削除して再作成（空の時刻はNULLに変換）
+                $db->delete("DELETE FROM daily_report_details WHERE report_id = ?", [$id]);
+                foreach ($details as $i => $detail) {
+                    $startTime = !empty($detail['startTime']) ? $detail['startTime'] : null;
+                    $endTime = !empty($detail['endTime']) ? $detail['endTime'] : null;
+                    $siteName = $detail['siteName'] ?? '';
 
-                // 全て空ならスキップ
-                if (!$startTime && !$endTime && empty($siteName)) {
-                    continue;
+                    // 全て空ならスキップ
+                    if (!$startTime && !$endTime && empty($siteName)) {
+                        continue;
+                    }
+
+                    $db->insert(
+                        "INSERT INTO daily_report_details (report_id, start_time, end_time, site_id, site_name, worker_count, companions, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                        [$id, $startTime, $endTime, $detail['siteId'] ?: null, $siteName, $detail['workerCount'] ?? 1, $detail['companions'] ?? '', $i]
+                    );
                 }
 
-                $db->insert(
-                    "INSERT INTO daily_report_details (report_id, start_time, end_time, site_id, site_name, worker_count, companions, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                    [$id, $startTime, $endTime, $detail['siteId'] ?: null, $siteName, $detail['workerCount'] ?? 1, $detail['companions'] ?? '', $i]
+                // 時間データを更新（負の値は0に補正）
+                $regularHours = max(0, floatval($input['regularHours'] ?? 0));
+                $nightHours = max(0, floatval($input['nightHours'] ?? 0));
+                $constructionPoints = max(0, floatval($input['constructionPoints'] ?? 0));
+                $otherHours = max(0, floatval($input['otherHours'] ?? 0));
+
+                $db->update(
+                    "INSERT INTO daily_report_hours (report_id, regular_hours, night_hours, construction_points, other_hours)
+                     VALUES (?, ?, ?, ?, ?)
+                     ON DUPLICATE KEY UPDATE regular_hours = ?, night_hours = ?, construction_points = ?, other_hours = ?",
+                    [$id, $regularHours, $nightHours, $constructionPoints, $otherHours,
+                     $regularHours, $nightHours, $constructionPoints, $otherHours]
                 );
+
+                $db->commit();
+                respond(['message' => '日報を更新しました']);
+            } catch (Exception $e) {
+                $db->rollBack();
+                error('日報の更新に失敗しました: ' . $e->getMessage(), 500);
             }
-
-            // 時間データを更新（負の値は0に補正）
-            $regularHours = max(0, floatval($input['regularHours'] ?? 0));
-            $nightHours = max(0, floatval($input['nightHours'] ?? 0));
-            $constructionPoints = max(0, floatval($input['constructionPoints'] ?? 0));
-            $otherHours = max(0, floatval($input['otherHours'] ?? 0));
-
-            $db->update(
-                "INSERT INTO daily_report_hours (report_id, regular_hours, night_hours, construction_points, other_hours)
-                 VALUES (?, ?, ?, ?, ?)
-                 ON DUPLICATE KEY UPDATE regular_hours = ?, night_hours = ?, construction_points = ?, other_hours = ?",
-                [$id, $regularHours, $nightHours, $constructionPoints, $otherHours,
-                 $regularHours, $nightHours, $constructionPoints, $otherHours]
-            );
-
-            respond(['message' => '日報を更新しました']);
         } elseif ($method === 'DELETE') {
             // report_dateを取得（id=0の重複レコード対策）
             $reportDate = $_GET['report_date'] ?? null;
@@ -1664,16 +1679,23 @@ switch ($request) {
                 error('日報が見つかりません', 404);
             }
 
-            // 関連データ削除（id=0の場合は他レコードの関連データも巻き込む可能性あり）
-            $db->delete("DELETE FROM daily_report_details WHERE report_id = ?", [$id]);
-            $db->delete("DELETE FROM daily_report_hours WHERE report_id = ?", [$id]);
-            // メインレコードはreport_dateで1件だけ削除
-            if ($reportDate) {
-                $db->delete("DELETE FROM daily_reports WHERE id = ? AND user_id = ? AND report_date = ? LIMIT 1", [$id, $report['user_id'], $reportDate]);
-            } else {
-                $db->delete("DELETE FROM daily_reports WHERE id = ? AND user_id = ? LIMIT 1", [$id, $report['user_id']]);
+            // 関連データ削除（トランザクションで保護）
+            $db->beginTransaction();
+            try {
+                $db->delete("DELETE FROM daily_report_details WHERE report_id = ?", [$id]);
+                $db->delete("DELETE FROM daily_report_hours WHERE report_id = ?", [$id]);
+                // メインレコードはreport_dateで1件だけ削除
+                if ($reportDate) {
+                    $db->delete("DELETE FROM daily_reports WHERE id = ? AND user_id = ? AND report_date = ? LIMIT 1", [$id, $report['user_id'], $reportDate]);
+                } else {
+                    $db->delete("DELETE FROM daily_reports WHERE id = ? AND user_id = ? LIMIT 1", [$id, $report['user_id']]);
+                }
+                $db->commit();
+                respond(['message' => '日報を削除しました']);
+            } catch (Exception $e) {
+                $db->rollBack();
+                error('日報の削除に失敗しました: ' . $e->getMessage(), 500);
             }
-            respond(['message' => '日報を削除しました']);
         }
         break;
 

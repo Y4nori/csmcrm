@@ -50,7 +50,12 @@ $input = json_decode(file_get_contents('php://input'), true) ?? [];
 set_exception_handler(function($e) {
     http_response_code(500);
     header('Content-Type: application/json; charset=utf-8');
-    echo json_encode(['error' => 'Internal Server Error: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
+    if (DEBUG_MODE) {
+        echo json_encode(['error' => 'Internal Server Error: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
+    } else {
+        error_log('Uncaught exception: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+        echo json_encode(['error' => 'Internal Server Error'], JSON_UNESCAPED_UNICODE);
+    }
     exit;
 });
 
@@ -839,7 +844,7 @@ switch ($request) {
             logAudit('update', 'corporation', $id, $input['name'] ?? '');
             respond(['message' => 'Corporation updated']);
         } elseif ($method === 'DELETE') {
-            checkAuth(); // スタッフも法人削除可能
+            checkAdmin(); // 法人削除は管理者以上のみ
             $corp = $db->fetch("SELECT name FROM corporations WHERE id = ?", [$id]);
             $db->delete("DELETE FROM corporations WHERE id = ?", [$id]);
             logAudit('delete', 'corporation', $id, $corp['name'] ?? 'Unknown');
@@ -955,10 +960,15 @@ switch ($request) {
     // ========== 年間計画 ==========
     case 'yearly-plan':
         checkAuth();
-        $siteId = $_GET['site_id'] ?? 0;
+        $siteId = isset($_GET['site_id']) ? (int)$_GET['site_id'] : 0;
 
         if ($method === 'PUT') {
             checkAdmin();
+
+            // site_idが0または未指定の場合はエラー（全データ削除防止）
+            if ($siteId <= 0) {
+                error('Invalid site_id', 400);
+            }
 
             $plans = $input['yearlyPlan'] ?? [];
 
@@ -973,7 +983,10 @@ switch ($request) {
                 $db->query("ALTER TABLE yearly_plans ADD COLUMN completed TINYINT DEFAULT 0");
             } catch (Exception $e) {}
 
-            // 既存プランを削除して再作成
+            // 既存プランを削除して再作成（トランザクション保護）
+            $pdo = $db->getConnection();
+            $pdo->beginTransaction();
+            try {
             $db->delete("DELETE FROM yearly_plans WHERE site_id = ?", [$siteId]);
 
             foreach ($plans as $month => $plan) {
@@ -1000,6 +1013,12 @@ switch ($request) {
                 }
             }
 
+            $pdo->commit();
+            } catch (Exception $e) {
+                $pdo->rollBack();
+                error('年間計画の更新に失敗しました: ' . $e->getMessage(), 500);
+            }
+
             respond(['message' => 'Yearly plan updated']);
         }
         break;
@@ -1011,6 +1030,10 @@ switch ($request) {
             $siteId = (int)($input['siteId'] ?? 0);
             $month = (int)($input['month'] ?? 0);
             $completed = !empty($input['completed']) ? 1 : 0;
+
+            if ($siteId <= 0 || $month <= 0 || $month > 12) {
+                error('無効なパラメータです', 400);
+            }
 
             // completedカラムがなければ追加
             try {
@@ -1071,6 +1094,7 @@ switch ($request) {
             );
             respond(['message' => '作業ログを更新しました']);
         } elseif ($method === 'DELETE') {
+            checkAdmin(); // 作業ログ削除は管理者以上のみ
             if ($id <= 0) error('IDを指定してください', 400);
             $db->delete("DELETE FROM work_logs WHERE id = ?", [$id]);
             respond(['message' => '作業ログを削除しました']);
@@ -1957,7 +1981,7 @@ switch ($request) {
                     $clockInDateTime = strtotime($recentUnclosed['work_date'] . ' ' . $recentUnclosed['clock_in']);
                     $nowDateTime = strtotime($workDate . ' ' . $clockOut);
 
-                    if (($nowDateTime - $clockInDateTime) <= 36 * 3600) {
+                    if (($nowDateTime - $clockInDateTime) <= 24 * 3600) {
                         $existing = $recentUnclosed;
                     }
                 }
@@ -2029,7 +2053,7 @@ switch ($request) {
                 if ($recentUnclosed) {
                     $clockInDateTime = strtotime($recentUnclosed['work_date'] . ' ' . $recentUnclosed['clock_in']);
                     $now = time();
-                    if (($now - $clockInDateTime) <= 36 * 3600) {
+                    if (($now - $clockInDateTime) <= 24 * 3600) {
                         $recentUnclosed['is_overnight'] = true;
                         respond($recentUnclosed);
                     }
@@ -2058,9 +2082,10 @@ switch ($request) {
             // 変更前の値を取得（監査用）
             $oldTimecard = $db->fetch("SELECT clock_in, clock_out, work_date FROM timecards WHERE id = ?", [$id]);
 
+            // id=0バグ対策: idに加えてuser_idでも絞り込み
             $db->update(
-                "UPDATE timecards SET clock_in = ?, clock_out = ?, clock_in_type = 'manual', clock_out_type = 'manual', memo = ? WHERE id = ?",
-                [$clockIn, $clockOut, $memo, $id]
+                "UPDATE timecards SET clock_in = ?, clock_out = ?, clock_in_type = 'manual', clock_out_type = 'manual', memo = ? WHERE id = ? AND user_id = ? LIMIT 1",
+                [$clockIn, $clockOut, $memo, $id, $timecard['user_id']]
             );
 
             logAudit('edit', 'timecard', $timecard['user_id'], '', [
@@ -2091,7 +2116,11 @@ switch ($request) {
                 error('労働基準法により、タイムカードは5年間保存が必要です。削除できません。', 403);
             }
 
-            $db->delete("DELETE FROM timecards WHERE id = ?", [$id]);
+            // id=0バグ対策: idに加えてuser_id+work_dateでも絞り込み
+            $db->delete(
+                "DELETE FROM timecards WHERE id = ? AND user_id = ? AND work_date = ? LIMIT 1",
+                [$id, $timecard['user_id'], $timecard['work_date']]
+            );
 
             logAudit('delete', 'timecard', $timecard['user_id'], '', [
                 'timecard_id' => $id,
@@ -2206,9 +2235,11 @@ switch ($request) {
                         $params[] = $request['requested_clock_out'];
                     }
                     if (!empty($updates)) {
-                        $params[] = $existing['id'];
+                        // id=0バグ対策: idではなく user_id + work_date で特定して更新
+                        $params[] = $request['user_id'];
+                        $params[] = $request['work_date'];
                         $db->update(
-                            "UPDATE timecards SET " . implode(', ', $updates) . " WHERE id = ?",
+                            "UPDATE timecards SET " . implode(', ', $updates) . " WHERE user_id = ? AND work_date = ? LIMIT 1",
                             $params
                         );
                     }
@@ -2259,7 +2290,7 @@ switch ($request) {
 
                 // 日付をまたぐ場合（退勤時刻が出勤時刻より前）
                 if ($out < $in) {
-                    $out += 36 * 3600; // 24時間を加算
+                    $out += 24 * 3600; // 24時間を加算
                 }
 
                 $diff = ($out - $in) / 3600;
@@ -2949,40 +2980,52 @@ switch ($request) {
                 error('数量を入力してください');
             }
 
-            // 現在の在庫を取得
-            $current = $db->fetch(
-                "SELECT quantity FROM inventory_stocks WHERE branch_id = ? AND product_id = ?",
-                [$branchId, $productId]
-            );
-            $currentQty = $current ? (int)$current['quantity'] : 0;
+            // トランザクションでレースコンディション防止
+            $pdo = $db->getConnection();
+            $pdo->beginTransaction();
+            try {
+                // 現在の在庫を取得（FOR UPDATEでロック）
+                $current = $db->fetch(
+                    "SELECT quantity FROM inventory_stocks WHERE branch_id = ? AND product_id = ? FOR UPDATE",
+                    [$branchId, $productId]
+                );
+                $currentQty = $current ? (int)$current['quantity'] : 0;
 
-            // 新しい数量を計算
-            if ($type === 'in') {
-                $newQty = $currentQty + $quantity;
-            } elseif ($type === 'out') {
-                $newQty = $currentQty - $quantity;
-                if ($newQty < 0) {
-                    error('在庫が不足しています');
+                // 新しい数量を計算
+                if ($type === 'in') {
+                    $newQty = $currentQty + $quantity;
+                } elseif ($type === 'out') {
+                    $newQty = $currentQty - $quantity;
+                    if ($newQty < 0) {
+                        $pdo->rollBack();
+                        error('在庫が不足しています');
+                    }
+                } elseif ($type === 'adjust') {
+                    $newQty = $quantity;
+                } else {
+                    $pdo->rollBack();
+                    error('不正な操作タイプです');
                 }
-            } elseif ($type === 'adjust') {
-                $newQty = $quantity;
-            } else {
-                error('不正な操作タイプです');
+
+                // 在庫を更新（UPSERT）
+                $db->query(
+                    "INSERT INTO inventory_stocks (branch_id, product_id, quantity) VALUES (?, ?, ?)
+                     ON DUPLICATE KEY UPDATE quantity = VALUES(quantity)",
+                    [$branchId, $productId, $newQty]
+                );
+
+                // 履歴を記録
+                $db->insert(
+                    "INSERT INTO inventory_logs (branch_id, product_id, transaction_type, quantity, quantity_before, quantity_after, note, user_id, user_name)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    [$branchId, $productId, $type, $quantity, $currentQty, $newQty, $note, $_SESSION['user_id'], $_SESSION['name']]
+                );
+
+                $pdo->commit();
+            } catch (Exception $e) {
+                $pdo->rollBack();
+                error('在庫更新に失敗しました: ' . $e->getMessage(), 500);
             }
-
-            // 在庫を更新（UPSERT）
-            $db->query(
-                "INSERT INTO inventory_stocks (branch_id, product_id, quantity) VALUES (?, ?, ?)
-                 ON DUPLICATE KEY UPDATE quantity = VALUES(quantity)",
-                [$branchId, $productId, $newQty]
-            );
-
-            // 履歴を記録
-            $db->insert(
-                "INSERT INTO inventory_logs (branch_id, product_id, transaction_type, quantity, quantity_before, quantity_after, note, user_id, user_name)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                [$branchId, $productId, $type, $quantity, $currentQty, $newQty, $note, $_SESSION['user_id'], $_SESSION['name']]
-            );
 
             respond(['message' => '在庫を更新しました', 'newQuantity' => $newQty]);
         }
@@ -3008,50 +3051,61 @@ switch ($request) {
                 error('数量を入力してください');
             }
 
-            // 元の在庫を確認
-            $fromStock = $db->fetch(
-                "SELECT quantity FROM inventory_stocks WHERE branch_id = ? AND product_id = ?",
-                [$fromBranchId, $productId]
-            );
-            $fromQty = $fromStock ? (int)$fromStock['quantity'] : 0;
+            // トランザクションでレースコンディション防止
+            $pdo = $db->getConnection();
+            $pdo->beginTransaction();
+            try {
+                // 元の在庫を確認（FOR UPDATEでロック）
+                $fromStock = $db->fetch(
+                    "SELECT quantity FROM inventory_stocks WHERE branch_id = ? AND product_id = ? FOR UPDATE",
+                    [$fromBranchId, $productId]
+                );
+                $fromQty = $fromStock ? (int)$fromStock['quantity'] : 0;
 
-            if ($fromQty < $quantity) {
-                error('在庫が不足しています');
+                if ($fromQty < $quantity) {
+                    $pdo->rollBack();
+                    error('在庫が不足しています');
+                }
+
+                // 先の在庫を取得（FOR UPDATEでロック）
+                $toStock = $db->fetch(
+                    "SELECT quantity FROM inventory_stocks WHERE branch_id = ? AND product_id = ? FOR UPDATE",
+                    [$toBranchId, $productId]
+                );
+                $toQty = $toStock ? (int)$toStock['quantity'] : 0;
+
+                // 元の在庫を減らす
+                $db->update(
+                    "UPDATE inventory_stocks SET quantity = quantity - ? WHERE branch_id = ? AND product_id = ?",
+                    [$quantity, $fromBranchId, $productId]
+                );
+
+                // 先の在庫を増やす（UPSERT）
+                $db->query(
+                    "INSERT INTO inventory_stocks (branch_id, product_id, quantity) VALUES (?, ?, ?)
+                     ON DUPLICATE KEY UPDATE quantity = quantity + VALUES(quantity)",
+                    [$toBranchId, $productId, $quantity]
+                );
+
+                // 履歴を記録（出庫）
+                $db->insert(
+                    "INSERT INTO inventory_logs (branch_id, product_id, transaction_type, quantity, quantity_before, quantity_after, related_branch_id, note, user_id, user_name)
+                     VALUES (?, ?, 'transfer_out', ?, ?, ?, ?, ?, ?, ?)",
+                    [$fromBranchId, $productId, $quantity, $fromQty, $fromQty - $quantity, $toBranchId, $note, $_SESSION['user_id'], $_SESSION['name']]
+                );
+
+                // 履歴を記録（入庫）
+                $db->insert(
+                    "INSERT INTO inventory_logs (branch_id, product_id, transaction_type, quantity, quantity_before, quantity_after, related_branch_id, note, user_id, user_name)
+                     VALUES (?, ?, 'transfer_in', ?, ?, ?, ?, ?, ?, ?)",
+                    [$toBranchId, $productId, $quantity, $toQty, $toQty + $quantity, $fromBranchId, $note, $_SESSION['user_id'], $_SESSION['name']]
+                );
+
+                $pdo->commit();
+            } catch (Exception $e) {
+                $pdo->rollBack();
+                error('在庫移動に失敗しました: ' . $e->getMessage(), 500);
             }
-
-            // 先の在庫を取得
-            $toStock = $db->fetch(
-                "SELECT quantity FROM inventory_stocks WHERE branch_id = ? AND product_id = ?",
-                [$toBranchId, $productId]
-            );
-            $toQty = $toStock ? (int)$toStock['quantity'] : 0;
-
-            // 元の在庫を減らす
-            $db->update(
-                "UPDATE inventory_stocks SET quantity = quantity - ? WHERE branch_id = ? AND product_id = ?",
-                [$quantity, $fromBranchId, $productId]
-            );
-
-            // 先の在庫を増やす（UPSERT）
-            $db->query(
-                "INSERT INTO inventory_stocks (branch_id, product_id, quantity) VALUES (?, ?, ?)
-                 ON DUPLICATE KEY UPDATE quantity = quantity + VALUES(quantity)",
-                [$toBranchId, $productId, $quantity]
-            );
-
-            // 履歴を記録（出庫）
-            $db->insert(
-                "INSERT INTO inventory_logs (branch_id, product_id, transaction_type, quantity, quantity_before, quantity_after, related_branch_id, note, user_id, user_name)
-                 VALUES (?, ?, 'transfer_out', ?, ?, ?, ?, ?, ?, ?)",
-                [$fromBranchId, $productId, $quantity, $fromQty, $fromQty - $quantity, $toBranchId, $note, $_SESSION['user_id'], $_SESSION['name']]
-            );
-
-            // 履歴を記録（入庫）
-            $db->insert(
-                "INSERT INTO inventory_logs (branch_id, product_id, transaction_type, quantity, quantity_before, quantity_after, related_branch_id, note, user_id, user_name)
-                 VALUES (?, ?, 'transfer_in', ?, ?, ?, ?, ?, ?, ?)",
-                [$toBranchId, $productId, $quantity, $toQty, $toQty + $quantity, $fromBranchId, $note, $_SESSION['user_id'], $_SESSION['name']]
-            );
 
             respond(['message' => '在庫を移動しました']);
         }
@@ -3499,6 +3553,10 @@ switch ($request) {
     // デバッグ用: DB状態確認
     case 'debug-info':
         checkAuth();
+        // デバッグ情報はmaster権限のみアクセス可能
+        if ($_SESSION['role'] !== 'master') {
+            error('この機能へのアクセス権限がありません', 403);
+        }
 
         $info = [];
 

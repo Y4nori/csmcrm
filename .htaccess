@@ -1,5 +1,9 @@
 <IfModule mod_headers.c>
     Header set X-Robots-Tag "noindex, nofollow, noarchive"
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "DENY"
+    Header always set X-XSS-Protection "1; mode=block"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
     <FilesMatch "\.(html|htm)$">
         Header set Cache-Control "no-cache, must-revalidate"
     </FilesMatch>
@@ -15,3 +19,10 @@ FileETag MTime Size
     RewriteRule ^_archive/ - [F,L]
     RewriteRule ^_design/ - [F,L]
 </IfModule>
+
+# config.phpへの直接アクセスを拒否
+<Files "config.php">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+</Files>

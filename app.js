@@ -750,7 +750,7 @@ function App() {
               <div className="space-y-2 max-h-60 overflow-y-auto">
                 {filteredNotifications.map(n => (
                   <div key={n.id} onClick={() => {
-                    if (n.corpId) navigate(`/corp/${n.corpId}`);
+                    if (n.corpId) navigate(`/corporations/${n.corpId}`);
                     else if (n.type === 'inventory') navigate('/inventory');
                     else if (n.type === 'closing') navigate('/monthly-closing');
                   }} className={`text-sm p-2 rounded-lg cursor-pointer ${n.priority === 'high' ? 'bg-red-100 text-red-700' : n.type === 'inventory' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>
@@ -774,7 +774,7 @@ function App() {
             </h3>
             <div className="space-y-2 max-h-48 overflow-y-auto">
               {pendingTimecardRequests.map(req => (
-                <div key={req.id} className="bg-orange-100 text-orange-800 text-sm p-3 rounded-lg border border-orange-200" onClick={() => setCurrentPage('admin-timecard')} style={{cursor: 'pointer'}}>
+                <div key={req.id} className="bg-orange-100 text-orange-800 text-sm p-3 rounded-lg border border-orange-200" onClick={() => navigate('/admin-timecard')} style={{cursor: 'pointer'}}>
                   <div className="flex justify-between items-center">
                     <span className="font-bold">{req.user_name}</span>
                     <span className="text-xs bg-orange-200 text-orange-700 px-2 py-0.5 rounded-full font-medium">未処理</span>
@@ -5887,7 +5887,7 @@ function App() {
                   {panelNotifs.map(n => (
                     <div key={n.id} onClick={() => {
                       setShowNotificationPanel(false);
-                      if (n.corpId) navigate(`/corp/${n.corpId}`);
+                      if (n.corpId) navigate(`/corporations/${n.corpId}`);
                       else if (n.type === 'inventory') navigate('/inventory');
                     else if (n.type === 'closing') navigate('/monthly-closing');
                     }} className={`text-sm p-3 rounded-lg cursor-pointer ${n.priority === 'high' ? 'bg-red-50 border border-red-200' : n.type === 'inventory' ? 'bg-blue-50 border border-blue-200' : n.type === 'closing' ? 'bg-purple-50 border border-purple-200' : 'bg-amber-50 border border-amber-200'}`}>

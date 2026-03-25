@@ -234,6 +234,15 @@ try {
             try { $db->update("UPDATE inventory_branches SET name = ? WHERE name = ?", [$rename[1], $rename[0]]); } catch (Exception $e) {}
         }
     } catch (Exception $e) {}
+    // sitesテーブルにソフトデリート用カラムを追加
+    $siteSoftDeleteMigrations = [
+        "ALTER TABLE sites ADD COLUMN deleted_at DATETIME NULL DEFAULT NULL",
+        "ALTER TABLE sites ADD COLUMN deleted_by INT NULL DEFAULT NULL",
+        "CREATE INDEX idx_sites_deleted_at ON sites(deleted_at)",
+    ];
+    foreach ($siteSoftDeleteMigrations as $sql) {
+        try { $db->query($sql); } catch (Exception $e) {}
+    }
 } catch (Exception $e) {
     // マイグレーション失敗してもAPI自体は動作させる
     error_log("Migration error: " . $e->getMessage());
@@ -585,7 +594,7 @@ switch ($request) {
 
             // 2. 全サイトを一括取得
             $allSites = $db->fetchAll(
-                "SELECT * FROM sites WHERE corporation_id IN ($corpIdPlaceholders) ORDER BY name",
+                "SELECT * FROM sites WHERE corporation_id IN ($corpIdPlaceholders) AND deleted_at IS NULL ORDER BY name",
                 $corpIds
             );
             $siteIds = array_column($allSites, 'id');
@@ -944,7 +953,7 @@ switch ($request) {
 
         if ($method === 'PUT') {
             // 現場の存在確認
-            $existingSite = $db->fetch("SELECT id FROM sites WHERE id = ?", [$id]);
+            $existingSite = $db->fetch("SELECT id FROM sites WHERE id = ? AND deleted_at IS NULL", [$id]);
             if (!$existingSite) {
                 error('Site not found', 404);
             }
@@ -990,21 +999,13 @@ switch ($request) {
             logAudit('update', 'site', $id, $input['name'] ?? '');
             respond(['message' => 'Site updated']);
         } elseif ($method === 'DELETE') {
-            // スタッフも現場削除可能
-            $site = $db->fetch("SELECT name FROM sites WHERE id = ?", [$id]);
+            // スタッフも現場削除可能（ソフトデリート）
+            $site = $db->fetch("SELECT name FROM sites WHERE id = ? AND deleted_at IS NULL", [$id]);
             if (!$site) {
                 error('現場が見つかりません', 404);
             }
-            // 関連データも削除
-            $db->delete("DELETE FROM site_pests WHERE site_id = ?", [$id]);
-            $db->delete("DELETE FROM site_work_types WHERE site_id = ?", [$id]);
-            $db->delete("DELETE FROM site_work_areas WHERE site_id = ?", [$id]);
-            $db->delete("DELETE FROM site_billing_months WHERE site_id = ?", [$id]);
-            $db->delete("DELETE FROM yearly_plans WHERE site_id = ?", [$id]);
-            $db->delete("DELETE FROM work_logs WHERE site_id = ?", [$id]);
-            $db->delete("DELETE FROM photos WHERE site_id = ?", [$id]);
-            try { $db->delete("DELETE FROM site_documents WHERE site_id = ?", [$id]); } catch (Exception $e) {}
-            $db->delete("DELETE FROM sites WHERE id = ?", [$id]);
+            $userId = $_SESSION['user_id'] ?? null;
+            $db->update("UPDATE sites SET deleted_at = NOW(), deleted_by = ? WHERE id = ?", [$userId, $id]);
             logAudit('delete', 'site', $id, $site['name']);
             respond(['message' => 'Site deleted']);
         }
@@ -1356,6 +1357,35 @@ switch ($request) {
         }
         break;
 
+    // ========== 削除済み現場（管理者のみ） ==========
+    case 'deleted-sites':
+        checkAdmin();
+        if ($method === 'GET') {
+            $deletedSites = $db->fetchAll(
+                "SELECT s.*, c.name as corp_name, u.name as deleted_by_name
+                 FROM sites s
+                 LEFT JOIN corporations c ON s.corporation_id = c.id
+                 LEFT JOIN users u ON s.deleted_by = u.id
+                 WHERE s.deleted_at IS NOT NULL
+                 ORDER BY s.deleted_at DESC"
+            );
+            respond($deletedSites);
+        }
+        break;
+
+    case 'restore-site':
+        checkAdmin();
+        if ($method === 'PUT') {
+            $id = (int)($_GET['id'] ?? 0);
+            if ($id <= 0) error('Invalid site ID', 400);
+            $site = $db->fetch("SELECT name FROM sites WHERE id = ? AND deleted_at IS NOT NULL", [$id]);
+            if (!$site) error('削除済みの現場が見つかりません', 404);
+            $db->update("UPDATE sites SET deleted_at = NULL, deleted_by = NULL WHERE id = ?", [$id]);
+            logAudit('restore', 'site', $id, $site['name']);
+            respond(['message' => 'Site restored']);
+        }
+        break;
+
     // ========== 請求履歴 ==========
     case 'invoice':
         checkAdmin();
@@ -1555,14 +1585,14 @@ switch ($request) {
             case 'corporations':
                 fputcsv($output, ['法人名', '住所', '電話番号', '担当者', '請求サイクル', '契約開始', '契約終了', '契約金額', '現場数']);
                 // サブクエリで現場数を取得（SQL厳格モード対応）
-                $corps = $db->fetchAll("SELECT c.*, (SELECT COUNT(*) FROM sites s WHERE s.corporation_id = c.id) as site_count FROM corporations c ORDER BY c.name");
+                $corps = $db->fetchAll("SELECT c.*, (SELECT COUNT(*) FROM sites s WHERE s.corporation_id = c.id AND s.deleted_at IS NULL) as site_count FROM corporations c ORDER BY c.name");
                 foreach ($corps as $c) {
                     fputcsv($output, [$c['name'], $c['address'], $c['contact'], $c['contact_person'], $c['billing_cycle'], $c['contract_start'], $c['contract_end'], $c['contract_amount'], $c['site_count']]);
                 }
                 break;
             case 'sites':
                 fputcsv($output, ['法人名', '現場名', '住所', 'キーボックス']);
-                $sites = $db->fetchAll("SELECT s.*, c.name as corp_name FROM sites s JOIN corporations c ON s.corporation_id = c.id ORDER BY c.name, s.name");
+                $sites = $db->fetchAll("SELECT s.*, c.name as corp_name FROM sites s JOIN corporations c ON s.corporation_id = c.id WHERE s.deleted_at IS NULL ORDER BY c.name, s.name");
                 foreach ($sites as $s) {
                     fputcsv($output, [$s['corp_name'], $s['name'], $s['address'], $s['keybox']]);
                 }

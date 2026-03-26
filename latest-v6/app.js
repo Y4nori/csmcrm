@@ -3037,7 +3037,9 @@ function App() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">使用経費（円）</label>
-            <input type="number" min="0" value={formData.expenses} onChange={(e) => setFormData({ ...formData, expenses: Math.max(0, parseFloat(e.target.value) || 0) })}
+            <input type="text" inputMode="decimal" pattern="[0-9]*\.?[0-9]*" value={formData.expenses}
+              onChange={(e) => setFormData({ ...formData, expenses: e.target.value })}
+              onBlur={(e) => setFormData(prev => ({ ...prev, expenses: Math.max(0, parseFloat(e.target.value) || 0) }))}
               className="w-full border border-gray-300 rounded-lg px-3 py-2" />
           </div>
 

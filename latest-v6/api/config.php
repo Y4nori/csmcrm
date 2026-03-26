@@ -1,6 +1,11 @@
 <?php
 /**
  * データベース設定（本番環境 XServer用）
+ *
+ * セキュリティ警告:
+ * - 本番環境では環境変数からDB認証情報を読み込むことを推奨します
+ * - 例: define('DB_PASS', getenv('DB_PASSWORD'));
+ * - このファイルはGitの .gitignore に追加してください
  */
 define('DB_HOST', 'localhost');
 define('DB_PORT', '3306');

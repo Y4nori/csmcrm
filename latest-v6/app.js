@@ -101,6 +101,8 @@ const api = {
   createSite: (data) => api.call('sites', 'POST', data),
   updateSite: (id, data) => api.call('site', 'PUT', data, { id }),
   deleteSite: (id) => api.call('site', 'DELETE', null, { id }),
+  getDeletedSites: () => api.call('deleted-sites'),
+  restoreSite: (id) => api.call('restore-site', 'PUT', null, { id }),
   
   updateYearlyPlan: (siteId, yearlyPlan) => api.call('yearly-plan', 'PUT', { yearlyPlan }, { site_id: siteId }),
   toggleYearlyPlanComplete: (siteId, month, completed) => api.call('yearly-plan-complete', 'PUT', { siteId, month, completed }),
@@ -1174,7 +1176,7 @@ function App() {
                   {site.address && <p style={{ fontSize: '12px', color: '#636E72', margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{site.address}</p>}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                  {(userRole === 'admin' || userRole === 'master') && (
+                  {(userRole === 'admin' || userRole === 'master' || userRole === 'staff') && (
                     <button
                       onClick={(e) => { e.stopPropagation(); setDeletingSite(site); setShowSiteDeleteConfirm(true); }}
                       style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: '#E74C3C', opacity: 0.5 }}
@@ -2118,12 +2120,70 @@ function App() {
       }
     };
 
+    const DeletedSitesTab = () => {
+      const [deletedSites, setDeletedSites] = useState([]);
+      const [loading, setLoading] = useState(true);
+      const [restoringId, setRestoringId] = useState(null);
+
+      useEffect(() => {
+        api.getDeletedSites().then(sites => {
+          setDeletedSites(sites);
+          setLoading(false);
+        }).catch(e => { console.error(e); setLoading(false); });
+      }, []);
+
+      const handleRestore = async (site) => {
+        if (!confirm(`「${site.name}」を復元しますか？`)) return;
+        setRestoringId(site.id);
+        try {
+          await api.restoreSite(site.id);
+          setDeletedSites(prev => prev.filter(s => s.id !== site.id));
+          await loadData();
+        } catch (e) {
+          alert('復元に失敗しました: ' + e.message);
+        } finally {
+          setRestoringId(null);
+        }
+      };
+
+      if (loading) return React.createElement('p', { className: 'text-center text-gray-400 py-8' }, '読み込み中...');
+
+      return React.createElement('div', { className: 'space-y-3' },
+        deletedSites.length === 0
+          ? React.createElement('div', { className: 'text-center py-12' },
+              React.createElement('p', { className: 'text-gray-400 text-lg mb-2' }, '削除済みの現場はありません'),
+              React.createElement('p', { className: 'text-gray-300 text-sm' }, '現場を削除すると、ここに表示されます')
+            )
+          : deletedSites.map(site => React.createElement('div', {
+              key: site.id,
+              className: 'bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-3'
+            },
+              React.createElement('div', {
+                style: { width: '40px', height: '40px', borderRadius: '10px', background: '#FEE2E2', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#EF4444' }
+              }, React.createElement(Icons.Trash)),
+              React.createElement('div', { style: { flex: 1, minWidth: 0 } },
+                React.createElement('p', { style: { fontWeight: 600, fontSize: '14px', color: '#2D3436', margin: 0 } }, site.name),
+                React.createElement('p', { style: { fontSize: '12px', color: '#636E72', margin: '2px 0 0' } }, site.corp_name || ''),
+                React.createElement('p', { style: { fontSize: '11px', color: '#B2BEC3', margin: '2px 0 0' } },
+                  (site.deleted_at ? new Date(site.deleted_at).toLocaleString('ja-JP') : '') +
+                  (site.deleted_by_name ? ` (${site.deleted_by_name})` : '')
+                )
+              ),
+              React.createElement('button', {
+                onClick: () => handleRestore(site),
+                disabled: restoringId === site.id,
+                style: { background: '#00B894', color: 'white', border: 'none', borderRadius: '8px', padding: '8px 16px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', flexShrink: 0, opacity: restoringId === site.id ? 0.5 : 1 }
+              }, restoringId === site.id ? '復元中...' : '復元')
+            ))
+      );
+    };
+
     return (
       <div className="space-y-4">
         <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#2D3436' }} className=" flex items-center gap-2"><Icons.Settings /> 設定</h2>
 
         <div className="flex gap-2 border-b border-gray-200 mb-4 overflow-x-auto">
-          {[{ key: 'users', label: 'ユーザー' }, { key: 'master', label: 'マスタ' }, { key: 'import', label: 'インポート' }, { key: 'export', label: 'エクスポート' }, ...(currentUser?.role === 'admin' ? [{ key: 'logs', label: '履歴' }] : [])].map(tab => (
+          {[{ key: 'users', label: 'ユーザー' }, { key: 'master', label: 'マスタ' }, { key: 'import', label: 'インポート' }, { key: 'export', label: 'エクスポート' }, ...(currentUser?.role === 'admin' ? [{ key: 'deleted-sites', label: '削除済み現場' }, { key: 'logs', label: '履歴' }] : [])].map(tab => (
             <button key={tab.key} type="button" onClick={() => { setSettingsTab(tab.key); setShowUserModal(false); }}
               className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px whitespace-nowrap ${settingsTab === tab.key ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500'}`}>
               {tab.label}
@@ -2350,6 +2410,8 @@ function App() {
             </div>
           </div>
         )}
+
+        {settingsTab === 'deleted-sites' && currentUser?.role === 'admin' && <DeletedSitesTab />}
 
         {settingsTab === 'logs' && currentUser?.role === 'admin' && <LogsTab />}
 

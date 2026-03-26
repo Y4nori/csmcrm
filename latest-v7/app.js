@@ -2790,6 +2790,33 @@ function App() {
     const [siteSuggestions, setSiteSuggestions] = useState([]);
     const [activeDetailIndex, setActiveDetailIndex] = useState(null);
 
+    // 作業明細から時間・夜勤時間を自動計算
+    const calcHoursFromDetails = (details) => {
+      let regular = 0;
+      let night = 0;
+      for (const d of details) {
+        if (!d.startTime || !d.endTime) continue;
+        const [sh, sm] = d.startTime.split(':').map(Number);
+        const [eh, em] = d.endTime.split(':').map(Number);
+        let startMin = sh * 60 + sm;
+        let endMin = eh * 60 + em;
+        if (endMin <= startMin) endMin += 24 * 60; // 日またぎ
+        const nightStart = 22 * 60;
+        for (let m = startMin; m < endMin; m++) {
+          const normM = m % (24 * 60);
+          if (normM >= nightStart || normM < 5 * 60) {
+            night++;
+          } else {
+            regular++;
+          }
+        }
+      }
+      return {
+        regularHours: Math.round(regular / 60 * 100) / 100,
+        nightHours: Math.round(night / 60 * 100) / 100
+      };
+    };
+
     useEffect(() => {
       if (!isValidId) {
         navigate('/daily-reports');
@@ -2817,6 +2844,15 @@ function App() {
         }));
       }
     }, [reportId]);
+
+    // 作業明細の時間が変わるたびに自動計算
+    useEffect(() => {
+      const { regularHours, nightHours } = calcHoursFromDetails(formData.details);
+      setFormData(prev => {
+        if (prev.regularHours === regularHours && prev.nightHours === nightHours) return prev;
+        return { ...prev, regularHours, nightHours };
+      });
+    }, [JSON.stringify(formData.details.map(d => [d.startTime, d.endTime]))]);
 
     const loadVehicles = async () => {
       try {
@@ -2885,35 +2921,6 @@ function App() {
       setFormData({ ...formData, details: newDetails });
       setSiteSuggestions([]);
       setActiveDetailIndex(null);
-    };
-
-    // 作業明細から時間・夜勤時間を自動計算
-    const calcHoursFromDetails = (details) => {
-      let regular = 0;
-      let night = 0;
-      for (const d of details) {
-        if (!d.startTime || !d.endTime) continue;
-        const [sh, sm] = d.startTime.split(':').map(Number);
-        const [eh, em] = d.endTime.split(':').map(Number);
-        let startMin = sh * 60 + sm;
-        let endMin = eh * 60 + em;
-        if (endMin <= startMin) endMin += 24 * 60; // 日またぎ
-        // 夜勤帯: 22:00(1320分)〜翌5:00(1740分=29*60)
-        const nightStart = 22 * 60;
-        const nightEnd = 29 * 60; // 翌5:00
-        for (let m = startMin; m < endMin; m++) {
-          const normM = m % (24 * 60);
-          if (normM >= nightStart || normM < 5 * 60) {
-            night++;
-          } else {
-            regular++;
-          }
-        }
-      }
-      return {
-        regularHours: Math.round(regular / 60 * 100) / 100,
-        nightHours: Math.round(night / 60 * 100) / 100
-      };
     };
 
     const addDetail = () => {

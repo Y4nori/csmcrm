@@ -2887,6 +2887,35 @@ function App() {
       setActiveDetailIndex(null);
     };
 
+    // 作業明細から時間・夜勤時間を自動計算
+    const calcHoursFromDetails = (details) => {
+      let regular = 0;
+      let night = 0;
+      for (const d of details) {
+        if (!d.startTime || !d.endTime) continue;
+        const [sh, sm] = d.startTime.split(':').map(Number);
+        const [eh, em] = d.endTime.split(':').map(Number);
+        let startMin = sh * 60 + sm;
+        let endMin = eh * 60 + em;
+        if (endMin <= startMin) endMin += 24 * 60; // 日またぎ
+        // 夜勤帯: 22:00(1320分)〜翌5:00(1740分=29*60)
+        const nightStart = 22 * 60;
+        const nightEnd = 29 * 60; // 翌5:00
+        for (let m = startMin; m < endMin; m++) {
+          const normM = m % (24 * 60);
+          if (normM >= nightStart || normM < 5 * 60) {
+            night++;
+          } else {
+            regular++;
+          }
+        }
+      }
+      return {
+        regularHours: Math.round(regular / 60 * 100) / 100,
+        nightHours: Math.round(night / 60 * 100) / 100
+      };
+    };
+
     const addDetail = () => {
       setFormData({
         ...formData,
@@ -2897,13 +2926,15 @@ function App() {
     const removeDetail = (index) => {
       if (formData.details.length === 1) return;
       const newDetails = formData.details.filter((_, i) => i !== index);
-      setFormData({ ...formData, details: newDetails });
+      const { regularHours, nightHours } = calcHoursFromDetails(newDetails);
+      setFormData({ ...formData, details: newDetails, regularHours, nightHours });
     };
 
     const updateDetail = (index, field, value) => {
       const newDetails = [...formData.details];
       newDetails[index][field] = value;
-      setFormData({ ...formData, details: newDetails });
+      const { regularHours, nightHours } = calcHoursFromDetails(newDetails);
+      setFormData({ ...formData, details: newDetails, regularHours, nightHours });
     };
 
     const handleSave = async (status = 'draft') => {

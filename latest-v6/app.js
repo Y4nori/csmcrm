@@ -2847,7 +2847,14 @@ function App() {
     const handleSave = async (status = 'draft') => {
       setSaving(true);
       try {
-        const data = { ...formData, status };
+        const data = {
+          ...formData,
+          status,
+          regularHours: Math.max(0, parseFloat(formData.regularHours) || 0),
+          nightHours: Math.max(0, parseFloat(formData.nightHours) || 0),
+          otherHours: Math.max(0, parseFloat(formData.otherHours) || 0),
+          constructionPoints: Math.max(0, parseFloat(formData.constructionPoints) || 0)
+        };
         if (isNew) {
           await api.createDailyReport(data);
         } else {
@@ -2977,26 +2984,30 @@ function App() {
             <div className="grid grid-cols-4 gap-2">
               <div>
                 <label className="text-xs text-gray-500">時間</label>
-                <input type="number" min="0" step="0.5" value={formData.regularHours}
-                  onChange={(e) => setFormData({ ...formData, regularHours: Math.max(0, parseFloat(e.target.value) || 0) })}
+                <input type="text" inputMode="decimal" pattern="[0-9]*\.?[0-9]*" value={formData.regularHours}
+                  onChange={(e) => setFormData({ ...formData, regularHours: e.target.value })}
+                  onBlur={(e) => setFormData(prev => ({ ...prev, regularHours: Math.max(0, parseFloat(e.target.value) || 0) }))}
                   className="w-full border border-gray-300 rounded px-2 py-2 text-sm" />
               </div>
               <div>
                 <label className="text-xs text-gray-500">夜勤時間</label>
-                <input type="number" min="0" step="0.5" value={formData.nightHours}
-                  onChange={(e) => setFormData({ ...formData, nightHours: Math.max(0, parseFloat(e.target.value) || 0) })}
+                <input type="text" inputMode="decimal" pattern="[0-9]*\.?[0-9]*" value={formData.nightHours}
+                  onChange={(e) => setFormData({ ...formData, nightHours: e.target.value })}
+                  onBlur={(e) => setFormData(prev => ({ ...prev, nightHours: Math.max(0, parseFloat(e.target.value) || 0) }))}
                   className="w-full border border-gray-300 rounded px-2 py-2 text-sm" />
               </div>
               <div>
                 <label className="text-xs text-gray-500">その他</label>
-                <input type="number" min="0" step="0.5" value={formData.otherHours}
-                  onChange={(e) => setFormData({ ...formData, otherHours: Math.max(0, parseFloat(e.target.value) || 0) })}
+                <input type="text" inputMode="decimal" pattern="[0-9]*\.?[0-9]*" value={formData.otherHours}
+                  onChange={(e) => setFormData({ ...formData, otherHours: e.target.value })}
+                  onBlur={(e) => setFormData(prev => ({ ...prev, otherHours: Math.max(0, parseFloat(e.target.value) || 0) }))}
                   className="w-full border border-gray-300 rounded px-2 py-2 text-sm" />
               </div>
               <div>
                 <label className="text-xs text-amber-600 font-bold">工事P</label>
-                <input type="number" min="0" step="0.5" value={formData.constructionPoints}
-                  onChange={(e) => setFormData({ ...formData, constructionPoints: Math.max(0, parseFloat(e.target.value) || 0) })}
+                <input type="text" inputMode="decimal" pattern="[0-9]*\.?[0-9]*" value={formData.constructionPoints}
+                  onChange={(e) => setFormData({ ...formData, constructionPoints: e.target.value })}
+                  onBlur={(e) => setFormData(prev => ({ ...prev, constructionPoints: Math.max(0, parseFloat(e.target.value) || 0) }))}
                   className="w-full border border-amber-300 rounded px-2 py-2 text-sm bg-amber-50" />
               </div>
             </div>
@@ -3507,10 +3518,10 @@ function App() {
     const handleSaveHours = async () => {
       try {
         await api.updateDailyReportHours(editingHours.id, {
-          regularHours: editingHours.regular_hours || 0,
-          nightHours: editingHours.night_hours || 0,
-          constructionPoints: editingHours.construction_points || 0,
-          otherHours: editingHours.other_hours || 0
+          regularHours: Math.max(0, parseFloat(editingHours.regular_hours) || 0),
+          nightHours: Math.max(0, parseFloat(editingHours.night_hours) || 0),
+          constructionPoints: Math.max(0, parseFloat(editingHours.construction_points) || 0),
+          otherHours: Math.max(0, parseFloat(editingHours.other_hours) || 0)
         });
         setEditingHours(null);
         loadReports();
@@ -3587,26 +3598,30 @@ function App() {
               <div className="space-y-3">
                 <div>
                   <label className="text-sm text-gray-500">時間</label>
-                  <input type="number" step="0.5" value={editingHours.regular_hours || 0}
-                    onChange={(e) => setEditingHours({ ...editingHours, regular_hours: parseFloat(e.target.value) })}
+                  <input type="text" inputMode="decimal" pattern="[0-9]*\.?[0-9]*" value={editingHours.regular_hours || 0}
+                    onChange={(e) => setEditingHours({ ...editingHours, regular_hours: e.target.value })}
+                    onBlur={(e) => setEditingHours(prev => ({ ...prev, regular_hours: Math.max(0, parseFloat(e.target.value) || 0) }))}
                     className="w-full border border-gray-300 rounded px-3 py-2" />
                 </div>
                 <div>
                   <label className="text-sm text-gray-500">夜勤時間</label>
-                  <input type="number" step="0.5" value={editingHours.night_hours || 0}
-                    onChange={(e) => setEditingHours({ ...editingHours, night_hours: parseFloat(e.target.value) })}
+                  <input type="text" inputMode="decimal" pattern="[0-9]*\.?[0-9]*" value={editingHours.night_hours || 0}
+                    onChange={(e) => setEditingHours({ ...editingHours, night_hours: e.target.value })}
+                    onBlur={(e) => setEditingHours(prev => ({ ...prev, night_hours: Math.max(0, parseFloat(e.target.value) || 0) }))}
                     className="w-full border border-gray-300 rounded px-3 py-2" />
                 </div>
                 <div>
                   <label className="text-sm text-gray-500 font-bold text-amber-600">工事P（給与加算ポイント）</label>
-                  <input type="number" step="0.5" value={editingHours.construction_points || 0}
-                    onChange={(e) => setEditingHours({ ...editingHours, construction_points: parseFloat(e.target.value) })}
+                  <input type="text" inputMode="decimal" pattern="[0-9]*\.?[0-9]*" value={editingHours.construction_points || 0}
+                    onChange={(e) => setEditingHours({ ...editingHours, construction_points: e.target.value })}
+                    onBlur={(e) => setEditingHours(prev => ({ ...prev, construction_points: Math.max(0, parseFloat(e.target.value) || 0) }))}
                     className="w-full border border-gray-300 rounded px-3 py-2 border-amber-300" />
                 </div>
                 <div>
                   <label className="text-sm text-gray-500">その他</label>
-                  <input type="number" step="0.5" value={editingHours.other_hours || 0}
-                    onChange={(e) => setEditingHours({ ...editingHours, other_hours: parseFloat(e.target.value) })}
+                  <input type="text" inputMode="decimal" pattern="[0-9]*\.?[0-9]*" value={editingHours.other_hours || 0}
+                    onChange={(e) => setEditingHours({ ...editingHours, other_hours: e.target.value })}
+                    onBlur={(e) => setEditingHours(prev => ({ ...prev, other_hours: Math.max(0, parseFloat(e.target.value) || 0) }))}
                     className="w-full border border-gray-300 rounded px-3 py-2" />
                 </div>
               </div>

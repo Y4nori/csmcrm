@@ -1860,10 +1860,10 @@ switch ($request) {
         $id = $_GET['id'] ?? 0;
 
         if ($method === 'PUT') {
-            $regularHours = $input['regularHours'] ?? 0;
-            $nightHours = $input['nightHours'] ?? 0;
-            $constructionPoints = $input['constructionPoints'] ?? 0;
-            $otherHours = $input['otherHours'] ?? 0;
+            $regularHours = max(0, floatval($input['regularHours'] ?? 0));
+            $nightHours = max(0, floatval($input['nightHours'] ?? 0));
+            $constructionPoints = max(0, floatval($input['constructionPoints'] ?? 0));
+            $otherHours = max(0, floatval($input['otherHours'] ?? 0));
 
             // UPSERT
             $db->query(

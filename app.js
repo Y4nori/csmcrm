@@ -386,7 +386,13 @@ function App() {
       if (userRole === 'admin' && results[2]) {
         setUsers(results[2]);
       }
-      // 在庫アラート無効化（閾値機能削除済み）
+      // 在庫低在庫データを取得
+      try {
+        const summaryData = await api.getInventorySummary();
+        setLowStockItems(summaryData?.lowStock || []);
+      } catch (e) {
+        // 在庫テーブルがない場合は無視
+      }
       // 管理者：未確認の月締め日報を取得
       if (userRole === 'admin' || userRole === 'master') {
         try {
@@ -543,7 +549,16 @@ function App() {
         }
       });
     });
-    // 在庫アラート無効化（閾値機能削除済み）
+    // 在庫低在庫アラート
+    lowStockItems.forEach(item => {
+      notifs.push({
+        id: `inventory-${item.branch_id}-${item.product_id}`,
+        type: 'inventory',
+        title: '在庫不足',
+        message: `${item.branch_name} - ${item.product_name}: 残${item.quantity}${item.unit || '個'}（基準: ${item.min_stock}）`,
+        priority: item.quantity === 0 ? 'high' : 'medium'
+      });
+    });
     // 管理者：未確認の月締め日報
     pendingClosingReports.forEach(sub => {
       notifs.push({
@@ -732,8 +747,8 @@ function App() {
                 <svg width="18" height="18" fill="none" stroke="#2980B9" strokeWidth="2" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
               </div>
             </div>
-            <p style={{ fontSize: '12px', color: '#B2BEC3', margin: 0 }}>在庫管理</p>
-            <p style={{ fontSize: '14px', fontWeight: 600, color: '#2980B9', margin: '8px 0 0' }}>確認する</p>
+            <p style={{ fontSize: '12px', color: '#B2BEC3', margin: 0 }}>在庫アラート</p>
+            <p style={{ fontSize: '28px', fontWeight: 800, color: generateNotifications.filter(n => n.type === 'inventory').length > 0 ? '#E74C3C' : '#2980B9', margin: '2px 0 0' }}>{generateNotifications.filter(n => n.type === 'inventory').length}</p>
           </div>
         </div>
 
@@ -4696,7 +4711,7 @@ function App() {
   const InventoryView = () => {
     const [activeTab, setActiveTab] = useState('stock');
     const [branches, setBranches] = useState([]);
-    const [categories, setCategories] = useState([]); // unused but kept for API compat
+    const [categories, setCategories] = useState([]);
     const [products, setProducts] = useState([]);
     const [stock, setStock] = useState([]);
     const [transactions, setTransactions] = useState([]);
@@ -4704,14 +4719,17 @@ function App() {
 
     // フィルター
     const [selectedBranch, setSelectedBranch] = useState('');
-    const [selectedCategory, setSelectedCategory] = useState(''); // unused
+    const [selectedCategory, setSelectedCategory] = useState('');
     const [selectedProduct, setSelectedProduct] = useState('');
 
+    // 並び替え
+    const [sortKey, setSortKey] = useState('name');
+    const [sortOrder, setSortOrder] = useState('asc');
 
     // 入出庫モーダル
     const [showStockModal, setShowStockModal] = useState(false);
     const [stockModalType, setStockModalType] = useState('in');
-    const [stockForm, setStockForm] = useState({ branchId: '', productId: '', quantity: '', note: '' });
+    const [stockForm, setStockForm] = useState({ branchId: '', productId: '', quantity: '', note: '', alertThreshold: '' });
 
     // 移動モーダル
     const [showTransferModal, setShowTransferModal] = useState(false);
@@ -4789,8 +4807,14 @@ function App() {
           quantity: parseInt(stockForm.quantity),
           note: stockForm.note
         });
+        // アラート閾値も更新
+        if (stockForm.alertThreshold !== '') {
+          await api.updateInventoryProduct(parseInt(stockForm.productId), {
+            alertThreshold: parseInt(stockForm.alertThreshold)
+          });
+        }
         setShowStockModal(false);
-        setStockForm({ branchId: '', productId: '', quantity: '', note: '' });
+        setStockForm({ branchId: '', productId: '', quantity: '', note: '', alertThreshold: '' });
         await loadStock();
         if (activeTab === 'history') await loadTransactions();
       } catch (e) {
@@ -4843,14 +4867,52 @@ function App() {
       return acc;
     }, {});
 
+    // 並び替え関数
+    const toggleSort = (key) => {
+      if (sortKey === key) {
+        setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+      } else {
+        setSortKey(key);
+        setSortOrder('asc');
+      }
+    };
 
     // 商品フィルター適用
     const filteredStock = selectedProduct
       ? stock.filter(item => item.product_id.toString() === selectedProduct)
       : stock;
 
+    // 並び替え適用
+    const sortedStock = [...filteredStock].sort((a, b) => {
+      let compare = 0;
+      if (sortKey === 'name') {
+        compare = a.product_name.localeCompare(b.product_name, 'ja');
+      } else if (sortKey === 'quantity') {
+        compare = a.quantity - b.quantity;
+      } else if (sortKey === 'alert') {
+        compare = (a.min_stock || 0) - (b.min_stock || 0);
+      } else if (sortKey === 'category') {
+        compare = (a.category_name || '').localeCompare(b.category_name || '', 'ja');
+      }
+      return sortOrder === 'asc' ? compare : -compare;
+    });
 
-    const groupedEntries = Object.entries(groupedStock);
+    // クロス表示用の並び替え
+    const sortedGroupedEntries = Object.entries(groupedStock).sort((a, b) => {
+      let compare = 0;
+      if (sortKey === 'name') {
+        compare = a[0].localeCompare(b[0], 'ja');
+      } else if (sortKey === 'total') {
+        const totalA = Object.values(a[1].branches).reduce((sum, br) => sum + (br.quantity || 0), 0);
+        const totalB = Object.values(b[1].branches).reduce((sum, br) => sum + (br.quantity || 0), 0);
+        compare = totalA - totalB;
+      } else if (sortKey === 'alert') {
+        compare = (a[1].min_stock || 0) - (b[1].min_stock || 0);
+      } else if (sortKey === 'category') {
+        compare = (a[1].category_name || '').localeCompare(b[1].category_name || '', 'ja');
+      }
+      return sortOrder === 'asc' ? compare : -compare;
+    });
 
     const getTypeColor = (type) => {
       switch (type) {
@@ -4901,35 +4963,48 @@ function App() {
           ))}
         </div>
 
+        {/* フィルター */}
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)}
+            className="select-modern" style={{ flex: 1 }}>
+            <option value="">全カテゴリ</option>
+            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </div>
 
         {activeTab === 'stock' && (
           <div>
             {selectedBranch ? (
               // 単一営業所表示（カード形式+プログレスバー）
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {filteredStock.map(item => {
-                  const maxQty = Math.max(item.quantity, 100);
+                {sortedStock.map(item => {
+                  const isLow = item.quantity <= item.min_stock && item.min_stock > 0;
+                  const maxQty = Math.max(item.min_stock * 3, item.quantity, 100);
                   const pct = Math.min((item.quantity / maxQty) * 100, 100);
                   return (
                     <div key={`${item.branch_id}-${item.product_id}`}
                       onClick={() => {
-                        setStockForm({ branchId: item.branch_id.toString(), productId: item.product_id.toString(), quantity: '', note: '' });
+                        setStockForm({ branchId: item.branch_id.toString(), productId: item.product_id.toString(), quantity: '', note: '', alertThreshold: (item.min_stock || 0).toString() });
                         setStockModalType('adjust');
                         setShowStockModal(true);
                       }}
-                      className="card-modern card-clickable cursor-pointer">
+                      className="card-modern card-clickable cursor-pointer"
+                      style={isLow ? { border: '2px solid #FFEEF0' } : {}}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                         <div>
-                          <h4 style={{ fontSize: '14px', fontWeight: 700, margin: 0 }}>{item.product_name}</h4>
-                          <p style={{ fontSize: '12px', color: '#B2BEC3', margin: '2px 0 0' }}>単位: {item.unit}</p>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <h4 style={{ fontSize: '14px', fontWeight: 700, margin: 0 }}>{item.product_name}</h4>
+                            {isLow && <span className="stock-alert-badge">低在庫</span>}
+                          </div>
+                          <p style={{ fontSize: '12px', color: '#B2BEC3', margin: '2px 0 0' }}>{item.category_name || '資材'} ・ 単位: {item.unit}</p>
                         </div>
                         <div style={{ textAlign: 'right' }}>
-                          <p style={{ fontSize: '28px', fontWeight: 800, color: '#00B894', margin: 0, lineHeight: 1 }}>{item.quantity}</p>
+                          <p style={{ fontSize: '28px', fontWeight: 800, color: isLow ? '#E74C3C' : '#00B894', margin: 0, lineHeight: 1 }}>{item.quantity}</p>
                           <p style={{ fontSize: '11px', color: '#B2BEC3', margin: 0 }}>在庫数</p>
                         </div>
                       </div>
                       <div className="progress-bar">
-                        <div className="progress-bar-fill" style={{ width: `${pct}%` }}></div>
+                        <div className={`progress-bar-fill${isLow ? '-danger' : ''}`} style={{ width: `${pct}%` }}></div>
                       </div>
                     </div>
                   );
@@ -4941,24 +5016,28 @@ function App() {
                 <table className="w-full text-sm table-fixed">
                   <thead className="sticky top-0 z-20">
                     <tr className="bg-gray-50 border-b">
-                      <th className="text-left px-2 py-3 font-medium text-gray-600 w-24 sticky left-0 z-30 bg-gray-50" style={{boxShadow: '2px 0 4px rgba(0,0,0,0.06)'}}>
-                        製品名
+                      <th className="text-left px-2 py-3 font-medium text-gray-600 w-24 cursor-pointer hover:bg-gray-100 sticky left-0 z-30 bg-gray-50" style={{boxShadow: '2px 0 4px rgba(0,0,0,0.06)'}} onClick={() => toggleSort('name')}>
+                        製品名 {sortKey === 'name' && (sortOrder === 'asc' ? '▲' : '▼')}
                       </th>
                       <th className="text-center px-1 py-3 font-medium text-blue-600 bg-blue-50 w-12">倉庫</th>
                       {branches.filter(b => b.code !== 'WAREHOUSE' && b.name !== '倉庫').map(b => (
                         <th key={b.id} className="text-center px-1 py-3 font-medium text-gray-600 bg-gray-50 w-12">{b.name.replace('営業', '').replace('所', '')}</th>
                       ))}
-                      <th className="text-center px-2 py-3 font-medium text-gray-600 bg-green-50 w-14">
-                        合計
+                      <th className="text-center px-2 py-3 font-medium text-gray-600 bg-green-50 w-14 cursor-pointer hover:bg-green-100" onClick={() => toggleSort('total')}>
+                        合計 {sortKey === 'total' && (sortOrder === 'asc' ? '▲' : '▼')}
+                      </th>
+                      <th className="text-center px-2 py-3 font-medium text-gray-600 bg-gray-50 w-14 cursor-pointer hover:bg-gray-100" onClick={() => toggleSort('alert')}>
+                        閾値 {sortKey === 'alert' && (sortOrder === 'asc' ? '▲' : '▼')}
                       </th>
                     </tr>
                   </thead>
                   <tbody>
-                    {groupedEntries.map(([productName, productData]) => {
+                    {sortedGroupedEntries.map(([productName, productData]) => {
                       const total = Object.values(productData.branches).reduce((sum, b) => sum + (b.quantity || 0), 0);
+                      const isLow = total <= (productData.min_stock || 0) && (productData.min_stock || 0) > 0;
                       return (
-                        <tr key={productData.product_id} className="border-b hover:bg-gray-50">
-                          <td className="px-2 py-1 font-medium text-xs sticky left-0 z-10 bg-white" style={{boxShadow: '2px 0 4px rgba(0,0,0,0.06)', maxWidth: '96px', wordBreak: 'break-all'}} title={productName}>
+                        <tr key={productData.product_id} className={`border-b hover:bg-gray-50 ${isLow ? 'bg-red-50' : ''}`}>
+                          <td className={`px-2 py-1 font-medium text-xs sticky left-0 z-10 ${isLow ? 'bg-red-50' : 'bg-white'}`} style={{boxShadow: '2px 0 4px rgba(0,0,0,0.06)', maxWidth: '96px', wordBreak: 'break-all'}} title={productName}>
                             <div style={{display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden'}}>{productName}</div>
                           </td>
                           {/* 倉庫列 */}
@@ -4969,7 +5048,7 @@ function App() {
                               <td
                                 onClick={() => {
                                   if (warehouseBranch) {
-                                    setStockForm({ branchId: warehouseBranch.id.toString(), productId: productData.product_id.toString(), quantity: '', note: '' });
+                                    setStockForm({ branchId: warehouseBranch.id.toString(), productId: productData.product_id.toString(), quantity: '', note: '', alertThreshold: (productData.min_stock || 0).toString() });
                                     setStockModalType('adjust');
                                     setShowStockModal(true);
                                   }
@@ -4984,7 +5063,7 @@ function App() {
                             return (
                               <td key={b.id}
                                 onClick={() => {
-                                  setStockForm({ branchId: b.id.toString(), productId: productData.product_id.toString(), quantity: '', note: '' });
+                                  setStockForm({ branchId: b.id.toString(), productId: productData.product_id.toString(), quantity: '', note: '', alertThreshold: (productData.min_stock || 0).toString() });
                                   setStockModalType('adjust');
                                   setShowStockModal(true);
                                 }}
@@ -4993,7 +5072,8 @@ function App() {
                               </td>
                             );
                           })}
-                          <td className="px-2 py-2 text-center font-bold bg-green-50 text-green-700">{total}</td>
+                          <td className={`px-2 py-2 text-center font-bold bg-green-50 ${isLow ? 'text-red-600' : 'text-green-700'}`}>{total}</td>
+                          <td className="px-2 py-2 text-center text-gray-500 text-xs">{productData.min_stock || 0}</td>
                         </tr>
                       );
                     })}
@@ -5084,6 +5164,12 @@ function App() {
                   <input type="text" value={stockForm.note}
                     onChange={(e) => setStockForm({ ...stockForm, note: e.target.value })}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2" placeholder="任意" />
+                </div>
+                <div className="border-t pt-4 mt-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">アラート閾値（この数以下で不足表示）</label>
+                  <input type="number" min="0" value={stockForm.alertThreshold}
+                    onChange={(e) => setStockForm({ ...stockForm, alertThreshold: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2" placeholder="0" />
                 </div>
               </div>
               <div className="flex gap-3 mt-6">

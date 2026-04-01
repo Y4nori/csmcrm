@@ -217,34 +217,22 @@ try {
         INDEX idx_ip (ip_address)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
-    // 在庫営業所を4拠点に整理（倉庫・大阪・京滋・神戸のみ）
+    // 倉庫支店を自動追加
     try {
-        // 倉庫がなければ追加
         $warehouseExists = $db->fetch("SELECT id FROM inventory_branches WHERE name = '倉庫' OR code = 'WAREHOUSE'");
         if (!$warehouseExists) {
             $db->query("INSERT INTO inventory_branches (name, code, is_active) VALUES ('倉庫', 'WAREHOUSE', 1)");
         }
-        // 名前の統一
         $branchRenames = [
-            ['大阪支店', '大阪'], ['大阪営業', '大阪'], ['大阪営業所', '大阪'],
-            ['京滋支店', '京滋'], ['京滋営業', '京滋'], ['京滋営業所', '京滋'],
-            ['神戸支店', '神戸'], ['神戸営業所', '神戸'], ['神戸営業', '神戸'],
+            ['大阪営業', '大阪支店'],
+            ['阪和営業', '阪和営業所'],
+            ['京滋営業', '京滋支店'],
+            ['福知山営業', '福知山営業所'],
+            ['神戸営業所', '神戸支店'],
         ];
         foreach ($branchRenames as $rename) {
             try { $db->update("UPDATE inventory_branches SET name = ? WHERE name = ?", [$rename[1], $rename[0]]); } catch (Exception $e) {}
         }
-        // 不要な拠点を無効化（倉庫・大阪・京滋・神戸以外）
-        try {
-            $db->update("UPDATE inventory_branches SET is_active = 0 WHERE name NOT IN ('倉庫', '大阪', '京滋', '神戸') AND is_active = 1");
-        } catch (Exception $e) {}
-        // 全在庫を0にリセット
-        try {
-            $db->update("UPDATE inventory_stocks SET quantity = 0");
-        } catch (Exception $e) {}
-        // 全製品のアラート閾値を0に
-        try {
-            $db->update("UPDATE inventory_products SET alert_threshold = 0");
-        } catch (Exception $e) {}
     } catch (Exception $e) {}
     // sitesテーブルにソフトデリート用カラムを追加
     $siteSoftDeleteMigrations = [

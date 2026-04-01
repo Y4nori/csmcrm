@@ -4707,9 +4707,6 @@ function App() {
     const [selectedCategory, setSelectedCategory] = useState(''); // unused
     const [selectedProduct, setSelectedProduct] = useState('');
 
-    // 並び替え
-    const [sortKey, setSortKey] = useState('name');
-    const [sortOrder, setSortOrder] = useState('asc');
 
     // 入出庫モーダル
     const [showStockModal, setShowStockModal] = useState(false);
@@ -4846,44 +4843,14 @@ function App() {
       return acc;
     }, {});
 
-    // 並び替え関数
-    const toggleSort = (key) => {
-      if (sortKey === key) {
-        setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-      } else {
-        setSortKey(key);
-        setSortOrder('asc');
-      }
-    };
 
     // 商品フィルター適用
     const filteredStock = selectedProduct
       ? stock.filter(item => item.product_id.toString() === selectedProduct)
       : stock;
 
-    // 並び替え適用
-    const sortedStock = [...filteredStock].sort((a, b) => {
-      let compare = 0;
-      if (sortKey === 'name') {
-        compare = a.product_name.localeCompare(b.product_name, 'ja');
-      } else if (sortKey === 'quantity') {
-        compare = a.quantity - b.quantity;
-      }
-      return sortOrder === 'asc' ? compare : -compare;
-    });
 
-    // クロス表示用の並び替え
-    const sortedGroupedEntries = Object.entries(groupedStock).sort((a, b) => {
-      let compare = 0;
-      if (sortKey === 'name') {
-        compare = a[0].localeCompare(b[0], 'ja');
-      } else if (sortKey === 'total') {
-        const totalA = Object.values(a[1].branches).reduce((sum, br) => sum + (br.quantity || 0), 0);
-        const totalB = Object.values(b[1].branches).reduce((sum, br) => sum + (br.quantity || 0), 0);
-        compare = totalA - totalB;
-      }
-      return sortOrder === 'asc' ? compare : -compare;
-    });
+    const groupedEntries = Object.entries(groupedStock);
 
     const getTypeColor = (type) => {
       switch (type) {
@@ -4948,7 +4915,7 @@ function App() {
             {selectedBranch ? (
               // 単一営業所表示（カード形式+プログレスバー）
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {sortedStock.map(item => {
+                {filteredStock.map(item => {
                   const maxQty = Math.max(item.quantity, 100);
                   const pct = Math.min((item.quantity / maxQty) * 100, 100);
                   return (
@@ -4982,20 +4949,20 @@ function App() {
                 <table className="w-full text-sm table-fixed">
                   <thead className="sticky top-0 z-20">
                     <tr className="bg-gray-50 border-b">
-                      <th className="text-left px-2 py-3 font-medium text-gray-600 w-24 cursor-pointer hover:bg-gray-100 sticky left-0 z-30 bg-gray-50" style={{boxShadow: '2px 0 4px rgba(0,0,0,0.06)'}} onClick={() => toggleSort('name')}>
-                        製品名 {sortKey === 'name' && (sortOrder === 'asc' ? '▲' : '▼')}
+                      <th className="text-left px-2 py-3 font-medium text-gray-600 w-24 sticky left-0 z-30 bg-gray-50" style={{boxShadow: '2px 0 4px rgba(0,0,0,0.06)'}}>
+                        製品名
                       </th>
                       <th className="text-center px-1 py-3 font-medium text-blue-600 bg-blue-50 w-12">倉庫</th>
                       {branches.filter(b => b.code !== 'WAREHOUSE' && b.name !== '倉庫').map(b => (
                         <th key={b.id} className="text-center px-1 py-3 font-medium text-gray-600 bg-gray-50 w-12">{b.name.replace('営業', '').replace('所', '')}</th>
                       ))}
-                      <th className="text-center px-2 py-3 font-medium text-gray-600 bg-green-50 w-14 cursor-pointer hover:bg-green-100" onClick={() => toggleSort('total')}>
-                        合計 {sortKey === 'total' && (sortOrder === 'asc' ? '▲' : '▼')}
+                      <th className="text-center px-2 py-3 font-medium text-gray-600 bg-green-50 w-14">
+                        合計
                       </th>
                     </tr>
                   </thead>
                   <tbody>
-                    {sortedGroupedEntries.map(([productName, productData]) => {
+                    {groupedEntries.map(([productName, productData]) => {
                       const total = Object.values(productData.branches).reduce((sum, b) => sum + (b.quantity || 0), 0);
                       return (
                         <tr key={productData.product_id} className="border-b hover:bg-gray-50">

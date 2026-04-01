@@ -1,9 +1,12 @@
 -- ============================================
 -- CSM Inventory Management System
--- Database Setup Script
+-- Database Setup Script (2026-04-01 simplified)
+-- 4拠点のみ、カテゴリ・閾値なし、在庫全て0
 -- ============================================
 
 -- Drop existing tables if they exist (for clean setup)
+DROP VIEW IF EXISTS v_stock_by_branch;
+DROP VIEW IF EXISTS v_stock_total;
 DROP TABLE IF EXISTS inventory_logs;
 DROP TABLE IF EXISTS inventory_stocks;
 DROP TABLE IF EXISTS inventory_products;
@@ -11,7 +14,7 @@ DROP TABLE IF EXISTS inventory_categories;
 DROP TABLE IF EXISTS inventory_branches;
 
 -- ============================================
--- 1. Branches (営業所)
+-- 1. Branches (営業所) - 4拠点のみ
 -- ============================================
 CREATE TABLE inventory_branches (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -23,17 +26,14 @@ CREATE TABLE inventory_branches (
     UNIQUE KEY uk_branch_name (name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Insert 6 branches
 INSERT INTO inventory_branches (name, code) VALUES
-('大阪支店', 'OSAKA'),
-('阪和営業所', 'HANWA'),
-('大阪北営業所', 'OSAKA_N'),
-('京滋支店', 'KEIJI'),
-('福知山営業所', 'FUKUCHI'),
-('神戸支店', 'KOBE');
+('倉庫', 'WAREHOUSE'),
+('大阪', 'OSAKA'),
+('京滋', 'KEIJI'),
+('神戸', 'KOBE');
 
 -- ============================================
--- 2. Categories (カテゴリ)
+-- 2. Categories (カテゴリ) - 維持するが非表示
 -- ============================================
 CREATE TABLE inventory_categories (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -45,28 +45,20 @@ CREATE TABLE inventory_categories (
     UNIQUE KEY uk_category_name (name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Insert 8 categories
 INSERT INTO inventory_categories (name, sort_order) VALUES
-('粘着トラップ', 1),
-('捕虫器', 2),
-('フェロモン', 3),
-('防虫機器', 4),
-('ネズミ', 5),
-('スプレー', 6),
-('蛍光灯', 7),
-('防護服', 8);
+('資材', 1);
 
 -- ============================================
 -- 3. Products (製品)
 -- ============================================
 CREATE TABLE inventory_products (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    category_id INT NOT NULL,
+    category_id INT NOT NULL DEFAULT 1,
     name VARCHAR(200) NOT NULL,
     code VARCHAR(50),
     unit VARCHAR(20) DEFAULT '個',
-    alert_threshold INT DEFAULT 10,
-    reorder_quantity INT DEFAULT 50,
+    alert_threshold INT DEFAULT 0,
+    reorder_quantity INT DEFAULT 0,
     description TEXT,
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -76,67 +68,22 @@ CREATE TABLE inventory_products (
     INDEX idx_category (category_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Insert 33 products across 8 categories
-
--- Category 1: 粘着トラップ (13 products)
-INSERT INTO inventory_products (category_id, name, unit) VALUES
-(1, 'Pホイコ', '枚'),
-(1, 'CLホイコ', '枚'),
-(1, '虫1シート', '枚'),
-(1, 'ティオニ20', '枚'),
-(1, 'プロボード', '枚'),
-(1, 'ムシペチャ', '枚'),
-(1, 'Nホイコ', '枚'),
-(1, 'ペスクル', '枚'),
-(1, 'コバエシート', '枚'),
-(1, '虫っとり光', '枚'),
-(1, 'LUICS', '枚'),
-(1, 'ピオニS6', '枚'),
-(1, 'パナプレート', '枚');
-
--- Category 2: 捕虫器 (2 products)
-INSERT INTO inventory_products (category_id, name, unit) VALUES
-(2, 'ムシポン', '個'),
-(2, 'ドガード', '個');
-
--- Category 3: フェロモン (3 products)
-INSERT INTO inventory_products (category_id, name, unit) VALUES
-(3, 'アースコレクトモニター メイガ', '個'),
-(3, 'アースコレクトモニター シバムシ', '個'),
-(3, '誘引剤', '個');
-
--- Category 4: 防虫機器 (4 products)
-INSERT INTO inventory_products (category_id, name, unit) VALUES
-(4, 'ハニカム防虫ファンAC', '個'),
-(4, 'ハニカム防虫ファンDB', '個'),
-(4, 'AIR640', '個'),
-(4, 'AIR640ミニ', '個');
-
--- Category 5: ネズミ (3 products)
-INSERT INTO inventory_products (category_id, name, unit) VALUES
-(5, 'ネズコロン', 'パック'),
-(5, 'チュウモアブロック', '袋'),
-(5, 'スーパーデスモア', '袋');
-
--- Category 6: スプレー (2 products)
-INSERT INTO inventory_products (category_id, name, unit) VALUES
-(6, 'ゴキジェット', '本'),
-(6, 'コバエジェット', '本');
-
--- Category 7: 蛍光灯 (2 products)
-INSERT INTO inventory_products (category_id, name, unit) VALUES
-(7, 'エバーライツWAN20W', '本'),
-(7, 'エバーライツ30W', '本');
-
--- Category 8: 防護服 (4 products)
-INSERT INTO inventory_products (category_id, name, unit) VALUES
-(8, 'タイベック S', '着'),
-(8, 'タイベック M', '着'),
-(8, 'タイベック L', '着'),
-(8, 'タイベック LL', '着');
+INSERT INTO inventory_products (category_id, name, unit, alert_threshold) VALUES
+(1, '641エスコ103', '個', 0),
+(1, '641シート', '枚', 0),
+(1, '641ベスクル103', '個', 0),
+(1, 'AIR640', '個', 0),
+(1, 'AIR640ミニ', '個', 0),
+(1, 'CLホイコ', '枚', 0),
+(1, 'LUICS', '枚', 0),
+(1, 'Nホイコ', '枚', 0),
+(1, 'Pホイコ', '枚', 0),
+(1, 'アースコレクトモニター シバムシ', '個', 0),
+(1, 'アースコレクトモニター メイガ', '個', 0),
+(1, 'アースボードカバー', '個', 0);
 
 -- ============================================
--- 4. Stocks (在庫)
+-- 4. Stocks (在庫) - 全て0で初期化
 -- ============================================
 CREATE TABLE inventory_stocks (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -151,9 +98,9 @@ CREATE TABLE inventory_stocks (
     INDEX idx_product (product_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Initialize stock with quantity=1 for all branch-product combinations
+-- Initialize stock with quantity=0 for all branch-product combinations
 INSERT INTO inventory_stocks (branch_id, product_id, quantity)
-SELECT b.id, p.id, 1
+SELECT b.id, p.id, 0
 FROM inventory_branches b
 CROSS JOIN inventory_products p;
 
@@ -186,46 +133,36 @@ CREATE TABLE inventory_logs (
 -- Views for easy reporting
 -- ============================================
 
--- Stock summary by branch
 CREATE OR REPLACE VIEW v_stock_by_branch AS
 SELECT
     b.id as branch_id,
     b.name as branch_name,
-    c.name as category_name,
     p.id as product_id,
     p.name as product_name,
     p.unit,
-    COALESCE(s.quantity, 0) as quantity,
-    p.alert_threshold,
-    CASE WHEN COALESCE(s.quantity, 0) <= p.alert_threshold THEN 1 ELSE 0 END as is_low_stock
+    COALESCE(s.quantity, 0) as quantity
 FROM inventory_branches b
 CROSS JOIN inventory_products p
-JOIN inventory_categories c ON p.category_id = c.id
 LEFT JOIN inventory_stocks s ON s.branch_id = b.id AND s.product_id = p.id
 WHERE b.is_active = 1 AND p.is_active = 1
-ORDER BY b.id, c.sort_order, p.id;
+ORDER BY b.id, p.name;
 
--- Total stock across all branches
 CREATE OR REPLACE VIEW v_stock_total AS
 SELECT
     p.id as product_id,
-    c.name as category_name,
     p.name as product_name,
     p.unit,
-    SUM(COALESCE(s.quantity, 0)) as total_quantity,
-    p.alert_threshold
+    SUM(COALESCE(s.quantity, 0)) as total_quantity
 FROM inventory_products p
-JOIN inventory_categories c ON p.category_id = c.id
 LEFT JOIN inventory_stocks s ON s.product_id = p.id
 WHERE p.is_active = 1
-GROUP BY p.id, c.name, p.name, p.unit, p.alert_threshold
-ORDER BY c.sort_order, p.id;
+GROUP BY p.id, p.name, p.unit
+ORDER BY p.name;
 
 -- ============================================
 -- Completion message
 -- ============================================
 SELECT 'Inventory system setup completed successfully!' as message;
 SELECT CONCAT('Branches: ', COUNT(*)) as count FROM inventory_branches;
-SELECT CONCAT('Categories: ', COUNT(*)) as count FROM inventory_categories;
 SELECT CONCAT('Products: ', COUNT(*)) as count FROM inventory_products;
 SELECT CONCAT('Stock records: ', COUNT(*)) as count FROM inventory_stocks;

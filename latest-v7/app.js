@@ -4965,6 +4965,11 @@ function App() {
 
         {/* フィルター */}
         <div style={{ display: 'flex', gap: '8px' }}>
+          <select value={selectedBranch} onChange={(e) => setSelectedBranch(e.target.value)}
+            className="select-modern" style={{ flex: 1 }}>
+            <option value="">全営業所</option>
+            {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+          </select>
           <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)}
             className="select-modern" style={{ flex: 1 }}>
             <option value="">全カテゴリ</option>

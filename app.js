@@ -888,16 +888,62 @@ function App() {
 
   // 法人一覧
   const CorporationList = () => {
+    const [sortMode, setSortMode] = useState('name');
     const [corpPage, setCorpPage] = useState(1);
     const CORPS_PER_PAGE = 20;
 
-    const sortedCorporations = [...filteredCorporations].sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+    // ソートロジック
+    const sortedCorporations = [...filteredCorporations].sort((a, b) => {
+      if (sortMode === 'name') return a.name.localeCompare(b.name, 'ja');
+      if (sortMode === 'siteCount') return (b.sites?.length || 0) - (a.sites?.length || 0);
+      if (sortMode === 'nextWork') {
+        const getEarliestNext = (corp) => {
+          let earliest = null;
+          (corp.sites || []).forEach(s => {
+            const nw = getNextScheduledWork(s);
+            if (nw && (!earliest || nw.date < earliest)) earliest = nw.date;
+          });
+          return earliest || new Date('2099-12-31');
+        };
+        return getEarliestNext(a) - getEarliestNext(b);
+      }
+      if (sortMode === 'lastWork') {
+        const getLatestWork = (corp) => {
+          let latest = null;
+          (corp.sites || []).forEach(s => {
+            (s.workLogs || []).forEach(w => {
+              const d = new Date(w.date);
+              if (!latest || d > latest) latest = d;
+            });
+          });
+          return latest || new Date('1970-01-01');
+        };
+        return getLatestWork(b) - getLatestWork(a);
+      }
+      return 0;
+    });
 
     const totalPages = Math.ceil(sortedCorporations.length / CORPS_PER_PAGE);
     const pagedCorporations = sortedCorporations.slice((corpPage - 1) * CORPS_PER_PAGE, corpPage * CORPS_PER_PAGE);
 
     return (
       <div>
+        {/* ソート選択 */}
+        <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', flexWrap: 'wrap' }}>
+          {[
+            { key: 'name', label: '名前順' },
+            { key: 'nextWork', label: '次回予定順' },
+            { key: 'lastWork', label: '最終作業順' },
+            { key: 'siteCount', label: '現場数順' }
+          ].map(s => (
+            <button key={s.key} onClick={() => { setSortMode(s.key); setCorpPage(1); }}
+              style={{ padding: '5px 12px', borderRadius: '20px', fontSize: '12px', border: 'none', cursor: 'pointer',
+                background: sortMode === s.key ? '#00B894' : '#F1F3F5', color: sortMode === s.key ? 'white' : '#636E72' }}>
+              {s.label}
+            </button>
+          ))}
+        </div>
+
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {pagedCorporations.map((corp) => {
             const sites = corp.sites || [];

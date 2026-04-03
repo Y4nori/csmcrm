@@ -1,6 +1,6 @@
 # CSM業務管理システム - プロジェクトサマリー
 
-> 最終更新: 2026-02-26
+> 最終更新: 2026-04-03
 
 ## 1. プロジェクト概要
 
@@ -47,8 +47,9 @@
 ├── sql/                          # データベースセットアップ
 │   └── inventory_setup.sql      # 在庫管理DB初期化スクリプト
 │
-├── 20260218/ ~ 20260226/        # 日付バックアップフォルダ
-│   └── api/, sql/               # 各日付のスナップショット
+├── 20260401/                    # 日付デプロイフォルダ（4/1版）
+├── 20260403/                    # 日付デプロイフォルダ（4/3版・最新）
+│   └── api/, app.js, etc.      # 修正済みファイル一式
 │
 ├── uploads/                      # アップロードファイル
 │   └── photos/                  # 写真ファイル
@@ -117,7 +118,7 @@
 ### 在庫管理
 | テーブル | 説明 |
 |---------|------|
-| `inventory_branches` | 営業所（6拠点） |
+| `inventory_branches` | 営業所（4拠点） |
 | `inventory_categories` | カテゴリ（8種類） |
 | `inventory_products` | 製品マスター |
 | `inventory_stocks` | 各営業所の在庫数量 |
@@ -292,36 +293,36 @@ api/index.php?action={endpoint_name}&method={HTTP_METHOD}
 ## 9. 直近の開発履歴（30件）
 
 ```
-c8c255e feat: 在庫管理画面に商品フィルターのドロップダウンを追加
-8b48d0a feat: 在庫管理画面にカテゴリフィルターのドロップダウンを追加
-cb1fce7 feat: 在庫管理画面に資材（カテゴリ）ソート機能を追加
-c9bc4e0 fix: 在庫調整で数量0を許可
-7222e0d deploy: 20260226 商品選択ドロップダウンからカテゴリ名プレフィックス削除
-bc8998a fix: 商品選択ドロップダウンからカテゴリ名プレフィックスを削除
-3d35513 deploy: 20260225 法人編集・削除権限のスタッフ開放
-f42ca52 fix: 法人の編集・削除権限をスタッフアカウントにも開放
-f7436d0 fix: inventory-product-createでDatabase::lastInsertId未定義エラーを修正
-693ee33 fix: 顧客詳細ヘッダーの会社名をtruncateからbreak-wordsに変更し折り返し表示
-7bc0e21 deploy: 20260223 在庫商品マスタ追加修正 + 現場名折り返し + 日報時刻入力改善
-b1de7c1 fix: 日報の時刻入力をキーボード方式からtime picker方式に変更
-0eae03e fix: 在庫商品マスタ追加のInvalid actionエラー修正 + 現場名の折り返し表示対応
-4e4d248 fix: .htaccessによるキャッシュ制御を追加し、app.jsの手動バージョン管理を廃止
-e3f8302 fix: タイムカード承認500エラーの根本修正 + 写真拡大表示機能
-579824a deploy: 20260220 タイムカード修正申請の500エラー修正ファイル
-73f680d fix: タイムカード修正申請の承認・却下で500エラーが発生する問題を修正
-7887187 docs: 要件・決定事項をまとめたドキュメントを追加
-6c443df fix: check-authの401エラーを完全に解消
-31b28f2 fix: キーボックスの変更・削除ができない問題を修正
-96ab8d3 fix: スタッフもキーボックスの編集・登録を可能に
-87f000f fix: 倉庫在庫の編集機能追加、スタッフのキーボックス編集を非表示
-094a523 fix: 在庫管理機能を復旧、今日の修正を再適用
-9cfc5f7 fix: 認証チェックの401エラーをコンソールに出さないよう修正
-4a0493c fix: ログインフォームをformタグで囲み、autocomplete属性を追加
-f7da8cc fix: ログアウト時のキャッシュ強制クリア機能を追加
-c768c01 add: 20260219 日付フォルダを追加（修正申請機能含む最新版）
-e25b14a fix: タイムカード修正申請の承認機能を実装
-9e59a93 Fix: inventory warehouse column, timecard approval, keybox staff save
-2db8817 Fix: auto-add sort_order column if not exists
+78886f1 fix: 通知リンク誤遷移と承認・却下のリクエストID取得失敗を修正
+96b6366 latest-v7を元に戻し、20260401フォルダに修正済みapp.jsを反映
+d501fbd latest-v7フォルダにも修正済みapp.jsを反映
+268caa0 latest-v7をベースに再構築、在庫管理の「全営業所」ドロップダウンを削除
+fec741b 法人一覧のソートUIを復元（誤って削除していた）
+97052ce 法人一覧のソートUIと在庫管理の営業所フィルターを削除
+b1dfb6d 在庫管理: ソート機能を削除
+060aafc 20260401: 在庫管理変更済みの完全置換ファイル一式
+7768124 在庫管理を簡略化: 4拠点のみ、カテゴリ・閾値・アラート削除、在庫0初期化
+40292cc fix: 既存レポートロード時にも時間を自動計算するuseEffect追加
+0db17c8 feat: 作業明細の開始・終了時間から時間/夜勤時間を自動計算
+bc3c777 fix: 使用経費フィールドも同様のdecimal入力バグ修正 + キャッシュバスティング追加
+7e15595 完全版をlatest-v6, latest-v7に統一コピー
+7421b69 fix: daily-report-hours APIでfloatval()変換が欠落していたバグを修正
+2b35445 fix: 時間入力で小数点が消えて値が10倍になるバグを修正
+de60c1e config.php修正: 正しいDB認証情報に戻す (csm2019_crm)
+ca848e7 古い不要フォルダを削除してリポジトリを整理
+f8d6e45 latest-v7: スタッフ現場削除権限 & 管理者復元機能の完全置換版
+42c4544 スタッフに現場削除権限を追加 & 管理者向け復元機能を実装
+efc89ca Update root api/index.php with all bug fixes (matches latest-v6)
+da0b753 Add latest-v6: complete replacement - fix 4 bugs
+03751db Fix config.php: correct DB credentials (csm2019_crm) and ALLOWED_ORIGIN
+b1c8abd Add config.php to latest-v5 (DEBUG_MODE=false, original credentials)
+5712349 Add latest-v5: complete replacement files (config.php excluded)
+ffb51ba Enable debug mode + fix DB error to return JSON instead of plain text
+7961967 Fix login failure: add PHP output buffering + improve JS error handling
+c6e1efe Add latest-v4: complete fixed version for full replacement
+b911ca0 Fix 15 bugs: CRITICAL security/data integrity + HIGH/MEDIUM issues
+c67a479 Fix critical id=0 cascade bug causing cross-user timecard corruption
+26fae19 Add comprehensive audit logging for all timecard operations
 ```
 
 ## 10. セキュリティ設定

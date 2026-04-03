@@ -155,8 +155,8 @@ const api = {
   submitTimecardRequest: (data) => api.call('timecard-request', 'POST', data),
   getTimecardRequests: (params) => api.call('timecard-requests', 'GET', null, params),
   getMyTimecardRequests: () => api.call('timecard-request', 'GET'),
-  approveTimecardRequest: (id) => api.call('timecard-request-approve', 'POST', { id }),
-  rejectTimecardRequest: (id, comment) => api.call('timecard-request-reject', 'POST', { id, comment }),
+  approveTimecardRequest: (id) => api.call('timecard-request-approve', 'POST', { id }, { id }),
+  rejectTimecardRequest: (id, comment) => api.call('timecard-request-reject', 'POST', { id, comment }, { id }),
   getTimecardRequestsCount: () => api.call('timecard-requests-count', 'GET'),
 
   // 車両マスターAPI

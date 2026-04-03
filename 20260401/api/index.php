@@ -2832,7 +2832,7 @@ switch ($request) {
     case 'timecard-request-approve':
         checkAdmin();
         if ($method === 'POST') {
-            $id = (int)($input['id'] ?? 0);
+            $id = (int)($input['id'] ?? $_GET['id'] ?? 0);
             if ($id <= 0) {
                 error('Invalid request ID');
             }
@@ -2927,7 +2927,7 @@ switch ($request) {
     case 'timecard-request-reject':
         checkAdmin();
         if ($method === 'POST') {
-            $id = (int)($input['id'] ?? 0);
+            $id = (int)($input['id'] ?? $_GET['id'] ?? 0);
             $comment = $input['comment'] ?? '';
 
             if ($id <= 0) {

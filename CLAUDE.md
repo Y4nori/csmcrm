@@ -46,6 +46,32 @@ XServer上で稼働するPHP + React（CDN）のシングルページアプリ�
 - 日付フォルダには app.js, api/(index.php, config.php, Database.php), index.html, styles.css, manifest.json 等を含める
 - XServer上では日付フォルダの内容で本番を置き換える運用
 
+### デプロイフォルダ作成ルール（必須）
+**app.js または api/index.php を修正した場合、必ず以下を実行してからコミット・プッシュすること：**
+
+1. 当日の日付で `YYYYMMDD/` フォルダを作成する（例: `20260407/`）
+2. 以下のファイルを **すべて** コピーする（本番完全置換用）：
+   ```
+   YYYYMMDD/
+   ├── app.js              ← ルートからコピー
+   ├── index.html           ← ルートからコピー
+   ├── styles.css           ← ルートからコピー
+   ├── manifest.json        ← ルートからコピー
+   └── api/
+       ├── index.php        ← api/ からコピー
+       ├── config.php       ← api/ からコピー
+       └── Database.php     ← api/ からコピー
+   ```
+3. コピーコマンド例：
+   ```bash
+   DATE=$(date +%Y%m%d)
+   mkdir -p ${DATE}/api
+   cp app.js index.html styles.css manifest.json ${DATE}/
+   cp api/index.php api/config.php api/Database.php ${DATE}/api/
+   ```
+4. 日付フォルダも含めてコミット・プッシュする
+5. **このルールを省略してはならない** — 日付フォルダがないとXServerへのデプロイができない
+
 ### コードの特徴
 - `app.js` は **単一巨大ファイル**（全Reactコンポーネント・ルーティング・API呼び出しが1ファイル）
 - `api/index.php` も **単一ファイル**（全エンドポイントがswitch-caseで集約）

@@ -3874,6 +3874,7 @@ function App() {
     const loadRequests = async () => {
       try {
         const data = await api.getTimecardRequests({ status: 'pending' });
+        console.log('[DEBUG] timecard-requests response:', JSON.stringify(data));
         setRequests(data);
       } catch (e) { console.error(e); }
     };
@@ -3886,8 +3887,9 @@ function App() {
     };
 
     const handleApprove = async (id) => {
+      console.log('[DEBUG] handleApprove called with id:', id, 'type:', typeof id);
       if (!id || id <= 0) {
-        alert('申請IDが不正です。ページを再読み込みしてください。');
+        alert('申請IDが不正です (id=' + JSON.stringify(id) + ')。コンソールログを確認してください。');
         return;
       }
       if (!confirm('この申請を承認しますか？')) return;

@@ -179,6 +179,35 @@ try {
         error_log("daily_reports auto-fix error: " . $e->getMessage());
     }
 
+    // timecard_requests: id=0問題の自動修復（PRIMARY KEY/AUTO_INCREMENT未設定の場合）
+    try {
+        $hasAutoIncTR = $db->fetch(
+            "SELECT AUTO_INCREMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'timecard_requests'"
+        );
+        if (!$hasAutoIncTR || !$hasAutoIncTR['AUTO_INCREMENT']) {
+            // id=0のレコードに正しいIDを振る
+            $maxIdTR = $db->fetch("SELECT MAX(id) as max_id FROM timecard_requests")['max_id'] ?? 0;
+            $zeroRecordsTR = $db->fetchAll("SELECT user_id, work_date, created_at FROM timecard_requests WHERE id = 0 ORDER BY created_at, user_id");
+            $newIdTR = max(1, $maxIdTR + 1);
+            foreach ($zeroRecordsTR as $rec) {
+                $db->query(
+                    "UPDATE timecard_requests SET id = ? WHERE id = 0 AND user_id = ? AND work_date = ? LIMIT 1",
+                    [$newIdTR, $rec['user_id'], $rec['work_date']]
+                );
+                $newIdTR++;
+            }
+            // PRIMARY KEYが無ければ追加
+            $pkCheckTR = $db->fetchAll("SHOW INDEX FROM timecard_requests WHERE Key_name = 'PRIMARY'");
+            if (empty($pkCheckTR)) {
+                $db->query("ALTER TABLE timecard_requests ADD PRIMARY KEY (id)");
+            }
+            $db->query("ALTER TABLE timecard_requests MODIFY id INT(11) NOT NULL AUTO_INCREMENT");
+            error_log("timecard_requests: Fixed " . count($zeroRecordsTR) . " records with id=0, added AUTO_INCREMENT");
+        }
+    } catch (Exception $e) {
+        error_log("timecard_requests auto-fix error: " . $e->getMessage());
+    }
+
     // ログインログテーブル
     $db->query("CREATE TABLE IF NOT EXISTS login_logs (
         id INT AUTO_INCREMENT PRIMARY KEY,

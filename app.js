@@ -4236,13 +4236,21 @@ function App() {
 
     const isAdmin = userRole === 'admin' || userRole === 'master';
 
+    const fetchAbortRef = React.useRef(null);
+
     const fetchReport = async (year, month, userId) => {
+      // 既存の進行中フェッチを中断（古いレスポンスで上書きされるのを防ぐ）
+      if (fetchAbortRef.current) {
+        try { fetchAbortRef.current.abort(); } catch (e) {}
+      }
+      const controller = new AbortController();
+      fetchAbortRef.current = controller;
       setLoading(true);
       try {
         const basePath = window.location.pathname.replace(/\/[^\/]*$/, '/');
         let url = `${basePath}${API_BASE}?action=monthly-closing-report&year=${year}&month=${month}`;
         if (userId) url += `&user_id=${userId}`;
-        const res = await fetch(url, { credentials: 'include' });
+        const res = await fetch(url, { credentials: 'include', signal: controller.signal });
         let data;
         try {
           data = await res.json();
@@ -4251,6 +4259,10 @@ function App() {
         }
         if (!res.ok || data.error) {
           throw new Error(data.error || 'HTTP ' + res.status);
+        }
+        // 部分失敗（warnings）があればログに残してユーザーに注意喚起
+        if (data.warnings && data.warnings.length > 0) {
+          console.warn('monthly-closing-report partial failures:', data.warnings);
         }
         setReportData(data);
         if (data.users && data.users.length > 0) {
@@ -4293,10 +4305,19 @@ function App() {
           console.warn('提出データ取得エラー（無視可）:', e);
         }
       } catch (e) {
+        // AbortError は意図的なキャンセルなのでアラートを出さない
+        if (e.name === 'AbortError') {
+          return;
+        }
         console.error('monthly-closing-report fetch error:', e);
         alert('レポートの取得に失敗しました: ' + (e.message || '原因不明'));
+      } finally {
+        // このフェッチがまだ最新なら setLoading(false)
+        if (fetchAbortRef.current === controller) {
+          setLoading(false);
+          fetchAbortRef.current = null;
+        }
       }
-      setLoading(false);
     };
 
     useEffect(() => {

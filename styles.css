@@ -385,20 +385,7 @@ main > div {
   color: var(--primary-dark);
 }
 
-/* ============================================
-   低在庫アラートカード
-   ============================================ */
-.stock-alert-card {
-  border: 2px solid #FFEEF0;
-}
-.stock-alert-badge {
-  background: #FFEEF0;
-  color: #E74C3C;
-  padding: 2px 8px;
-  border-radius: 10px;
-  font-size: 10px;
-  font-weight: 700;
-}
+/* 在庫アラート（低在庫バッジ）は閾値機能廃止により削除 */
 
 /* ============================================
    アドレスカード（モックアップ準拠）

@@ -246,6 +246,41 @@ try {
         INDEX idx_ip (ip_address)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
+    // inventory_stocks に UNIQUE(branch_id, product_id) を保証
+    // （古い環境で UNIQUE 制約が無いと UPSERT が壊れて在庫保存が間欠的に失敗するため）
+    try {
+        $stocksTableExists = $db->fetch(
+            "SELECT TABLE_NAME FROM information_schema.TABLES
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'inventory_stocks'"
+        );
+        if ($stocksTableExists) {
+            $uniqueExists = $db->fetchAll(
+                "SHOW INDEX FROM inventory_stocks WHERE Key_name = 'uk_branch_product'"
+            );
+            if (empty($uniqueExists)) {
+                // 重複行があれば最新（id が大きい方）を残して古い行を削除
+                try {
+                    $db->query(
+                        "DELETE s1 FROM inventory_stocks s1
+                         INNER JOIN inventory_stocks s2
+                         ON s1.branch_id = s2.branch_id
+                         AND s1.product_id = s2.product_id
+                         AND s1.id < s2.id"
+                    );
+                } catch (Exception $e) {
+                    error_log('inventory_stocks dedup error: ' . $e->getMessage());
+                }
+                try {
+                    $db->query("ALTER TABLE inventory_stocks ADD UNIQUE KEY uk_branch_product (branch_id, product_id)");
+                } catch (Exception $e) {
+                    error_log('inventory_stocks UNIQUE add error: ' . $e->getMessage());
+                }
+            }
+        }
+    } catch (Exception $e) {
+        error_log('inventory_stocks UNIQUE migration error: ' . $e->getMessage());
+    }
+
     // 倉庫支店を自動追加
     try {
         $warehouseExists = $db->fetch("SELECT id FROM inventory_branches WHERE name = '倉庫' OR code = 'WAREHOUSE'");
@@ -2638,19 +2673,35 @@ switch ($request) {
     <script>
         function closeView() {
             // window.open() で開かれた場合は閉じる
+            // window.close() は同期的に閉じないことがあるので、フォールバックを十分後に実行する
+            var hasOpener = !!window.opener;
             try { window.close(); } catch (e) {}
-            // 閉じられなかった場合（同一タブ・PWA standalone 等）は履歴を戻る
+
+            // 500ms 待っても閉じていなければ履歴遡行 or トップ遷移
             setTimeout(function() {
-                if (!window.closed) {
-                    if (window.history.length > 1) {
-                        window.history.back();
-                    } else {
-                        // 履歴が無い場合（直接遷移など）はトップへ
-                        var basePath = window.location.pathname.replace(/api\/.*$/, '');
-                        window.location.href = basePath || '/';
-                    }
+                if (window.closed) return;
+                // opener があれば window.close() が間に合っていない可能性があるのでさらに待つ
+                if (hasOpener) {
+                    setTimeout(function() {
+                        if (window.closed) return;
+                        fallbackNavigate();
+                    }, 500);
+                } else {
+                    fallbackNavigate();
                 }
-            }, 100);
+            }, 500);
+        }
+
+        function fallbackNavigate() {
+            if (window.history.length > 1) {
+                window.history.back();
+            } else {
+                // /path/to/api/index.php → /path/to/ を抽出（深いパスにも対応）
+                var p = window.location.pathname;
+                var idx = p.lastIndexOf('/api/');
+                var basePath = idx >= 0 ? p.substring(0, idx + 1) : '/';
+                window.location.href = basePath;
+            }
         }
     </script>
 
@@ -3102,18 +3153,10 @@ switch ($request) {
 
         if ($method === 'POST') {
             $productId = (int)($input['productId'] ?? 0);
-            $alertThreshold = isset($input['alertThreshold']) ? (int)$input['alertThreshold'] : null;
             $name = isset($input['name']) ? trim($input['name']) : null;
 
             if ($productId <= 0) {
                 error('製品IDを指定してください');
-            }
-
-            if ($alertThreshold !== null) {
-                $db->query(
-                    "UPDATE inventory_products SET alert_threshold = ? WHERE id = ?",
-                    [$alertThreshold, $productId]
-                );
             }
 
             if ($name !== null && $name !== '') {
@@ -3186,28 +3229,6 @@ switch ($request) {
             if ($quantity == 0 && $type !== 'adjust') {
                 error('数量を入力してください');
             }
-
-            // 念のため inventory_stocks の UNIQUE 制約を確保（ON DUPLICATE KEY 用のフェイルセーフ）
-            try {
-                $uniqueExists = $db->fetchAll(
-                    "SHOW INDEX FROM inventory_stocks WHERE Key_name = 'uk_branch_product'"
-                );
-                if (empty($uniqueExists)) {
-                    // 重複行があれば最新だけを残して削除
-                    try {
-                        $db->query(
-                            "DELETE s1 FROM inventory_stocks s1
-                             INNER JOIN inventory_stocks s2
-                             ON s1.branch_id = s2.branch_id
-                             AND s1.product_id = s2.product_id
-                             AND s1.id < s2.id"
-                        );
-                    } catch (Exception $e) {}
-                    try {
-                        $db->query("ALTER TABLE inventory_stocks ADD UNIQUE KEY uk_branch_product (branch_id, product_id)");
-                    } catch (Exception $e) {}
-                }
-            } catch (Exception $e) {}
 
             // トランザクションでレースコンディション防止
             $pdo = $db->getConnection();
@@ -3433,7 +3454,6 @@ switch ($request) {
         if ($method === 'POST') {
             $name = trim($input['name'] ?? '');
             $unit = trim($input['unit'] ?? '個');
-            $alertThreshold = isset($input['alertThreshold']) ? (int)$input['alertThreshold'] : 0;
 
             if (empty($name)) {
                 error('製品名を入力してください');
@@ -3447,10 +3467,10 @@ switch ($request) {
                 $categoryId = $defaultCategory['id'];
             }
 
-            // 製品を追加
+            // 製品を追加（alert_threshold は閾値機能廃止により常に 0）
             $productId = $db->insert(
-                "INSERT INTO inventory_products (name, category_id, unit, alert_threshold, is_active) VALUES (?, ?, ?, ?, 1)",
-                [$name, $categoryId, $unit, $alertThreshold]
+                "INSERT INTO inventory_products (name, category_id, unit, alert_threshold, is_active) VALUES (?, ?, ?, 0, 1)",
+                [$name, $categoryId, $unit]
             );
 
             // 全営業所に初期在庫0で登録
@@ -3548,12 +3568,17 @@ switch ($request) {
                 $periodStart = sprintf('%04d-%02d-21', $startYear, $startMonth);
                 $periodEnd = $closingDate->format('Y-m-d');
 
+                // 部分失敗を呼び出し側に通知するための警告リスト
+                $warnings = [];
+
                 // ユーザー名取得
                 $userName = '不明';
                 try {
                     $user = $db->fetch("SELECT name FROM users WHERE id = ?", [$userId]);
                     if ($user) $userName = $user['name'];
-                } catch (Exception $e) {}
+                } catch (Exception $e) {
+                    $warnings[] = 'user_lookup';
+                }
 
                 // 出勤日数（期間内のタイムカード数）
                 $attendanceDays = 0;
@@ -3564,6 +3589,7 @@ switch ($request) {
                     );
                     $attendanceDays = (int)($attendanceData['days'] ?? 0);
                 } catch (Exception $e) {
+                    $warnings[] = 'attendance';
                     error_log('monthly-closing-report attendance error: ' . $e->getMessage());
                 }
 
@@ -3589,6 +3615,7 @@ switch ($request) {
                     $constructionPoints = floatval($hoursData['total_construction'] ?? 0);
                     $otherHours = floatval($hoursData['total_other'] ?? 0);
                 } catch (Exception $e) {
+                    $warnings[] = 'hours';
                     error_log('monthly-closing-report hours error: ' . $e->getMessage());
                 }
 
@@ -3605,6 +3632,7 @@ switch ($request) {
                         [$userId, $periodStart, $periodEnd]
                     );
                 } catch (Exception $e) {
+                    $warnings[] = 'details';
                     error_log('monthly-closing-report details error: ' . $e->getMessage());
                 }
 
@@ -3619,6 +3647,7 @@ switch ($request) {
                         [$userId, $periodStart, $periodEnd]
                     );
                 } catch (Exception $e) {
+                    $warnings[] = 'notes';
                     error_log('monthly-closing-report notes error: ' . $e->getMessage());
                 }
 
@@ -3631,6 +3660,7 @@ switch ($request) {
                         try {
                             $users = $db->fetchAll("SELECT id, name FROM users ORDER BY id");
                         } catch (Exception $e2) {
+                            $warnings[] = 'users_list';
                             error_log('monthly-closing-report users error: ' . $e2->getMessage());
                         }
                     }
@@ -3651,7 +3681,8 @@ switch ($request) {
                     'otherHours' => $otherHours,
                     'details' => $details,
                     'notes' => $notes,
-                    'users' => $users
+                    'users' => $users,
+                    'warnings' => $warnings
                 ]);
             } catch (Exception $e) {
                 error_log('monthly-closing-report fatal: ' . $e->getMessage());

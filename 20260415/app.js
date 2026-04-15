@@ -4243,8 +4243,15 @@ function App() {
         let url = `${basePath}${API_BASE}?action=monthly-closing-report&year=${year}&month=${month}`;
         if (userId) url += `&user_id=${userId}`;
         const res = await fetch(url, { credentials: 'include' });
-        const data = await res.json();
-        if (data.error) throw new Error(data.error);
+        let data;
+        try {
+          data = await res.json();
+        } catch (parseErr) {
+          throw new Error('サーバー応答の解析に失敗しました（HTTP ' + res.status + '）');
+        }
+        if (!res.ok || data.error) {
+          throw new Error(data.error || 'HTTP ' + res.status);
+        }
         setReportData(data);
         if (data.users && data.users.length > 0) {
           setUsers(data.users);
@@ -4282,10 +4289,12 @@ function App() {
           } else {
             setExistingSubmission(null);
           }
-        } catch (e) {}
+        } catch (e) {
+          console.warn('提出データ取得エラー（無視可）:', e);
+        }
       } catch (e) {
-        console.error(e);
-        alert('レポートの取得に失敗しました');
+        console.error('monthly-closing-report fetch error:', e);
+        alert('レポートの取得に失敗しました: ' + (e.message || '原因不明'));
       }
       setLoading(false);
     };

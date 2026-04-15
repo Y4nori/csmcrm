@@ -2586,25 +2586,73 @@ switch ($request) {
             border-bottom: 1px solid #000;
             padding: 0 20px;
         }
-        .print-btn {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 10px 20px;
-            background: #007bff;
+        .action-bar {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(255,255,255,0.95);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            padding: 12px 16px;
+            margin: -20px -20px 20px;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+            flex-wrap: wrap;
+        }
+        .action-btn {
+            padding: 10px 18px;
             color: white;
             border: none;
-            border-radius: 5px;
+            border-radius: 6px;
             cursor: pointer;
             font-size: 14px;
+            font-weight: 600;
+            -webkit-tap-highlight-color: transparent;
         }
-        .print-btn:hover {
+        .action-btn.print {
+            background: #007bff;
+        }
+        .action-btn.print:hover {
             background: #0056b3;
+        }
+        .action-btn.close {
+            background: #6c757d;
+        }
+        .action-btn.close:hover {
+            background: #545b62;
+        }
+        @media (max-width: 600px) {
+            body { padding: 0 12px 12px; }
+            .action-bar { margin: 0 -12px 16px; padding: 10px 12px; }
+            .action-btn { flex: 1; min-width: 0; }
         }
     </style>
 </head>
 <body>
-    <button class="print-btn no-print" onclick="window.print()">印刷 / PDF保存</button>
+    <div class="action-bar no-print">
+        <button class="action-btn close" onclick="closeView()">← 戻る</button>
+        <button class="action-btn print" onclick="window.print()">印刷 / PDF保存</button>
+    </div>
+    <script>
+        function closeView() {
+            // window.open() で開かれた場合は閉じる
+            try { window.close(); } catch (e) {}
+            // 閉じられなかった場合（同一タブ・PWA standalone 等）は履歴を戻る
+            setTimeout(function() {
+                if (!window.closed) {
+                    if (window.history.length > 1) {
+                        window.history.back();
+                    } else {
+                        // 履歴が無い場合（直接遷移など）はトップへ
+                        var basePath = window.location.pathname.replace(/api\/.*$/, '');
+                        window.location.href = basePath || '/';
+                    }
+                }
+            }, 100);
+        }
+    </script>
 
     <h1>作業・営業日報</h1>
 
@@ -3462,117 +3510,153 @@ switch ($request) {
         checkAuth();
 
         if ($method === 'GET') {
-            $userId = (int)($_GET['user_id'] ?? $_SESSION['user_id']);
-            $year = (int)($_GET['year'] ?? date('Y'));
-            $month = (int)($_GET['month'] ?? date('n'));
+            try {
+                $userId = (int)($_GET['user_id'] ?? $_SESSION['user_id'] ?? 0);
+                $year = (int)($_GET['year'] ?? date('Y'));
+                $month = (int)($_GET['month'] ?? date('n'));
 
-            // 管理者以外は自分のデータのみ
-            if ($_SESSION['role'] !== 'admin' && $_SESSION['role'] !== 'master') {
-                $userId = (int)$_SESSION['user_id'];
-            }
-
-            // 締め日計算（20日、土日祝の場合は前営業日）
-            $closingDate = new DateTime("$year-$month-20");
-            // 日本の祝日（簡易版）
-            $holidays = [];
-            // 土日の場合は前営業日に調整
-            while (true) {
-                $dow = (int)$closingDate->format('w'); // 0=日, 6=土
-                $dateStr = $closingDate->format('Y-m-d');
-                if ($dow === 0) { // 日曜
-                    $closingDate->modify('-2 days');
-                } elseif ($dow === 6) { // 土曜
-                    $closingDate->modify('-1 day');
-                } else {
-                    break;
+                // 管理者以外は自分のデータのみ
+                if (($_SESSION['role'] ?? '') !== 'admin' && ($_SESSION['role'] ?? '') !== 'master') {
+                    $userId = (int)($_SESSION['user_id'] ?? 0);
                 }
+
+                // 不正な年月をチェック（DateTime例外を防ぐ）
+                if ($year < 2000 || $year > 2100 || $month < 1 || $month > 12) {
+                    error('年月の指定が不正です');
+                }
+
+                // 締め日計算（20日、土日の場合は前営業日）
+                $closingDate = new DateTime(sprintf('%04d-%02d-20', $year, $month));
+                while (true) {
+                    $dow = (int)$closingDate->format('w'); // 0=日, 6=土
+                    if ($dow === 0) {
+                        $closingDate->modify('-2 days');
+                    } elseif ($dow === 6) {
+                        $closingDate->modify('-1 day');
+                    } else {
+                        break;
+                    }
+                }
+
+                // 期間：前月21日〜当月20日（締め日）
+                $startYear = $year;
+                $startMonth = $month - 1;
+                if ($startMonth <= 0) {
+                    $startMonth = 12;
+                    $startYear--;
+                }
+                $periodStart = sprintf('%04d-%02d-21', $startYear, $startMonth);
+                $periodEnd = $closingDate->format('Y-m-d');
+
+                // ユーザー名取得
+                $userName = '不明';
+                try {
+                    $user = $db->fetch("SELECT name FROM users WHERE id = ?", [$userId]);
+                    if ($user) $userName = $user['name'];
+                } catch (Exception $e) {}
+
+                // 出勤日数（期間内のタイムカード数）
+                $attendanceDays = 0;
+                try {
+                    $attendanceData = $db->fetch(
+                        "SELECT COUNT(*) as days FROM timecards WHERE user_id = ? AND work_date BETWEEN ? AND ? AND clock_in IS NOT NULL",
+                        [$userId, $periodStart, $periodEnd]
+                    );
+                    $attendanceDays = (int)($attendanceData['days'] ?? 0);
+                } catch (Exception $e) {
+                    error_log('monthly-closing-report attendance error: ' . $e->getMessage());
+                }
+
+                // 日報の時間集計（テーブル不在やデータ無しでもエラーにしない）
+                $overtimeHours = 0.0;
+                $nightHours = 0.0;
+                $constructionPoints = 0.0;
+                $otherHours = 0.0;
+                try {
+                    $hoursData = $db->fetch(
+                        "SELECT
+                            COALESCE(SUM(drh.regular_hours), 0) as total_regular,
+                            COALESCE(SUM(drh.night_hours), 0) as total_night,
+                            COALESCE(SUM(drh.construction_points), 0) as total_construction,
+                            COALESCE(SUM(drh.other_hours), 0) as total_other
+                         FROM daily_reports dr
+                         LEFT JOIN daily_report_hours drh ON dr.id = drh.report_id
+                         WHERE dr.user_id = ? AND dr.report_date BETWEEN ? AND ?",
+                        [$userId, $periodStart, $periodEnd]
+                    );
+                    $overtimeHours = floatval($hoursData['total_regular'] ?? 0);
+                    $nightHours = floatval($hoursData['total_night'] ?? 0);
+                    $constructionPoints = floatval($hoursData['total_construction'] ?? 0);
+                    $otherHours = floatval($hoursData['total_other'] ?? 0);
+                } catch (Exception $e) {
+                    error_log('monthly-closing-report hours error: ' . $e->getMessage());
+                }
+
+                // 作業詳細（営業売上データとして利用）
+                $details = [];
+                try {
+                    $details = $db->fetchAll(
+                        "SELECT dr.report_date, drd.start_time, drd.end_time, drd.site_name,
+                                drd.worker_count, drd.companions, dr.contact_notes
+                         FROM daily_reports dr
+                         JOIN daily_report_details drd ON dr.id = drd.report_id
+                         WHERE dr.user_id = ? AND dr.report_date BETWEEN ? AND ?
+                         ORDER BY dr.report_date, drd.sort_order, drd.start_time",
+                        [$userId, $periodStart, $periodEnd]
+                    );
+                } catch (Exception $e) {
+                    error_log('monthly-closing-report details error: ' . $e->getMessage());
+                }
+
+                // 報告連絡事項（期間内の全contact_notes）
+                $notes = [];
+                try {
+                    $notes = $db->fetchAll(
+                        "SELECT report_date, contact_notes, remarks FROM daily_reports
+                         WHERE user_id = ? AND report_date BETWEEN ? AND ?
+                           AND ((contact_notes IS NOT NULL AND contact_notes != '') OR (remarks IS NOT NULL AND remarks != ''))
+                         ORDER BY report_date",
+                        [$userId, $periodStart, $periodEnd]
+                    );
+                } catch (Exception $e) {
+                    error_log('monthly-closing-report notes error: ' . $e->getMessage());
+                }
+
+                // ユーザー一覧（管理者用） — is_active カラムが無くても落ちないように
+                $users = [];
+                if (($_SESSION['role'] ?? '') === 'admin' || ($_SESSION['role'] ?? '') === 'master') {
+                    try {
+                        $users = $db->fetchAll("SELECT id, name FROM users WHERE is_active = 1 ORDER BY id");
+                    } catch (Exception $e) {
+                        try {
+                            $users = $db->fetchAll("SELECT id, name FROM users ORDER BY id");
+                        } catch (Exception $e2) {
+                            error_log('monthly-closing-report users error: ' . $e2->getMessage());
+                        }
+                    }
+                }
+
+                respond([
+                    'userName' => $userName,
+                    'userId' => $userId,
+                    'periodStart' => $periodStart,
+                    'periodEnd' => $periodEnd,
+                    'closingDate' => $closingDate->format('Y-m-d'),
+                    'year' => $year,
+                    'month' => $month,
+                    'attendanceDays' => $attendanceDays,
+                    'overtimeHours' => $overtimeHours,
+                    'nightHours' => $nightHours,
+                    'constructionPoints' => $constructionPoints,
+                    'otherHours' => $otherHours,
+                    'details' => $details,
+                    'notes' => $notes,
+                    'users' => $users
+                ]);
+            } catch (Exception $e) {
+                error_log('monthly-closing-report fatal: ' . $e->getMessage());
+                error('レポート取得に失敗しました: ' . $e->getMessage(), 500);
             }
-
-            // 期間：前月21日〜当月20日（締め日）
-            $prevMonth = clone $closingDate;
-            $prevMonth->modify('-1 month');
-            // 開始日を前月21日に設定
-            $startYear = $year;
-            $startMonth = $month - 1;
-            if ($startMonth <= 0) {
-                $startMonth = 12;
-                $startYear--;
-            }
-            $periodStart = "$startYear-" . str_pad($startMonth, 2, '0', STR_PAD_LEFT) . "-21";
-            $periodEnd = $closingDate->format('Y-m-d');
-
-            // ユーザー名取得
-            $user = $db->fetch("SELECT name FROM users WHERE id = ?", [$userId]);
-            $userName = $user ? $user['name'] : '不明';
-
-            // 出勤日数（期間内のタイムカード数）
-            $attendanceData = $db->fetch(
-                "SELECT COUNT(*) as days FROM timecards WHERE user_id = ? AND work_date BETWEEN ? AND ? AND clock_in IS NOT NULL",
-                [$userId, $periodStart, $periodEnd]
-            );
-            $attendanceDays = (int)($attendanceData['days'] ?? 0);
-
-            // 日報の時間集計
-            $hoursData = $db->fetch(
-                "SELECT
-                    COALESCE(SUM(drh.regular_hours), 0) as total_regular,
-                    COALESCE(SUM(drh.night_hours), 0) as total_night,
-                    COALESCE(SUM(drh.construction_points), 0) as total_construction,
-                    COALESCE(SUM(drh.other_hours), 0) as total_other
-                 FROM daily_reports dr
-                 JOIN daily_report_hours drh ON dr.id = drh.report_id
-                 WHERE dr.user_id = ? AND dr.report_date BETWEEN ? AND ?",
-                [$userId, $periodStart, $periodEnd]
-            );
-
-            $overtimeHours = floatval($hoursData['total_regular'] ?? 0);
-            $nightHours = floatval($hoursData['total_night'] ?? 0);
-            $constructionPoints = floatval($hoursData['total_construction'] ?? 0);
-            $otherHours = floatval($hoursData['total_other'] ?? 0);
-
-            // 作業詳細（営業売上データとして利用）
-            $details = $db->fetchAll(
-                "SELECT dr.report_date, drd.start_time, drd.end_time, drd.site_name,
-                        drd.worker_count, drd.companions, dr.contact_notes
-                 FROM daily_reports dr
-                 JOIN daily_report_details drd ON dr.id = drd.report_id
-                 WHERE dr.user_id = ? AND dr.report_date BETWEEN ? AND ?
-                 ORDER BY dr.report_date, drd.sort_order, drd.start_time",
-                [$userId, $periodStart, $periodEnd]
-            );
-
-            // 報告連絡事項（期間内の全contact_notes）
-            $notes = $db->fetchAll(
-                "SELECT report_date, contact_notes, remarks FROM daily_reports
-                 WHERE user_id = ? AND report_date BETWEEN ? AND ?
-                   AND (contact_notes IS NOT NULL AND contact_notes != '' OR remarks IS NOT NULL AND remarks != '')
-                 ORDER BY report_date",
-                [$userId, $periodStart, $periodEnd]
-            );
-
-            // ユーザー一覧（管理者用）
-            $users = [];
-            if ($_SESSION['role'] === 'admin' || $_SESSION['role'] === 'master') {
-                $users = $db->fetchAll("SELECT id, name FROM users WHERE is_active = 1 ORDER BY id");
-            }
-
-            respond([
-                'userName' => $userName,
-                'userId' => $userId,
-                'periodStart' => $periodStart,
-                'periodEnd' => $periodEnd,
-                'closingDate' => $closingDate->format('Y-m-d'),
-                'year' => $year,
-                'month' => $month,
-                'attendanceDays' => $attendanceDays,
-                'overtimeHours' => $overtimeHours,
-                'nightHours' => $nightHours,
-                'constructionPoints' => $constructionPoints,
-                'otherHours' => $otherHours,
-                'details' => $details,
-                'notes' => $notes,
-                'users' => $users
-            ]);
         }
         break;
 

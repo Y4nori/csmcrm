@@ -1177,7 +1177,7 @@ function App() {
           {selectedCorp?.memo && (
             <div style={{ padding: '14px 20px' }}>
               <p style={{ fontSize: '11px', color: '#B2BEC3', margin: '0 0 4px' }}>メモ</p>
-              <p style={{ fontSize: '13px', color: '#636E72', margin: 0, whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{selectedCorp.memo}</p>
+              <p style={{ fontSize: '13px', color: '#2D3436', margin: 0, whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{selectedCorp.memo}</p>
             </div>
           )}
         </div>

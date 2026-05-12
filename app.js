@@ -919,11 +919,13 @@ function App() {
         </div>
 
         {/* 月締め日報を作成ボタン（スタッフ向け） */}
-        <button onClick={() => navigate('/monthly-closing')}
-          className="w-full" style={{ padding: '16px', background: 'linear-gradient(135deg, #6C5CE7, #A29BFE)', color: 'white', border: 'none', borderRadius: '16px', fontSize: '15px', fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 16px rgba(108,92,231,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-          <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
-          月締め日報を作成
-        </button>
+        {userRole === 'staff' && (
+          <button onClick={() => navigate('/monthly-closing')}
+            className="w-full" style={{ padding: '16px', background: 'linear-gradient(135deg, #6C5CE7, #A29BFE)', color: 'white', border: 'none', borderRadius: '16px', fontSize: '15px', fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 16px rgba(108,92,231,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+            <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+            月締め日報を作成
+          </button>
+        )}
 
         {/* 契約更新アラート */}
         {(userRole === 'admin' || userRole === 'master') && contractAlerts.length > 0 && (

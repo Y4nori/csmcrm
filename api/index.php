@@ -236,6 +236,94 @@ try {
         try { $db->query($sql); } catch (Exception $e) {}
     }
 
+    // corporations: id=0/AUTO_INCREMENT未設定だと新規法人がid=0になり後続保存が壊れるため自動修復
+    try {
+        $corpTableExists = $db->fetch(
+            "SELECT TABLE_NAME FROM information_schema.TABLES
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'corporations'"
+        );
+        if ($corpTableExists) {
+            $hasAutoIncCorp = $db->fetch(
+                "SELECT AUTO_INCREMENT FROM information_schema.TABLES
+                 WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'corporations'"
+            );
+            if (!$hasAutoIncCorp || !$hasAutoIncCorp['AUTO_INCREMENT']) {
+                $maxCorpId = (int)($db->fetch("SELECT MAX(id) AS max_id FROM corporations")['max_id'] ?? 0);
+                $zeroCorpCount = (int)($db->fetch("SELECT COUNT(*) AS cnt FROM corporations WHERE id = 0")['cnt'] ?? 0);
+                $newCorpId = max(1, $maxCorpId + 1);
+                for ($i = 0; $i < $zeroCorpCount; $i++) {
+                    if ($zeroCorpCount === 1) {
+                        foreach (['sites', 'invoice_history', 'contact_logs'] as $childTable) {
+                            try {
+                                $childExists = $db->fetch(
+                                    "SELECT TABLE_NAME FROM information_schema.TABLES
+                                     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?",
+                                    [$childTable]
+                                );
+                                if ($childExists) {
+                                    $db->update("UPDATE `$childTable` SET corporation_id = ? WHERE corporation_id = 0", [$newCorpId]);
+                                }
+                            } catch (Exception $e) {}
+                        }
+                    }
+                    $db->query("UPDATE corporations SET id = ? WHERE id = 0 LIMIT 1", [$newCorpId]);
+                    $newCorpId++;
+                }
+                $corpPkCheck = $db->fetchAll("SHOW INDEX FROM corporations WHERE Key_name = 'PRIMARY'");
+                if (empty($corpPkCheck)) {
+                    $db->query("ALTER TABLE corporations ADD PRIMARY KEY (id)");
+                }
+                $db->query("ALTER TABLE corporations MODIFY id INT(11) NOT NULL AUTO_INCREMENT");
+            }
+        }
+    } catch (Exception $e) {
+        error_log('corporations auto-fix error: ' . $e->getMessage());
+    }
+
+    // sites: id=0/AUTO_INCREMENT未設定を自動修復（新規現場がid=0になるのを防ぐ）
+    try {
+        $sitesTableExists = $db->fetch(
+            "SELECT TABLE_NAME FROM information_schema.TABLES
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sites'"
+        );
+        if ($sitesTableExists) {
+            $hasAutoIncSite = $db->fetch(
+                "SELECT AUTO_INCREMENT FROM information_schema.TABLES
+                 WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sites'"
+            );
+            if (!$hasAutoIncSite || !$hasAutoIncSite['AUTO_INCREMENT']) {
+                $maxSiteId = (int)($db->fetch("SELECT MAX(id) AS max_id FROM sites")['max_id'] ?? 0);
+                $zeroSiteCount = (int)($db->fetch("SELECT COUNT(*) AS cnt FROM sites WHERE id = 0")['cnt'] ?? 0);
+                $newSiteId = max(1, $maxSiteId + 1);
+                for ($i = 0; $i < $zeroSiteCount; $i++) {
+                    if ($zeroSiteCount === 1) {
+                        foreach (['site_pests', 'site_work_types', 'site_work_areas', 'yearly_plans', 'work_logs', 'photos', 'site_billing_months', 'site_documents', 'daily_report_details'] as $childTable) {
+                            try {
+                                $childExists = $db->fetch(
+                                    "SELECT TABLE_NAME FROM information_schema.TABLES
+                                     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?",
+                                    [$childTable]
+                                );
+                                if ($childExists) {
+                                    $db->update("UPDATE `$childTable` SET site_id = ? WHERE site_id = 0", [$newSiteId]);
+                                }
+                            } catch (Exception $e) {}
+                        }
+                    }
+                    $db->query("UPDATE sites SET id = ? WHERE id = 0 LIMIT 1", [$newSiteId]);
+                    $newSiteId++;
+                }
+                $sitePkCheck = $db->fetchAll("SHOW INDEX FROM sites WHERE Key_name = 'PRIMARY'");
+                if (empty($sitePkCheck)) {
+                    $db->query("ALTER TABLE sites ADD PRIMARY KEY (id)");
+                }
+                $db->query("ALTER TABLE sites MODIFY id INT(11) NOT NULL AUTO_INCREMENT");
+            }
+        }
+    } catch (Exception $e) {
+        error_log('sites auto-fix error: ' . $e->getMessage());
+    }
+
     // corporations.billing_cycle が古いENUM定義のままだと「作業月」の法人保存が500になるため拡張
     try {
         $corpTableExists = $db->fetch(
@@ -419,6 +507,28 @@ function checkMaster() {
     if ($_SESSION['role'] !== 'master') {
         error('Forbidden', 403);
     }
+}
+
+function tableHasAutoIncrement($table) {
+    global $db;
+    if (!in_array($table, ['corporations', 'sites'], true)) {
+        return true;
+    }
+    $info = $db->fetch(
+        "SELECT AUTO_INCREMENT FROM information_schema.TABLES
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?",
+        [$table]
+    );
+    return !empty($info['AUTO_INCREMENT']);
+}
+
+function nextManualId($table) {
+    global $db;
+    if (!in_array($table, ['corporations', 'sites'], true)) {
+        throw new Exception('Invalid table for manual id');
+    }
+    $row = $db->fetch("SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM `$table`");
+    return max(1, (int)($row['next_id'] ?? 1));
 }
 
 // 月度の日付範囲を計算（N月度 = 前月21日〜当月20日）
@@ -985,24 +1095,34 @@ switch ($request) {
 
             $db->beginTransaction();
             try {
-                $id = $db->insert(
-                    "INSERT INTO corporations (name, address, contact, contact_person, billing_cycle, billing_day, billing_month, memo, contract_start, contract_end, contract_amount, contract_type)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    [
-                        $name,
-                        $input['address'] ?? '',
-                        $input['contact'] ?? '',
-                        $input['contactPerson'] ?? '',
-                        $input['billingCycle'] ?? '毎月',
-                        $input['billingDay'] ?? '25',
-                        $input['billingMonth'] ?? '',
-                        $input['memo'] ?? '',
-                        $input['contractStart'] ?? null,
-                        $input['contractEnd'] ?? null,
-                        $input['contractAmount'] ?? 0,
-                        $input['contractType'] ?? '月額'
-                    ]
-                );
+                $corpValues = [
+                    $name,
+                    $input['address'] ?? '',
+                    $input['contact'] ?? '',
+                    $input['contactPerson'] ?? '',
+                    $input['billingCycle'] ?? '毎月',
+                    $input['billingDay'] ?? '25',
+                    $input['billingMonth'] ?? '',
+                    $input['memo'] ?? '',
+                    $input['contractStart'] ?? null,
+                    $input['contractEnd'] ?? null,
+                    $input['contractAmount'] ?? 0,
+                    $input['contractType'] ?? '月額'
+                ];
+                if (tableHasAutoIncrement('corporations')) {
+                    $id = $db->insert(
+                        "INSERT INTO corporations (name, address, contact, contact_person, billing_cycle, billing_day, billing_month, memo, contract_start, contract_end, contract_amount, contract_type)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        $corpValues
+                    );
+                } else {
+                    $id = nextManualId('corporations');
+                    $db->insert(
+                        "INSERT INTO corporations (id, name, address, contact, contact_person, billing_cycle, billing_day, billing_month, memo, contract_start, contract_end, contract_amount, contract_type)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        array_merge([$id], $corpValues)
+                    );
+                }
 
                 // 現場も一緒に登録
                 if (!empty($input['sites'])) {
@@ -1121,10 +1241,19 @@ switch ($request) {
 
             $db->beginTransaction();
             try {
-                $siteId = $db->insert(
-                    "INSERT INTO sites (corporation_id, name, address, keybox, keybox_location, memo) VALUES (?, ?, ?, ?, ?, ?)",
-                    [$corpId, $name, $input['address'] ?? '', $input['keybox'] ?? '', $input['keyboxLocation'] ?? '', $input['memo'] ?? '']
-                );
+                $siteValues = [$corpId, $name, $input['address'] ?? '', $input['keybox'] ?? '', $input['keyboxLocation'] ?? '', $input['memo'] ?? ''];
+                if (tableHasAutoIncrement('sites')) {
+                    $siteId = $db->insert(
+                        "INSERT INTO sites (corporation_id, name, address, keybox, keybox_location, memo) VALUES (?, ?, ?, ?, ?, ?)",
+                        $siteValues
+                    );
+                } else {
+                    $siteId = nextManualId('sites');
+                    $db->insert(
+                        "INSERT INTO sites (id, corporation_id, name, address, keybox, keybox_location, memo) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        array_merge([$siteId], $siteValues)
+                    );
+                }
 
                 if (!empty($input['pests'])) {
                     foreach ($input['pests'] as $pest) {

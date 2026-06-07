@@ -240,7 +240,23 @@ const api = {
   deleteInventoryProduct: (id) => api.call('inventory-product-delete', 'DELETE', null, { id }),
   reorderInventoryProducts: (productIds) => api.call('inventory-product-reorder', 'POST', { productIds }),
   getMaterialCreationItems: (params) => api.call('material-creation-items', 'GET', null, params),
-  updateMaterialCreationItem: (id, data) => api.call('material-creation-item', 'PUT', { id, ...data }, { id }),
+  createMaterialCreationItem: (data) => api.call('material-creation-item', 'POST', data, {
+    branch_name: data.branchName,
+    target_year: data.targetYear,
+    target_month: data.targetMonth || 1,
+    customer_name: data.customerName,
+    schedule_type: data.scheduleType,
+    visit_months: (data.visitMonths || []).join(','),
+    status: data.status
+  }),
+  updateMaterialCreationItem: (id, data) => api.call('material-creation-item', 'PUT', { id, ...data }, {
+    id,
+    customer_name: data.customerName,
+    schedule_type: data.scheduleType,
+    visit_months: (data.visitMonths || []).join(','),
+    status: data.status
+  }),
+  deleteMaterialCreationItem: (id) => api.call('material-creation-item', 'DELETE', null, { id }),
 
   // 月締め日報API
   submitMonthlyClosing: (data) => api.call('monthly-closing-submit', 'POST', data),
@@ -5365,6 +5381,9 @@ function App() {
       { label: '京滋', value: '京滋支店' },
       { label: '神戸', value: '神戸支店' }
     ];
+    const materialScheduleOptions = ['毎月', '隔月', '不定期'];
+    const materialStatusOptions = ['未着手', '途中', '完了'];
+    const materialMonthOptions = months.map(m => parseInt(m, 10));
     const normalizeMaterialBranch = (value) => {
       const raw = (value || '').trim();
       const found = materialBranchOptions.find(branch => branch.value === raw || branch.label === raw);
@@ -5374,25 +5393,97 @@ function App() {
       const year = parseInt(value, 10);
       return year >= 2025 && year <= 2027 ? String(year) : '2026';
     };
-    const normalizeMaterialMonth = (value) => {
-      const month = parseInt(value, 10);
-      return month >= 1 && month <= 12 ? String(month) : '4';
+    const normalizeMaterialScheduleType = (value) => materialScheduleOptions.includes(value) ? value : '不定期';
+    const normalizeMaterialStatus = (value) => materialStatusOptions.includes(value) ? value : '未着手';
+    const normalizeMaterialMonths = (value) => {
+      const source = Array.isArray(value) ? value : String(value || '').split(/[,\s、・]+/);
+      return [...new Set(source.map(m => parseInt(m, 10)).filter(m => m >= 1 && m <= 12))].sort((a, b) => a - b);
+    };
+    const parseMaterialMonthsFromText = (value, note, fallbackMonth) => {
+      const direct = normalizeMaterialMonths(value);
+      if (direct.length) return direct;
+
+      const text = toHankaku(note || '').replace(/[〜～]/g, '-');
+      if (text.includes('毎月')) return materialMonthOptions;
+
+      const found = new Set();
+      let match;
+      const rangePattern = /(\d{1,2})月?\s*-\s*(\d{1,2})月/g;
+      while ((match = rangePattern.exec(text)) !== null) {
+        const start = parseInt(match[1], 10);
+        const end = parseInt(match[2], 10);
+        if (start >= 1 && start <= 12 && end >= 1 && end <= 12) {
+          if (start <= end) {
+            for (let m = start; m <= end; m++) found.add(m);
+          } else {
+            for (let m = start; m <= 12; m++) found.add(m);
+            for (let m = 1; m <= end; m++) found.add(m);
+          }
+        }
+      }
+
+      const sequencePattern = /([0-9・、,\s]+)月/g;
+      while ((match = sequencePattern.exec(text)) !== null) {
+        match[1].split(/[^\d]+/).forEach(part => {
+          const month = parseInt(part, 10);
+          if (month >= 1 && month <= 12) found.add(month);
+        });
+      }
+
+      const fallback = parseInt(fallbackMonth, 10);
+      if (found.size === 0 && fallback >= 1 && fallback <= 12) found.add(fallback);
+      return [...found].sort((a, b) => a - b);
+    };
+    const inferMaterialScheduleType = (value, note, visitMonths) => {
+      const normalized = normalizeMaterialScheduleType(value);
+      const text = note || '';
+      if (text.includes('毎月') || visitMonths.length === 12) return '毎月';
+      if (text.includes('隔月')) return '隔月';
+      return normalized;
+    };
+    const defaultMonthsForSchedule = (scheduleType, currentMonths = []) => {
+      if (scheduleType === '毎月') return materialMonthOptions;
+      if (scheduleType === '隔月') {
+        const current = normalizeMaterialMonths(currentMonths);
+        return current.length === 0 || current.length === 12 ? [1, 3, 5, 7, 9, 11] : current;
+      }
+      return normalizeMaterialMonths(currentMonths);
+    };
+    const buildMaterialDraft = (item) => {
+      const visitMonths = parseMaterialMonthsFromText(item.visitMonths, item.workMonthNote, item.targetMonth);
+      const scheduleType = inferMaterialScheduleType(item.scheduleType, item.workMonthNote, visitMonths);
+      return {
+        ...item,
+        draftCustomerName: item.customerName || '',
+        draftScheduleType: scheduleType,
+        draftVisitMonths: defaultMonthsForSchedule(scheduleType, visitMonths),
+        draftStatus: normalizeMaterialStatus(item.status || (item.isCreated ? '完了' : '未着手')),
+        draftNote: item.note || ''
+      };
     };
     const getMaterialFiltersFromUrl = () => {
       const query = new URLSearchParams(location.search);
       return {
         branchName: normalizeMaterialBranch(query.get('branch')),
-        targetYear: normalizeMaterialYear(query.get('year')),
-        targetMonth: normalizeMaterialMonth(query.get('month'))
+        targetYear: normalizeMaterialYear(query.get('year'))
       };
     };
     const initialFilters = getMaterialFiltersFromUrl();
     const [branchName, setBranchName] = useState(initialFilters.branchName);
     const [targetYear, setTargetYear] = useState(initialFilters.targetYear);
-    const [targetMonth, setTargetMonth] = useState(initialFilters.targetMonth);
     const [items, setItems] = useState([]);
+    const [newMaterialItem, setNewMaterialItem] = useState({
+      customerName: '',
+      scheduleType: '毎月',
+      visitMonths: materialMonthOptions,
+      status: '未着手',
+      note: ''
+    });
     const [loading, setLoading] = useState(true);
+    const [creating, setCreating] = useState(false);
     const [savingId, setSavingId] = useState(null);
+    const [deletingId, setDeletingId] = useState(null);
+    const [showMaterialAddForm, setShowMaterialAddForm] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
     const canEdit = isAdminRole(userRole);
 
@@ -5400,28 +5491,20 @@ function App() {
       const nextFilters = getMaterialFiltersFromUrl();
       setBranchName(nextFilters.branchName);
       setTargetYear(nextFilters.targetYear);
-      setTargetMonth(nextFilters.targetMonth);
       loadMaterialItems(nextFilters);
     }, [location.search]);
 
     const loadMaterialItems = async (filters = null) => {
       const activeBranchName = filters?.branchName || branchName;
       const activeTargetYear = filters?.targetYear || targetYear;
-      const activeTargetMonth = filters?.targetMonth || targetMonth;
       setLoading(true);
       setErrorMessage('');
       try {
         const data = await api.getMaterialCreationItems({
           branch_name: activeBranchName,
-          target_year: activeTargetYear,
-          target_month: activeTargetMonth
+          target_year: activeTargetYear
         });
-        setItems((data || []).map(item => ({
-          ...item,
-          draftCreated: !!item.isCreated,
-          draftWorkMonthNote: item.workMonthNote || '',
-          draftNote: item.note || ''
-        })));
+        setItems((data || []).map(buildMaterialDraft));
       } catch (e) {
         setErrorMessage(e.message || '読み込みに失敗しました');
       } finally {
@@ -5433,22 +5516,100 @@ function App() {
       setItems(prev => prev.map(item => item.id === id ? { ...item, ...patch } : item));
     };
 
+    const toggleMaterialMonth = (id, month) => {
+      setItems(prev => prev.map(item => {
+        if (item.id !== id) return item;
+        const current = new Set(item.draftVisitMonths || []);
+        current.has(month) ? current.delete(month) : current.add(month);
+        return { ...item, draftVisitMonths: [...current].sort((a, b) => a - b) };
+      }));
+    };
+
+    const toggleNewMaterialMonth = (month) => {
+      setNewMaterialItem(prev => {
+        const current = new Set(prev.visitMonths || []);
+        current.has(month) ? current.delete(month) : current.add(month);
+        return { ...prev, visitMonths: [...current].sort((a, b) => a - b) };
+      });
+    };
+
+    const setNewScheduleType = (scheduleType) => {
+      setNewMaterialItem(prev => ({
+        ...prev,
+        scheduleType,
+        visitMonths: defaultMonthsForSchedule(scheduleType, prev.visitMonths)
+      }));
+    };
+
+    const setDraftScheduleType = (item, scheduleType) => {
+      updateDraft(item.id, {
+        draftScheduleType: scheduleType,
+        draftVisitMonths: defaultMonthsForSchedule(scheduleType, item.draftVisitMonths)
+      });
+    };
+
+    const createMaterialItem = async () => {
+      if (!canEdit) return;
+      const customerName = newMaterialItem.customerName.trim();
+      if (!customerName) {
+        setErrorMessage('作成先名を入力してください');
+        return;
+      }
+
+      setCreating(true);
+      setErrorMessage('');
+      try {
+        const created = await api.createMaterialCreationItem({
+          branchName,
+          targetYear,
+          targetMonth: 1,
+          customerName,
+          scheduleType: newMaterialItem.scheduleType,
+          visitMonths: newMaterialItem.visitMonths,
+          status: newMaterialItem.status,
+          note: newMaterialItem.note || ''
+        });
+        setItems(prev => [...prev, buildMaterialDraft(created)]);
+        setNewMaterialItem({
+          customerName: '',
+          scheduleType: '毎月',
+          visitMonths: materialMonthOptions,
+          status: '未着手',
+          note: ''
+        });
+      } catch (e) {
+        setErrorMessage(e.message || '追加に失敗しました');
+      } finally {
+        setCreating(false);
+      }
+    };
+
     const saveMaterialItem = async (item, patch = {}) => {
       if (!canEdit) return;
       const next = { ...item, ...patch };
+      const customerName = (next.draftCustomerName || '').trim();
+      if (!customerName) {
+        setErrorMessage('作成先名を入力してください');
+        return;
+      }
       setSavingId(item.id);
       setErrorMessage('');
       try {
         await api.updateMaterialCreationItem(item.id, {
-          isCreated: !!next.draftCreated,
-          workMonthNote: next.draftWorkMonthNote || '',
+          customerName,
+          scheduleType: next.draftScheduleType,
+          visitMonths: normalizeMaterialMonths(next.draftVisitMonths),
+          status: next.draftStatus,
           note: next.draftNote || ''
         });
         setItems(prev => prev.map(row => row.id === item.id ? {
           ...row,
           ...patch,
-          isCreated: !!next.draftCreated,
-          workMonthNote: next.draftWorkMonthNote || '',
+          customerName,
+          scheduleType: next.draftScheduleType,
+          visitMonths: normalizeMaterialMonths(next.draftVisitMonths),
+          status: next.draftStatus,
+          isCreated: next.draftStatus === '完了',
           note: next.draftNote || ''
         } : row));
       } catch (e) {
@@ -5458,12 +5619,25 @@ function App() {
       }
     };
 
+    const deleteMaterialItem = async (item) => {
+      if (!canEdit || !confirm(`${item.draftCustomerName || item.customerName} を削除しますか？`)) return;
+      setDeletingId(item.id);
+      setErrorMessage('');
+      try {
+        await api.deleteMaterialCreationItem(item.id);
+        setItems(prev => prev.filter(row => row.id !== item.id));
+      } catch (e) {
+        setErrorMessage(e.message || '削除に失敗しました');
+      } finally {
+        setDeletingId(null);
+      }
+    };
+
     const applyMaterialFilters = () => {
       const selectedBranch = materialBranchOptions.find(branch => branch.value === branchName) || materialBranchOptions[1];
       const params = new URLSearchParams({
         branch: selectedBranch.label,
-        year: targetYear,
-        month: targetMonth
+        year: targetYear
       });
       const nextSearch = `?${params.toString()}`;
       if (location.search === nextSearch) {
@@ -5474,15 +5648,31 @@ function App() {
     };
 
     const currentBranchLabel = (materialBranchOptions.find(branch => branch.value === branchName) || {}).label || branchName;
-    const createdCount = items.filter(item => item.draftCreated).length;
-    const completionRate = items.length ? Math.round((createdCount / items.length) * 100) : 0;
+    const completedCount = items.filter(item => item.draftStatus === '完了').length;
+    const inProgressCount = items.filter(item => item.draftStatus === '途中').length;
+    const getStatusColor = (status) => {
+      if (status === '完了') return { bg: '#F0FDF9', color: '#00B894' };
+      if (status === '途中') return { bg: '#FEF9C3', color: '#A16207' };
+      return { bg: '#F8F9FA', color: '#636E72' };
+    };
+    const getChoiceButtonStyle = (active, activeColor = '#00B894') => ({
+      border: active ? `2px solid ${activeColor}` : '1px solid #D1D5DB',
+      background: active ? activeColor : 'white',
+      color: active ? 'white' : '#2D3436',
+      borderRadius: '8px',
+      minHeight: '42px',
+      padding: '8px 10px',
+      fontSize: '14px',
+      fontWeight: 700,
+      textAlign: 'center'
+    });
 
     return (
       <div className="space-y-4">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
           <div>
             <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: '#2D3436' }}>資材作成表</h2>
-            <p style={{ fontSize: '12px', color: '#636E72', margin: '4px 0 0' }}>{currentBranchLabel} ・ {targetYear}年{targetMonth}月分</p>
+            <p style={{ fontSize: '12px', color: '#636E72', margin: '4px 0 0' }}>{currentBranchLabel} ・ {targetYear}年</p>
           </div>
           <button onClick={() => loadMaterialItems()} disabled={loading}
             style={{ border: 'none', background: '#00B894', color: 'white', borderRadius: '20px', padding: '9px 16px', fontSize: '13px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px', cursor: loading ? 'default' : 'pointer', opacity: loading ? 0.7 : 1 }}>
@@ -5501,12 +5691,8 @@ function App() {
               className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white">
               {[2025, 2026, 2027].map(y => <option key={y} value={y}>{y}年</option>)}
             </select>
-            <select value={targetMonth} onChange={(e) => setTargetMonth(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white">
-              {months.map(m => <option key={m} value={m}>{m}月</option>)}
-            </select>
             <button onClick={applyMaterialFilters}
-              className="rounded-lg px-3 py-2 text-sm font-bold"
+              className="rounded-lg px-3 py-2 text-sm font-bold md:col-span-2"
               style={{ background: '#2D3436', color: 'white' }}>
               表示
             </button>
@@ -5519,14 +5705,70 @@ function App() {
             <p style={{ fontSize: '22px', fontWeight: 800, color: '#2D3436', margin: '2px 0 0' }}>{items.length}</p>
           </div>
           <div className="bg-white" style={{ borderRadius: '8px', border: '1px solid #E9ECEF', padding: '12px' }}>
-            <p style={{ fontSize: '11px', color: '#B2BEC3', margin: 0 }}>作成済</p>
-            <p style={{ fontSize: '22px', fontWeight: 800, color: '#00B894', margin: '2px 0 0' }}>{createdCount}</p>
+            <p style={{ fontSize: '11px', color: '#B2BEC3', margin: 0 }}>完了</p>
+            <p style={{ fontSize: '22px', fontWeight: 800, color: '#00B894', margin: '2px 0 0' }}>{completedCount}</p>
           </div>
           <div className="bg-white" style={{ borderRadius: '8px', border: '1px solid #E9ECEF', padding: '12px' }}>
-            <p style={{ fontSize: '11px', color: '#B2BEC3', margin: 0 }}>進捗</p>
-            <p style={{ fontSize: '22px', fontWeight: 800, color: '#0984E3', margin: '2px 0 0' }}>{completionRate}%</p>
+            <p style={{ fontSize: '11px', color: '#B2BEC3', margin: 0 }}>途中</p>
+            <p style={{ fontSize: '22px', fontWeight: 800, color: '#A16207', margin: '2px 0 0' }}>{inProgressCount}</p>
           </div>
         </div>
+
+        {canEdit && (
+          <div className="space-y-2">
+            <button onClick={() => setShowMaterialAddForm(!showMaterialAddForm)}
+              style={{ width: '100%', border: 'none', background: '#00B894', color: 'white', borderRadius: '8px', padding: '13px 16px', fontSize: '15px', fontWeight: 800 }}>
+              {showMaterialAddForm ? '追加欄を閉じる' : '+ 作成先を追加'}
+            </button>
+            {showMaterialAddForm && (
+              <div className="bg-white space-y-3" style={{ borderRadius: '8px', border: '1px solid #E9ECEF', padding: '12px' }}>
+                <input value={newMaterialItem.customerName} onChange={(e) => setNewMaterialItem(prev => ({ ...prev, customerName: e.target.value }))}
+                  placeholder="作成先名" className="w-full border border-gray-300 rounded-lg px-3 py-3 text-base" />
+                <div>
+                  <p style={{ fontSize: '12px', fontWeight: 700, color: '#636E72', margin: '0 0 6px' }}>基本</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {materialScheduleOptions.map(type => (
+                      <button key={type} onClick={() => setNewScheduleType(type)} style={getChoiceButtonStyle(newMaterialItem.scheduleType === type)}>
+                        {type}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p style={{ fontSize: '12px', fontWeight: 700, color: '#636E72', margin: '0 0 6px' }}>訪問月</p>
+                  <div className="grid grid-cols-4 gap-2">
+                    {materialMonthOptions.map(month => (
+                      <button key={month} onClick={() => toggleNewMaterialMonth(month)}
+                        style={getChoiceButtonStyle((newMaterialItem.visitMonths || []).includes(month))}>
+                        {month}月
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p style={{ fontSize: '12px', fontWeight: 700, color: '#636E72', margin: '0 0 6px' }}>状態</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {materialStatusOptions.map(status => {
+                      const colors = getStatusColor(status);
+                      return (
+                        <button key={status} onClick={() => setNewMaterialItem(prev => ({ ...prev, status }))}
+                          style={getChoiceButtonStyle(newMaterialItem.status === status, colors.color)}>
+                          {status}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <textarea value={newMaterialItem.note} onChange={(e) => setNewMaterialItem(prev => ({ ...prev, note: e.target.value }))}
+                  placeholder="備考" className="w-full border border-gray-300 rounded-lg px-3 py-3 text-base" style={{ minHeight: '74px' }} />
+                <button onClick={createMaterialItem} disabled={creating}
+                  style={{ width: '100%', border: 'none', background: '#2D3436', color: 'white', borderRadius: '8px', padding: '13px 16px', fontSize: '15px', fontWeight: 800, opacity: creating ? 0.7 : 1 }}>
+                  {creating ? '追加中' : '追加'}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         {errorMessage && (
           <div style={{ background: '#FEE2E2', color: '#B91C1C', borderRadius: '8px', padding: '10px 12px', fontSize: '13px', fontWeight: 600 }}>
@@ -5544,56 +5786,84 @@ function App() {
             データがありません
           </div>
         ) : (
-          <div className="bg-white overflow-hidden" style={{ borderRadius: '8px', border: '1px solid #E9ECEF' }}>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr style={{ background: '#F8F9FA', borderBottom: '1px solid #E9ECEF' }}>
-                    <th style={{ width: '72px', padding: '10px 8px', textAlign: 'center', color: '#636E72', fontWeight: 700 }}>作成済</th>
-                    <th style={{ minWidth: '220px', padding: '10px 8px', textAlign: 'left', color: '#636E72', fontWeight: 700 }}>名称</th>
-                    <th style={{ minWidth: '220px', padding: '10px 8px', textAlign: 'left', color: '#636E72', fontWeight: 700 }}>作業実施月・備考</th>
-                    <th style={{ minWidth: '180px', padding: '10px 8px', textAlign: 'left', color: '#636E72', fontWeight: 700 }}>メモ</th>
-                    <th style={{ width: '88px', padding: '10px 8px', textAlign: 'center', color: '#636E72', fontWeight: 700 }}>保存</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map(item => (
-                    <tr key={item.id} style={{ borderBottom: '1px solid #F1F2F6', background: item.draftCreated ? '#F0FDF9' : 'white' }}>
-                      <td style={{ padding: '8px', textAlign: 'center', verticalAlign: 'middle' }}>
-                        <input type="checkbox" checked={!!item.draftCreated} disabled={!canEdit || savingId === item.id}
-                          onChange={(e) => {
-                            const patch = { draftCreated: e.target.checked };
-                            updateDraft(item.id, patch);
-                            saveMaterialItem(item, patch);
-                          }}
-                          style={{ width: '20px', height: '20px', accentColor: '#00B894' }} />
-                      </td>
-                      <td style={{ padding: '8px', verticalAlign: 'middle', color: '#2D3436', fontWeight: 600 }}>
-                        {item.customerName}
-                      </td>
-                      <td style={{ padding: '8px', verticalAlign: 'middle' }}>
-                        <input value={item.draftWorkMonthNote} disabled={!canEdit || savingId === item.id}
-                          onChange={(e) => updateDraft(item.id, { draftWorkMonthNote: e.target.value })}
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                          style={{ minWidth: '220px' }} />
-                      </td>
-                      <td style={{ padding: '8px', verticalAlign: 'middle' }}>
-                        <input value={item.draftNote} disabled={!canEdit || savingId === item.id}
-                          onChange={(e) => updateDraft(item.id, { draftNote: e.target.value })}
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                          style={{ minWidth: '180px' }} />
-                      </td>
-                      <td style={{ padding: '8px', textAlign: 'center', verticalAlign: 'middle' }}>
-                        <button onClick={() => saveMaterialItem(item)} disabled={!canEdit || savingId === item.id}
-                          style={{ border: 'none', background: canEdit ? '#00B894' : '#E9ECEF', color: canEdit ? 'white' : '#B2BEC3', borderRadius: '8px', padding: '8px 10px', fontSize: '12px', fontWeight: 700, minWidth: '64px' }}>
-                          {savingId === item.id ? <Icons.Loader /> : '保存'}
+          <div className="space-y-3">
+            {items.map(item => {
+              const currentStatus = getStatusColor(item.draftStatus);
+              return (
+                <div key={item.id} className="bg-white space-y-3" style={{ borderRadius: '8px', border: '1px solid #E9ECEF', borderLeft: `5px solid ${currentStatus.color}`, padding: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <input value={item.draftCustomerName} disabled={!canEdit || savingId === item.id}
+                      onChange={(e) => updateDraft(item.id, { draftCustomerName: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-3 text-base"
+                      style={{ fontWeight: 800, color: '#2D3436' }} />
+                    <span style={{ flex: '0 0 auto', background: currentStatus.bg, color: currentStatus.color, borderRadius: '999px', padding: '6px 10px', fontSize: '12px', fontWeight: 800 }}>
+                      {item.draftStatus}
+                    </span>
+                  </div>
+
+                  <div>
+                    <p style={{ fontSize: '12px', fontWeight: 700, color: '#636E72', margin: '0 0 6px' }}>状態</p>
+                    <div className="grid grid-cols-3 gap-2">
+                      {materialStatusOptions.map(status => {
+                        const colors = getStatusColor(status);
+                        return (
+                          <button key={status} disabled={!canEdit || savingId === item.id}
+                            onClick={() => updateDraft(item.id, { draftStatus: status })}
+                            style={getChoiceButtonStyle(item.draftStatus === status, colors.color)}>
+                            {status}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div>
+                    <p style={{ fontSize: '12px', fontWeight: 700, color: '#636E72', margin: '0 0 6px' }}>基本</p>
+                    <div className="grid grid-cols-3 gap-2">
+                      {materialScheduleOptions.map(type => (
+                        <button key={type} disabled={!canEdit || savingId === item.id}
+                          onClick={() => setDraftScheduleType(item, type)}
+                          style={getChoiceButtonStyle(item.draftScheduleType === type)}>
+                          {type}
                         </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <p style={{ fontSize: '12px', fontWeight: 700, color: '#636E72', margin: '0 0 6px' }}>訪問月</p>
+                    <div className="grid grid-cols-4 gap-2">
+                      {materialMonthOptions.map(month => (
+                        <button key={month} disabled={!canEdit || savingId === item.id}
+                          onClick={() => toggleMaterialMonth(item.id, month)}
+                          style={getChoiceButtonStyle((item.draftVisitMonths || []).includes(month))}>
+                          {month}月
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <textarea value={item.draftNote} disabled={!canEdit || savingId === item.id}
+                    onChange={(e) => updateDraft(item.id, { draftNote: e.target.value })}
+                    placeholder="途中内容・備考"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-3 text-base"
+                    style={{ minHeight: '76px' }} />
+
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button onClick={() => saveMaterialItem(item)} disabled={!canEdit || savingId === item.id}
+                      style={{ flex: 1, border: 'none', background: canEdit ? '#00B894' : '#E9ECEF', color: canEdit ? 'white' : '#B2BEC3', borderRadius: '8px', padding: '13px 16px', fontSize: '15px', fontWeight: 800 }}>
+                      {savingId === item.id ? <Icons.Loader /> : '保存'}
+                    </button>
+                    {canEdit && (
+                      <button onClick={() => deleteMaterialItem(item)} disabled={deletingId === item.id}
+                        style={{ flex: '0 0 92px', border: '1px solid #FCA5A5', background: 'white', color: '#EF4444', borderRadius: '8px', padding: '13px 12px', fontSize: '15px', fontWeight: 800 }}>
+                        {deletingId === item.id ? <Icons.Loader /> : '削除'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

@@ -102,7 +102,7 @@ try {
         INDEX idx_created_at (created_at)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
-    // 資材作成表（Excel運用の月別作成チェック）を画面非表示のまま保存できる土台
+    // 資材作成表（Excel運用の月別作成チェック）を直URL画面で管理できる土台
     $db->query("CREATE TABLE IF NOT EXISTS material_creation_items (
         id INT AUTO_INCREMENT PRIMARY KEY,
         branch_name VARCHAR(100) NOT NULL,
@@ -111,6 +111,9 @@ try {
         source_sheet VARCHAR(100) NOT NULL DEFAULT '',
         display_order INT NOT NULL DEFAULT 0,
         customer_name VARCHAR(255) NOT NULL,
+        schedule_type VARCHAR(20) NOT NULL DEFAULT '不定期',
+        visit_months VARCHAR(50) NOT NULL DEFAULT '',
+        status VARCHAR(20) NOT NULL DEFAULT '未着手',
         is_created TINYINT(1) NOT NULL DEFAULT 0,
         work_month_note VARCHAR(255) DEFAULT '',
         note TEXT NULL,
@@ -119,8 +122,23 @@ try {
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         UNIQUE KEY uk_material_creation_source (source_key),
         INDEX idx_material_creation_period (branch_name, target_year, target_month),
+        INDEX idx_material_creation_status (status),
         INDEX idx_material_creation_created (is_created)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    $materialCreationMigrations = [
+        "ALTER TABLE material_creation_items ADD COLUMN schedule_type VARCHAR(20) NOT NULL DEFAULT '不定期' AFTER customer_name",
+        "ALTER TABLE material_creation_items ADD COLUMN visit_months VARCHAR(50) NOT NULL DEFAULT '' AFTER schedule_type",
+        "ALTER TABLE material_creation_items ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT '未着手' AFTER visit_months",
+        "CREATE INDEX idx_material_creation_status ON material_creation_items(status)",
+    ];
+    foreach ($materialCreationMigrations as $sql) {
+        try { $db->query($sql); } catch (Exception $e) {}
+    }
+    try {
+        $db->query("UPDATE material_creation_items SET status = '完了' WHERE is_created = 1 AND (status IS NULL OR status = '' OR status = '未着手')");
+        $db->query("UPDATE material_creation_items SET schedule_type = '毎月', visit_months = '1,2,3,4,5,6,7,8,9,10,11,12' WHERE work_month_note LIKE '%毎月%' AND (visit_months IS NULL OR visit_months = '')");
+    } catch (Exception $e) {}
 
     // 修正申請テーブル自動作成
     $db->query("CREATE TABLE IF NOT EXISTS timecard_requests (
@@ -536,6 +554,61 @@ function checkAdmin() {
     if ($_SESSION['role'] !== 'admin' && $_SESSION['role'] !== 'master') {
         error('Forbidden', 403);
     }
+}
+
+function normalizeMaterialScheduleType($value) {
+    $allowed = ['毎月', '隔月', '不定期'];
+    $value = trim((string)$value);
+    return in_array($value, $allowed, true) ? $value : '不定期';
+}
+
+function normalizeMaterialStatus($value) {
+    $allowed = ['未着手', '途中', '完了'];
+    $value = trim((string)$value);
+    return in_array($value, $allowed, true) ? $value : '未着手';
+}
+
+function normalizeMaterialVisitMonths($value) {
+    if (is_array($value)) {
+        $parts = $value;
+    } else {
+        $raw = str_replace(['　', ' ', '、', '・', '，', '|'], ',', (string)$value);
+        $parts = explode(',', $raw);
+    }
+
+    $months = [];
+    foreach ($parts as $part) {
+        $month = (int)$part;
+        if ($month >= 1 && $month <= 12) {
+            $months[$month] = true;
+        }
+    }
+    $result = array_keys($months);
+    sort($result, SORT_NUMERIC);
+    return implode(',', $result);
+}
+
+function formatMaterialCreationItem($item) {
+    $visitMonths = [];
+    foreach (explode(',', (string)($item['visit_months'] ?? '')) as $month) {
+        $month = (int)$month;
+        if ($month >= 1 && $month <= 12) {
+            $visitMonths[] = $month;
+        }
+    }
+
+    $item['targetYear'] = $item['target_year'] !== null ? (int)$item['target_year'] : null;
+    $item['targetMonth'] = (int)$item['target_month'];
+    $item['sourceSheet'] = $item['source_sheet'];
+    $item['displayOrder'] = (int)$item['display_order'];
+    $item['customerName'] = $item['customer_name'];
+    $item['scheduleType'] = normalizeMaterialScheduleType($item['schedule_type'] ?? '');
+    $item['visitMonths'] = $visitMonths;
+    $item['status'] = normalizeMaterialStatus($item['status'] ?? '');
+    $item['isCreated'] = (bool)$item['is_created'];
+    $item['workMonthNote'] = $item['work_month_note'];
+    $item['sourceKey'] = $item['source_key'];
+    return $item;
 }
 
 // マスター専用チェック（操作履歴など機密情報用）
@@ -3868,7 +3941,7 @@ switch ($request) {
         }
         break;
 
-    // ========== 資材作成表（画面には未露出） ==========
+    // ========== 資材作成表（直URL画面） ==========
     case 'material-creation-items':
         checkAuth();
 
@@ -3895,14 +3968,7 @@ switch ($request) {
 
             $items = $db->fetchAll($sql, $params);
             foreach ($items as &$item) {
-                $item['targetYear'] = $item['target_year'] !== null ? (int)$item['target_year'] : null;
-                $item['targetMonth'] = (int)$item['target_month'];
-                $item['sourceSheet'] = $item['source_sheet'];
-                $item['displayOrder'] = (int)$item['display_order'];
-                $item['customerName'] = $item['customer_name'];
-                $item['isCreated'] = (bool)$item['is_created'];
-                $item['workMonthNote'] = $item['work_month_note'];
-                $item['sourceKey'] = $item['source_key'];
+                $item = formatMaterialCreationItem($item);
             }
             respond($items);
         }
@@ -3929,7 +3995,13 @@ switch ($request) {
                     $sourceSheet = trim($item['sourceSheet'] ?? $item['source_sheet'] ?? '');
                     $displayOrder = (int)($item['displayOrder'] ?? $item['display_order'] ?? 0);
                     $customerName = trim($item['customerName'] ?? $item['customer_name'] ?? '');
-                    $isCreated = !empty($item['isCreated'] ?? $item['is_created'] ?? false) ? 1 : 0;
+                    $scheduleType = normalizeMaterialScheduleType($item['scheduleType'] ?? $item['schedule_type'] ?? '');
+                    $visitMonths = normalizeMaterialVisitMonths($item['visitMonths'] ?? $item['visit_months'] ?? '');
+                    $status = normalizeMaterialStatus($item['status'] ?? '');
+                    $isCreated = ($status === '完了' || !empty($item['isCreated'] ?? $item['is_created'] ?? false)) ? 1 : 0;
+                    if ($isCreated) {
+                        $status = '完了';
+                    }
                     $workMonthNote = trim($item['workMonthNote'] ?? $item['work_month_note'] ?? '');
                     $note = trim($item['note'] ?? '');
 
@@ -3949,8 +4021,8 @@ switch ($request) {
 
                     $db->query(
                         "INSERT INTO material_creation_items
-                         (branch_name, target_year, target_month, source_sheet, display_order, customer_name, is_created, work_month_note, note, source_key)
-                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                         (branch_name, target_year, target_month, source_sheet, display_order, customer_name, schedule_type, visit_months, status, is_created, work_month_note, note, source_key)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                          ON DUPLICATE KEY UPDATE
                             branch_name = VALUES(branch_name),
                             target_year = VALUES(target_year),
@@ -3958,11 +4030,14 @@ switch ($request) {
                             source_sheet = VALUES(source_sheet),
                             display_order = VALUES(display_order),
                             customer_name = VALUES(customer_name),
+                            schedule_type = VALUES(schedule_type),
+                            visit_months = VALUES(visit_months),
+                            status = VALUES(status),
                             is_created = VALUES(is_created),
                             work_month_note = VALUES(work_month_note),
                             note = VALUES(note),
                             updated_at = CURRENT_TIMESTAMP",
-                        [$branchName, $targetYear, $targetMonth, $sourceSheet, $displayOrder, $customerName, $isCreated, $workMonthNote, $note, $sourceKey]
+                        [$branchName, $targetYear, $targetMonth, $sourceSheet, $displayOrder, $customerName, $scheduleType, $visitMonths, $status, $isCreated, $workMonthNote, $note, $sourceKey]
                     );
                     $imported++;
                 }
@@ -3979,6 +4054,43 @@ switch ($request) {
     case 'material-creation-item':
         checkAdmin();
 
+        if ($method === 'POST') {
+            $branchName = trim($input['branchName'] ?? $input['branch_name'] ?? $_GET['branch_name'] ?? $_GET['branchName'] ?? '');
+            $targetYearRaw = $input['targetYear'] ?? $input['target_year'] ?? $_GET['target_year'] ?? $_GET['targetYear'] ?? null;
+            $targetYear = ($targetYearRaw === null || $targetYearRaw === '') ? null : (int)$targetYearRaw;
+            $targetMonth = (int)($input['targetMonth'] ?? $input['target_month'] ?? $_GET['target_month'] ?? $_GET['targetMonth'] ?? 1);
+            $customerName = trim($input['customerName'] ?? $input['customer_name'] ?? $_GET['customer_name'] ?? $_GET['customerName'] ?? '');
+            $scheduleType = normalizeMaterialScheduleType($input['scheduleType'] ?? $input['schedule_type'] ?? $_GET['schedule_type'] ?? $_GET['scheduleType'] ?? '');
+            $visitMonths = normalizeMaterialVisitMonths($input['visitMonths'] ?? $input['visit_months'] ?? $_GET['visit_months'] ?? $_GET['visitMonths'] ?? '');
+            $status = normalizeMaterialStatus($input['status'] ?? $_GET['status'] ?? '');
+            $note = trim($input['note'] ?? $_GET['note'] ?? '');
+
+            if ($branchName === '' || $customerName === '') {
+                error('支店名と作成先名を指定してください');
+            }
+            if ($targetMonth < 1 || $targetMonth > 12) {
+                $targetMonth = 1;
+            }
+
+            $displayOrderRow = $db->fetch(
+                "SELECT COALESCE(MAX(display_order), 0) AS max_order FROM material_creation_items WHERE branch_name = ? AND (target_year <=> ?)",
+                [$branchName, $targetYear]
+            );
+            $displayOrder = (int)($displayOrderRow['max_order'] ?? 0) + 10;
+            $isCreated = $status === '完了' ? 1 : 0;
+            $sourceKey = sha1(implode('|', ['manual', $branchName, $targetYear ?? '', $customerName, microtime(true), random_int(1000, 9999)]));
+
+            $id = $db->insert(
+                "INSERT INTO material_creation_items
+                 (branch_name, target_year, target_month, source_sheet, display_order, customer_name, schedule_type, visit_months, status, is_created, work_month_note, note, source_key)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [$branchName, $targetYear, $targetMonth, '手動追加', $displayOrder, $customerName, $scheduleType, $visitMonths, $status, $isCreated, '', $note, $sourceKey]
+            );
+
+            $item = $db->fetch("SELECT * FROM material_creation_items WHERE id = ?", [$id]);
+            respond(formatMaterialCreationItem($item), 201);
+        }
+
         if ($method === 'PUT') {
             $id = (int)($input['id'] ?? $_GET['id'] ?? 0);
             if ($id <= 0) {
@@ -3990,14 +4102,29 @@ switch ($request) {
                 error('資材作成表の行が見つかりません', 404);
             }
 
-            $isCreated = !empty($input['isCreated'] ?? $input['is_created'] ?? false) ? 1 : 0;
-            $workMonthNote = trim($input['workMonthNote'] ?? $input['work_month_note'] ?? '');
-            $note = trim($input['note'] ?? '');
+            $customerName = trim($input['customerName'] ?? $input['customer_name'] ?? $_GET['customer_name'] ?? $_GET['customerName'] ?? '');
+            if ($customerName === '') {
+                error('作成先名を指定してください');
+            }
+            $scheduleType = normalizeMaterialScheduleType($input['scheduleType'] ?? $input['schedule_type'] ?? $_GET['schedule_type'] ?? $_GET['scheduleType'] ?? '');
+            $visitMonths = normalizeMaterialVisitMonths($input['visitMonths'] ?? $input['visit_months'] ?? $_GET['visit_months'] ?? $_GET['visitMonths'] ?? '');
+            $status = normalizeMaterialStatus($input['status'] ?? $_GET['status'] ?? '');
+            $isCreated = $status === '完了' ? 1 : 0;
+            $note = trim($input['note'] ?? $_GET['note'] ?? '');
             $db->update(
-                "UPDATE material_creation_items SET is_created = ?, work_month_note = ?, note = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-                [$isCreated, $workMonthNote, $note, $id]
+                "UPDATE material_creation_items SET customer_name = ?, schedule_type = ?, visit_months = ?, status = ?, is_created = ?, note = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                [$customerName, $scheduleType, $visitMonths, $status, $isCreated, $note, $id]
             );
             respond(['message' => '資材作成表を更新しました']);
+        }
+
+        if ($method === 'DELETE') {
+            $id = (int)($input['id'] ?? $_GET['id'] ?? 0);
+            if ($id <= 0) {
+                error('資材作成表IDを指定してください');
+            }
+            $db->delete("DELETE FROM material_creation_items WHERE id = ?", [$id]);
+            respond(['message' => '資材作成表の行を削除しました']);
         }
         break;
 

@@ -85,6 +85,23 @@ $db = Database::getInstance();
 
 // マイグレーション（全てtry-catchで囲み、失敗してもAPIは動作させる）
 try {
+    // audit_logs はトランザクション中にCREATE TABLEするとMySQLの暗黙commitで保存処理が壊れるため起動時に作成
+    $db->query("CREATE TABLE IF NOT EXISTS audit_logs (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        user_name VARCHAR(100) NOT NULL,
+        action VARCHAR(50) NOT NULL,
+        target_type VARCHAR(50) NOT NULL,
+        target_id INT,
+        target_name VARCHAR(255),
+        details TEXT,
+        ip_address VARCHAR(45),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_user_id (user_id),
+        INDEX idx_target (target_type, target_id),
+        INDEX idx_created_at (created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
     // 修正申請テーブル自動作成
     $db->query("CREATE TABLE IF NOT EXISTS timecard_requests (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -627,23 +644,6 @@ function uploadUrlToFilePath($url, $folder = 'photos') {
 function logAudit($action, $targetType, $targetId, $targetName, $details = null) {
     global $db;
     try {
-        // テーブルが存在しない場合は作成
-        $db->query("CREATE TABLE IF NOT EXISTS audit_logs (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            user_id INT NOT NULL,
-            user_name VARCHAR(100) NOT NULL,
-            action VARCHAR(50) NOT NULL,
-            target_type VARCHAR(50) NOT NULL,
-            target_id INT,
-            target_name VARCHAR(255),
-            details TEXT,
-            ip_address VARCHAR(45),
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            INDEX idx_user_id (user_id),
-            INDEX idx_target (target_type, target_id),
-            INDEX idx_created_at (created_at)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-
         $db->insert(
             "INSERT INTO audit_logs (user_id, user_name, action, target_type, target_id, target_name, details, ip_address) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             [

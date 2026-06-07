@@ -123,6 +123,7 @@
 | `inventory_products` | 製品マスター |
 | `inventory_stocks` | 各営業所の在庫数量 |
 | `inventory_logs` | 入出庫履歴 |
+| `material_creation_items` | 資材作成表（月別・拠点別の作成済チェック、画面未露出） |
 
 ### マスターデータ
 | テーブル | 説明 |
@@ -229,7 +230,7 @@ api/index.php?action={endpoint_name}&method={HTTP_METHOD}
 | `vehicles` | GET/POST | 車両一覧・追加 |
 | `vehicle` | DELETE | 車両削除 |
 
-### 在庫管理（12個）
+### 在庫管理（15個）
 | エンドポイント | メソッド | 説明 |
 |---------------|---------|------|
 | `inventory-branches` | GET | 営業所一覧 |
@@ -244,6 +245,9 @@ api/index.php?action={endpoint_name}&method={HTTP_METHOD}
 | `inventory-transactions` | GET | 取引履歴 |
 | `inventory-summary` | GET | 在庫サマリー・アラート |
 | `inventory-product-reorder` | POST | 複数製品再注文 |
+| `material-creation-items` | GET | 資材作成表の月別データ取得（画面未露出） |
+| `material-creation-import` | POST | 資材作成表データの一括取り込み（管理者のみ） |
+| `material-creation-item` | PUT | 資材作成表行の作成済・備考更新（管理者のみ） |
 
 ## 7. ユーザーロールと権限
 

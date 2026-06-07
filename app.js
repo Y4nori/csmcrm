@@ -5476,12 +5476,6 @@ function App() {
     const currentBranchLabel = (materialBranchOptions.find(branch => branch.value === branchName) || {}).label || branchName;
     const createdCount = items.filter(item => item.draftCreated).length;
     const completionRate = items.length ? Math.round((createdCount / items.length) * 100) : 0;
-    const groupedItems = items.reduce((acc, item) => {
-      const sheet = item.sourceSheet || 'Sheet';
-      if (!acc[sheet]) acc[sheet] = [];
-      acc[sheet].push(item);
-      return acc;
-    }, {});
 
     return (
       <div className="space-y-4">
@@ -5550,63 +5544,57 @@ function App() {
             データがありません
           </div>
         ) : (
-          Object.entries(groupedItems).map(([sheetName, rows]) => (
-            <div key={sheetName} className="bg-white overflow-hidden" style={{ borderRadius: '8px', border: '1px solid #E9ECEF' }}>
-              <div style={{ padding: '10px 12px', borderBottom: '1px solid #E9ECEF', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: '#2D3436' }}>{sheetName}</h3>
-                <span style={{ fontSize: '12px', color: '#636E72' }}>{rows.filter(r => r.draftCreated).length} / {rows.length}</span>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr style={{ background: '#F8F9FA', borderBottom: '1px solid #E9ECEF' }}>
-                      <th style={{ width: '72px', padding: '10px 8px', textAlign: 'center', color: '#636E72', fontWeight: 700 }}>作成済</th>
-                      <th style={{ minWidth: '220px', padding: '10px 8px', textAlign: 'left', color: '#636E72', fontWeight: 700 }}>名称</th>
-                      <th style={{ minWidth: '220px', padding: '10px 8px', textAlign: 'left', color: '#636E72', fontWeight: 700 }}>作業実施月・備考</th>
-                      <th style={{ minWidth: '180px', padding: '10px 8px', textAlign: 'left', color: '#636E72', fontWeight: 700 }}>メモ</th>
-                      <th style={{ width: '88px', padding: '10px 8px', textAlign: 'center', color: '#636E72', fontWeight: 700 }}>保存</th>
+          <div className="bg-white overflow-hidden" style={{ borderRadius: '8px', border: '1px solid #E9ECEF' }}>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr style={{ background: '#F8F9FA', borderBottom: '1px solid #E9ECEF' }}>
+                    <th style={{ width: '72px', padding: '10px 8px', textAlign: 'center', color: '#636E72', fontWeight: 700 }}>作成済</th>
+                    <th style={{ minWidth: '220px', padding: '10px 8px', textAlign: 'left', color: '#636E72', fontWeight: 700 }}>名称</th>
+                    <th style={{ minWidth: '220px', padding: '10px 8px', textAlign: 'left', color: '#636E72', fontWeight: 700 }}>作業実施月・備考</th>
+                    <th style={{ minWidth: '180px', padding: '10px 8px', textAlign: 'left', color: '#636E72', fontWeight: 700 }}>メモ</th>
+                    <th style={{ width: '88px', padding: '10px 8px', textAlign: 'center', color: '#636E72', fontWeight: 700 }}>保存</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map(item => (
+                    <tr key={item.id} style={{ borderBottom: '1px solid #F1F2F6', background: item.draftCreated ? '#F0FDF9' : 'white' }}>
+                      <td style={{ padding: '8px', textAlign: 'center', verticalAlign: 'middle' }}>
+                        <input type="checkbox" checked={!!item.draftCreated} disabled={!canEdit || savingId === item.id}
+                          onChange={(e) => {
+                            const patch = { draftCreated: e.target.checked };
+                            updateDraft(item.id, patch);
+                            saveMaterialItem(item, patch);
+                          }}
+                          style={{ width: '20px', height: '20px', accentColor: '#00B894' }} />
+                      </td>
+                      <td style={{ padding: '8px', verticalAlign: 'middle', color: '#2D3436', fontWeight: 600 }}>
+                        {item.customerName}
+                      </td>
+                      <td style={{ padding: '8px', verticalAlign: 'middle' }}>
+                        <input value={item.draftWorkMonthNote} disabled={!canEdit || savingId === item.id}
+                          onChange={(e) => updateDraft(item.id, { draftWorkMonthNote: e.target.value })}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                          style={{ minWidth: '220px' }} />
+                      </td>
+                      <td style={{ padding: '8px', verticalAlign: 'middle' }}>
+                        <input value={item.draftNote} disabled={!canEdit || savingId === item.id}
+                          onChange={(e) => updateDraft(item.id, { draftNote: e.target.value })}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                          style={{ minWidth: '180px' }} />
+                      </td>
+                      <td style={{ padding: '8px', textAlign: 'center', verticalAlign: 'middle' }}>
+                        <button onClick={() => saveMaterialItem(item)} disabled={!canEdit || savingId === item.id}
+                          style={{ border: 'none', background: canEdit ? '#00B894' : '#E9ECEF', color: canEdit ? 'white' : '#B2BEC3', borderRadius: '8px', padding: '8px 10px', fontSize: '12px', fontWeight: 700, minWidth: '64px' }}>
+                          {savingId === item.id ? <Icons.Loader /> : '保存'}
+                        </button>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map(item => (
-                      <tr key={item.id} style={{ borderBottom: '1px solid #F1F2F6', background: item.draftCreated ? '#F0FDF9' : 'white' }}>
-                        <td style={{ padding: '8px', textAlign: 'center', verticalAlign: 'middle' }}>
-                          <input type="checkbox" checked={!!item.draftCreated} disabled={!canEdit || savingId === item.id}
-                            onChange={(e) => {
-                              const patch = { draftCreated: e.target.checked };
-                              updateDraft(item.id, patch);
-                              saveMaterialItem(item, patch);
-                            }}
-                            style={{ width: '20px', height: '20px', accentColor: '#00B894' }} />
-                        </td>
-                        <td style={{ padding: '8px', verticalAlign: 'middle', color: '#2D3436', fontWeight: 600 }}>
-                          {item.customerName}
-                        </td>
-                        <td style={{ padding: '8px', verticalAlign: 'middle' }}>
-                          <input value={item.draftWorkMonthNote} disabled={!canEdit || savingId === item.id}
-                            onChange={(e) => updateDraft(item.id, { draftWorkMonthNote: e.target.value })}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                            style={{ minWidth: '220px' }} />
-                        </td>
-                        <td style={{ padding: '8px', verticalAlign: 'middle' }}>
-                          <input value={item.draftNote} disabled={!canEdit || savingId === item.id}
-                            onChange={(e) => updateDraft(item.id, { draftNote: e.target.value })}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                            style={{ minWidth: '180px' }} />
-                        </td>
-                        <td style={{ padding: '8px', textAlign: 'center', verticalAlign: 'middle' }}>
-                          <button onClick={() => saveMaterialItem(item)} disabled={!canEdit || savingId === item.id}
-                            style={{ border: 'none', background: canEdit ? '#00B894' : '#E9ECEF', color: canEdit ? 'white' : '#B2BEC3', borderRadius: '8px', padding: '8px 10px', fontSize: '12px', fontWeight: 700, minWidth: '64px' }}>
-                            {savingId === item.id ? <Icons.Loader /> : '保存'}
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          ))
+          </div>
         )}
       </div>
     );

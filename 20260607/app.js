@@ -239,6 +239,8 @@ const api = {
   createInventoryProduct: (data) => api.call('inventory-product-create', 'POST', data),
   deleteInventoryProduct: (id) => api.call('inventory-product-delete', 'DELETE', null, { id }),
   reorderInventoryProducts: (productIds) => api.call('inventory-product-reorder', 'POST', { productIds }),
+  getMaterialCreationItems: (params) => api.call('material-creation-items', 'GET', null, params),
+  updateMaterialCreationItem: (id, data) => api.call('material-creation-item', 'PUT', { id, ...data }, { id }),
 
   // 月締め日報API
   submitMonthlyClosing: (data) => api.call('monthly-closing-submit', 'POST', data),
@@ -334,6 +336,7 @@ function App() {
     if (path === '/admin/timecards') return 'adminTimecards';
     if (path === '/admin/audit-logs') return 'adminAuditLogs';
     if (path === '/inventory') return 'inventory';
+    if (path === '/material-creation') return 'materialCreation';
     if (path === '/monthly-closing') return 'monthlyClosing';
     return 'dashboard';
   };
@@ -5356,6 +5359,259 @@ function App() {
     );
   };
 
+  const MaterialCreationView = () => {
+    const materialBranchOptions = [
+      { label: '大阪', value: '大阪支店' },
+      { label: '京滋', value: '京滋支店' },
+      { label: '神戸', value: '神戸支店' }
+    ];
+    const normalizeMaterialBranch = (value) => {
+      const raw = (value || '').trim();
+      const found = materialBranchOptions.find(branch => branch.value === raw || branch.label === raw);
+      return found ? found.value : '京滋支店';
+    };
+    const normalizeMaterialYear = (value) => {
+      const year = parseInt(value, 10);
+      return year >= 2025 && year <= 2027 ? String(year) : '2026';
+    };
+    const normalizeMaterialMonth = (value) => {
+      const month = parseInt(value, 10);
+      return month >= 1 && month <= 12 ? String(month) : '4';
+    };
+    const getMaterialFiltersFromUrl = () => {
+      const query = new URLSearchParams(location.search);
+      return {
+        branchName: normalizeMaterialBranch(query.get('branch')),
+        targetYear: normalizeMaterialYear(query.get('year')),
+        targetMonth: normalizeMaterialMonth(query.get('month'))
+      };
+    };
+    const initialFilters = getMaterialFiltersFromUrl();
+    const [branchName, setBranchName] = useState(initialFilters.branchName);
+    const [targetYear, setTargetYear] = useState(initialFilters.targetYear);
+    const [targetMonth, setTargetMonth] = useState(initialFilters.targetMonth);
+    const [items, setItems] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [savingId, setSavingId] = useState(null);
+    const [errorMessage, setErrorMessage] = useState('');
+    const canEdit = isAdminRole(userRole);
+
+    useEffect(() => {
+      const nextFilters = getMaterialFiltersFromUrl();
+      setBranchName(nextFilters.branchName);
+      setTargetYear(nextFilters.targetYear);
+      setTargetMonth(nextFilters.targetMonth);
+      loadMaterialItems(nextFilters);
+    }, [location.search]);
+
+    const loadMaterialItems = async (filters = null) => {
+      const activeBranchName = filters?.branchName || branchName;
+      const activeTargetYear = filters?.targetYear || targetYear;
+      const activeTargetMonth = filters?.targetMonth || targetMonth;
+      setLoading(true);
+      setErrorMessage('');
+      try {
+        const data = await api.getMaterialCreationItems({
+          branch_name: activeBranchName,
+          target_year: activeTargetYear,
+          target_month: activeTargetMonth
+        });
+        setItems((data || []).map(item => ({
+          ...item,
+          draftCreated: !!item.isCreated,
+          draftWorkMonthNote: item.workMonthNote || '',
+          draftNote: item.note || ''
+        })));
+      } catch (e) {
+        setErrorMessage(e.message || '読み込みに失敗しました');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const updateDraft = (id, patch) => {
+      setItems(prev => prev.map(item => item.id === id ? { ...item, ...patch } : item));
+    };
+
+    const saveMaterialItem = async (item, patch = {}) => {
+      if (!canEdit) return;
+      const next = { ...item, ...patch };
+      setSavingId(item.id);
+      setErrorMessage('');
+      try {
+        await api.updateMaterialCreationItem(item.id, {
+          isCreated: !!next.draftCreated,
+          workMonthNote: next.draftWorkMonthNote || '',
+          note: next.draftNote || ''
+        });
+        setItems(prev => prev.map(row => row.id === item.id ? {
+          ...row,
+          ...patch,
+          isCreated: !!next.draftCreated,
+          workMonthNote: next.draftWorkMonthNote || '',
+          note: next.draftNote || ''
+        } : row));
+      } catch (e) {
+        setErrorMessage(e.message || '保存に失敗しました');
+      } finally {
+        setSavingId(null);
+      }
+    };
+
+    const applyMaterialFilters = () => {
+      const selectedBranch = materialBranchOptions.find(branch => branch.value === branchName) || materialBranchOptions[1];
+      const params = new URLSearchParams({
+        branch: selectedBranch.label,
+        year: targetYear,
+        month: targetMonth
+      });
+      const nextSearch = `?${params.toString()}`;
+      if (location.search === nextSearch) {
+        loadMaterialItems();
+      } else {
+        navigate(`/material-creation${nextSearch}`, { replace: true });
+      }
+    };
+
+    const currentBranchLabel = (materialBranchOptions.find(branch => branch.value === branchName) || {}).label || branchName;
+    const createdCount = items.filter(item => item.draftCreated).length;
+    const completionRate = items.length ? Math.round((createdCount / items.length) * 100) : 0;
+    const groupedItems = items.reduce((acc, item) => {
+      const sheet = item.sourceSheet || 'Sheet';
+      if (!acc[sheet]) acc[sheet] = [];
+      acc[sheet].push(item);
+      return acc;
+    }, {});
+
+    return (
+      <div className="space-y-4">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+          <div>
+            <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: '#2D3436' }}>資材作成表</h2>
+            <p style={{ fontSize: '12px', color: '#636E72', margin: '4px 0 0' }}>{currentBranchLabel} ・ {targetYear}年{targetMonth}月分</p>
+          </div>
+          <button onClick={() => loadMaterialItems()} disabled={loading}
+            style={{ border: 'none', background: '#00B894', color: 'white', borderRadius: '20px', padding: '9px 16px', fontSize: '13px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px', cursor: loading ? 'default' : 'pointer', opacity: loading ? 0.7 : 1 }}>
+            {loading ? <Icons.Loader /> : <Icons.Check />}
+            更新
+          </button>
+        </div>
+
+        <div className="bg-white" style={{ borderRadius: '8px', border: '1px solid #E9ECEF', padding: '12px' }}>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+            <select value={branchName} onChange={(e) => setBranchName(e.target.value)}
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white">
+              {materialBranchOptions.map(branch => <option key={branch.value} value={branch.value}>{branch.label}</option>)}
+            </select>
+            <select value={targetYear} onChange={(e) => setTargetYear(e.target.value)}
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white">
+              {[2025, 2026, 2027].map(y => <option key={y} value={y}>{y}年</option>)}
+            </select>
+            <select value={targetMonth} onChange={(e) => setTargetMonth(e.target.value)}
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white">
+              {months.map(m => <option key={m} value={m}>{m}月</option>)}
+            </select>
+            <button onClick={applyMaterialFilters}
+              className="rounded-lg px-3 py-2 text-sm font-bold"
+              style={{ background: '#2D3436', color: 'white' }}>
+              表示
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2">
+          <div className="bg-white" style={{ borderRadius: '8px', border: '1px solid #E9ECEF', padding: '12px' }}>
+            <p style={{ fontSize: '11px', color: '#B2BEC3', margin: 0 }}>件数</p>
+            <p style={{ fontSize: '22px', fontWeight: 800, color: '#2D3436', margin: '2px 0 0' }}>{items.length}</p>
+          </div>
+          <div className="bg-white" style={{ borderRadius: '8px', border: '1px solid #E9ECEF', padding: '12px' }}>
+            <p style={{ fontSize: '11px', color: '#B2BEC3', margin: 0 }}>作成済</p>
+            <p style={{ fontSize: '22px', fontWeight: 800, color: '#00B894', margin: '2px 0 0' }}>{createdCount}</p>
+          </div>
+          <div className="bg-white" style={{ borderRadius: '8px', border: '1px solid #E9ECEF', padding: '12px' }}>
+            <p style={{ fontSize: '11px', color: '#B2BEC3', margin: 0 }}>進捗</p>
+            <p style={{ fontSize: '22px', fontWeight: 800, color: '#0984E3', margin: '2px 0 0' }}>{completionRate}%</p>
+          </div>
+        </div>
+
+        {errorMessage && (
+          <div style={{ background: '#FEE2E2', color: '#B91C1C', borderRadius: '8px', padding: '10px 12px', fontSize: '13px', fontWeight: 600 }}>
+            {errorMessage}
+          </div>
+        )}
+
+        {loading ? (
+          <div className="flex justify-center items-center py-12">
+            <Icons.Loader />
+            <span className="ml-2 text-gray-500">読み込み中...</span>
+          </div>
+        ) : items.length === 0 ? (
+          <div className="bg-white text-center" style={{ borderRadius: '8px', border: '1px solid #E9ECEF', padding: '32px', color: '#B2BEC3' }}>
+            データがありません
+          </div>
+        ) : (
+          Object.entries(groupedItems).map(([sheetName, rows]) => (
+            <div key={sheetName} className="bg-white overflow-hidden" style={{ borderRadius: '8px', border: '1px solid #E9ECEF' }}>
+              <div style={{ padding: '10px 12px', borderBottom: '1px solid #E9ECEF', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: '#2D3436' }}>{sheetName}</h3>
+                <span style={{ fontSize: '12px', color: '#636E72' }}>{rows.filter(r => r.draftCreated).length} / {rows.length}</span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr style={{ background: '#F8F9FA', borderBottom: '1px solid #E9ECEF' }}>
+                      <th style={{ width: '72px', padding: '10px 8px', textAlign: 'center', color: '#636E72', fontWeight: 700 }}>作成済</th>
+                      <th style={{ minWidth: '220px', padding: '10px 8px', textAlign: 'left', color: '#636E72', fontWeight: 700 }}>名称</th>
+                      <th style={{ minWidth: '220px', padding: '10px 8px', textAlign: 'left', color: '#636E72', fontWeight: 700 }}>作業実施月・備考</th>
+                      <th style={{ minWidth: '180px', padding: '10px 8px', textAlign: 'left', color: '#636E72', fontWeight: 700 }}>メモ</th>
+                      <th style={{ width: '88px', padding: '10px 8px', textAlign: 'center', color: '#636E72', fontWeight: 700 }}>保存</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map(item => (
+                      <tr key={item.id} style={{ borderBottom: '1px solid #F1F2F6', background: item.draftCreated ? '#F0FDF9' : 'white' }}>
+                        <td style={{ padding: '8px', textAlign: 'center', verticalAlign: 'middle' }}>
+                          <input type="checkbox" checked={!!item.draftCreated} disabled={!canEdit || savingId === item.id}
+                            onChange={(e) => {
+                              const patch = { draftCreated: e.target.checked };
+                              updateDraft(item.id, patch);
+                              saveMaterialItem(item, patch);
+                            }}
+                            style={{ width: '20px', height: '20px', accentColor: '#00B894' }} />
+                        </td>
+                        <td style={{ padding: '8px', verticalAlign: 'middle', color: '#2D3436', fontWeight: 600 }}>
+                          {item.customerName}
+                        </td>
+                        <td style={{ padding: '8px', verticalAlign: 'middle' }}>
+                          <input value={item.draftWorkMonthNote} disabled={!canEdit || savingId === item.id}
+                            onChange={(e) => updateDraft(item.id, { draftWorkMonthNote: e.target.value })}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                            style={{ minWidth: '220px' }} />
+                        </td>
+                        <td style={{ padding: '8px', verticalAlign: 'middle' }}>
+                          <input value={item.draftNote} disabled={!canEdit || savingId === item.id}
+                            onChange={(e) => updateDraft(item.id, { draftNote: e.target.value })}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                            style={{ minWidth: '180px' }} />
+                        </td>
+                        <td style={{ padding: '8px', textAlign: 'center', verticalAlign: 'middle' }}>
+                          <button onClick={() => saveMaterialItem(item)} disabled={!canEdit || savingId === item.id}
+                            style={{ border: 'none', background: canEdit ? '#00B894' : '#E9ECEF', color: canEdit ? 'white' : '#B2BEC3', borderRadius: '8px', padding: '8px 10px', fontSize: '12px', fontWeight: 700, minWidth: '64px' }}>
+                            {savingId === item.id ? <Icons.Loader /> : '保存'}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    );
+  };
+
   // モーダル
   const Modal = () => {
     const [formData, setFormData] = useState(editingItem || {});
@@ -6162,6 +6418,7 @@ function App() {
         {currentView === 'adminTimecards' && <TimecardAdminView />}
         {currentView === 'adminAuditLogs' && <AuditLogView />}
         {currentView === 'inventory' && <InventoryView />}
+        {currentView === 'materialCreation' && <MaterialCreationView />}
         {currentView === 'monthlyClosing' && <MonthlyClosingReport />}
       </main>
 
